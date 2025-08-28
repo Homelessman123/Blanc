@@ -1,0 +1,102 @@
+import type { Contest, Course, User } from './types';
+
+export const USERS: { [key: string]: User } = {
+  '1': { id: '1', name: 'Alice Student', email: 'alice@test.com', role: 'student', avatar: 'https://picsum.photos/seed/alice/200', streak: 5 },
+  '2': { id: '2', name: 'Bob Teacher', email: 'bob@test.com', role: 'teacher', avatar: 'https://picsum.photos/seed/bob/200', streak: 25, walletBalance: 1250.50 },
+  '3': { id: '3', name: 'Charlie Admin', email: 'admin@test.com', role: 'admin', avatar: 'https://picsum.photos/seed/charlie/200', streak: 99 },
+};
+
+export const CONTESTS: Contest[] = [
+  {
+    id: '1',
+    title: 'National Science & Engineering Fair',
+    organization: 'Ministry of Education',
+    description: 'A premier competition for young scientists to showcase their innovative projects. Categories include physics, biology, and computer science.',
+    imageUrl: 'https://picsum.photos/seed/science/600/400',
+    deadline: '2024-12-15T23:59:59Z',
+    startDate: '2024-10-01T00:00:00Z',
+    tags: ['Science', 'Engineering', 'STEM'],
+    relatedCourseIds: ['101', '102'],
+  },
+  {
+    id: '2',
+    title: 'Global Youth Debate Championship',
+    organization: 'World Debate Council',
+    description: 'Engage in thought-provoking debates on global issues. Teams from over 50 countries participate in this prestigious tournament.',
+    imageUrl: 'https://picsum.photos/seed/debate/600/400',
+    deadline: '2024-11-30T23:59:59Z',
+    startDate: '2024-09-15T00:00:00Z',
+    tags: ['Debate', 'Public Speaking', 'Politics'],
+    relatedCourseIds: ['103'],
+  },
+  {
+    id: '3',
+    title: 'International SAT Challenge',
+    organization: 'College Board',
+    description: 'A competitive event for high school students to test their SAT readiness and win scholarships. Includes mock tests and prep workshops.',
+    imageUrl: 'https://picsum.photos/seed/sat/600/400',
+    deadline: '2025-01-20T23:59:59Z',
+    startDate: '2024-11-01T00:00:00Z',
+    tags: ['SAT', 'Test Prep', 'Scholarship'],
+    relatedCourseIds: ['104'],
+  },
+  {
+    id: '4',
+    title: 'Creative Coding Hackathon',
+    organization: 'CodeArt Collective',
+    description: 'A 48-hour hackathon focused on creating visually stunning and interactive art with code. All programming languages welcome.',
+    imageUrl: 'https://picsum.photos/seed/code/600/400',
+    deadline: '2024-12-01T23:59:59Z',
+    startDate: '2024-11-15T00:00:00Z',
+    tags: ['Coding', 'Art', 'Hackathon'],
+    relatedCourseIds: ['101', '105'],
+  },
+];
+
+export const COURSES: Course[] = [
+  {
+    id: '101',
+    title: 'Intro to Python for Data Science',
+    author: 'Bob Teacher',
+    price: 49.99,
+    description: 'Learn the fundamentals of Python and its application in data analysis and machine learning. Perfect for science fair projects.',
+    imageUrl: 'https://picsum.photos/seed/python/600/400',
+    type: 'Online Course',
+  },
+  {
+    id: '102',
+    title: 'Advanced Robotics with Arduino',
+    author: 'STEM Academy',
+    price: 79.99,
+    description: 'Build and program complex robots using the Arduino platform. Hands-on projects included.',
+    imageUrl: 'https://picsum.photos/seed/robotics/600/400',
+    type: 'Online Course',
+  },
+  {
+    id: '103',
+    title: 'Mastering Persuasive Speaking',
+    author: 'Bob Teacher',
+    price: 29.99,
+    description: 'Develop the skills to become a confident and persuasive speaker. Essential for any debate champion.',
+    imageUrl: 'https://picsum.photos/seed/speaking/600/400',
+    type: 'Online Course',
+  },
+  {
+    id: '104',
+    title: 'Ultimate SAT Math Prep Guide',
+    author: 'PrepMasters Inc.',
+    price: 19.99,
+    description: 'A comprehensive PDF guide covering all topics in the SAT Math section, with hundreds of practice questions.',
+    imageUrl: 'https://picsum.photos/seed/math/600/400',
+    type: 'PDF Document',
+  },
+  {
+    id: '105',
+    title: 'Creative Web Animations with JavaScript',
+    author: 'Jane Doe',
+    price: 59.99,
+    description: 'Learn to build beautiful web animations from scratch using GSAP and Three.js.',
+    imageUrl: 'https://picsum.photos/seed/animation/600/400',
+    type: 'Online Course',
+  },
+];

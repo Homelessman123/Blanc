@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String?
+  password        String
+  avatar          String?
+  role            Role            @default(USER)
+  balance         Float           @default(0)
+  
+  // Personalization fields
+  displayName     String?
+  profileColor    String?         @default("#6366f1")
+  profileGif      String?
+  streak          Int             @default(0)
+  lastLoginDate   DateTime?
+  
+  // Notification preferences
+  emailNotifications    Boolean   @default(true)
+  pushNotifications     Boolean   @default(true)
+  contestReminders      Boolean   @default(true)
+
+  contests        Contest[]
+  products        Product[]
+  cart            Cart?     
+  orders          Order[]
+  transactions    Transaction[]
+  payoutRequests  PayoutRequest[]
+  calendarEvents  CalendarEvent[]
+  notifications   Notification[]
+  chatMessages    ChatMessage[]
+  contestParticipations ContestParticipation[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model Cart {
+  id        String      @id @default(cuid())
+  user      User        @relation(fields: [userId], references: [id])
+  userId    String      @unique
+  items     CartItem[]
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model CartItem {
+  id          String    @id @default(cuid())
+  quantity    Int
+  
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   String
+
+  cart        Cart      @relation(fields: [cartId], references: [id])
+  cartId      String
+
+  @@unique([productId, cartId])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  items         OrderItem[]
+  totalPrice    Float
+  status        OrderStatus   @default(PENDING)
+  transactions  Transaction[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  quantity    Int
+  name        String    // Snapshot of product name
+  price       Float     // Snapshot of product price
+
+  order       Order     @relation(fields: [orderId], references: [id])
+  orderId     String
+
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   String
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  amount      Float
+  type        TransactionType
+
+  user        User            @relation(fields: [userId], references: [id])
+  userId      String
+
+  order       Order?          @relation(fields: [orderId], references: [id])
+  orderId     String?
+
+  createdAt   DateTime        @default(now())
+}
+
+model PayoutRequest {
+  id          String        @id @default(cuid())
+  amount      Float
+  status      PayoutStatus  @default(PENDING)
+
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+
+  createdAt   DateTime      @default(now())
+  processedAt DateTime?     
+}
+
+model Contest {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  startDate   DateTime
+  endDate     DateTime
+  registrationDeadline DateTime?
+  organizer   String
+  website     String?
+  imageUrl    String?
+  category    String?
+  tags        String?  @db.Text // JSON string of tags
+  maxParticipants Int?
+  currentParticipants Int @default(0)
+  prize       String?
+  requirements String?  @db.Text
+  isActive    Boolean  @default(true)
+  
+  author      User     @relation(fields: [authorId], references: [id])
+  authorId    String
+
+  suggestedProducts Product[] @relation("ContestProducts")
+  participants      ContestParticipation[]
+  calendarEvents    CalendarEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String      @db.Text
+  price       Float
+  type        ProductType
+  imageUrl    String?
+  downloadUrl String?     // For digital products
+  isApproved  Boolean     @default(false)
+  categories  String?     @db.Text // JSON string of categories
+  rating      Float?      @default(0)
+  reviewCount Int         @default(0)
+
+  seller      User        @relation(fields: [sellerId], references: [id])
+  sellerId    String
+
+  contests    Contest[]   @relation("ContestProducts")
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  reviews     ProductReview[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// New models for additional features
+
+model ContestParticipation {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  contest     Contest  @relation(fields: [contestId], references: [id])
+  contestId   String
+  joinedAt    DateTime @default(now())
+  
+  @@unique([userId, contestId])
+}
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  type        EventType @default(PERSONAL)
+  isAllDay    Boolean  @default(false)
+  
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  
+  contest     Contest? @relation(fields: [contestId], references: [id])
+  contestId   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  title       String
+  message     String           @db.Text
+  type        NotificationType @default(INFO)
+  isRead      Boolean          @default(false)
+  actionUrl   String?
+  
+  user        User             @relation(fields: [userId], references: [id])
+  userId      String
+  
+  createdAt   DateTime         @default(now())
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  message     String      @db.Text
+  sender      MessageSender @default(USER)
+  
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?
+  
+  createdAt   DateTime    @default(now())
+}
+
+model ProductReview {
+  id          String   @id @default(cuid())
+  rating      Int      // 1-5 stars
+  comment     String?  @db.Text
+  
+  product     Product  @relation(fields: [productId], references: [id])
+  productId   String
+  
+  // reviewer info (anonymous or user-based)
+  reviewerName String?
+  reviewerEmail String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProductType {
+  COURSE
+  DOCUMENT
+  WORKSHOP
+  CONSULTATION
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum TransactionType {
+  SALE
+  PAYOUT
+  REFUND
+  DEPOSIT
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+}
+
+enum EventType {
+  CONTEST_DEADLINE
+  CONTEST_START
+  PERSONAL
+  REMINDER
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+  CONTEST_REMINDER
+  PAYMENT_SUCCESS
+  PAYOUT_APPROVED
+}
+
+enum MessageSender {
+  USER
+  ADMIN
+  BOT
+}
