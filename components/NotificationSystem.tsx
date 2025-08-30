@@ -73,17 +73,17 @@ const NotificationSystem: React.FC = () => {
     const getNotificationColor = (type: string) => {
         switch (type) {
             case 'contest_reminder':
-                return 'border-l-yellow-500 bg-yellow-500/10';
+                return 'border-l-yellow-500 bg-yellow-900/30 hover:bg-yellow-900/40';
             case 'payment_success':
             case 'payout_approved':
             case 'success':
-                return 'border-l-green-500 bg-green-500/10';
+                return 'border-l-green-500 bg-green-900/30 hover:bg-green-900/40';
             case 'warning':
-                return 'border-l-yellow-500 bg-yellow-500/10';
+                return 'border-l-yellow-500 bg-yellow-900/30 hover:bg-yellow-900/40';
             case 'error':
-                return 'border-l-red-500 bg-red-500/10';
+                return 'border-l-red-500 bg-red-900/30 hover:bg-red-900/40';
             default:
-                return 'border-l-blue-500 bg-blue-500/10';
+                return 'border-l-blue-500 bg-blue-900/30 hover:bg-blue-900/40';
         }
     };
 
@@ -128,7 +128,7 @@ const NotificationSystem: React.FC = () => {
             {/* Notification Bell */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200"
+                className="relative p-2 rounded-lg bg-white bg-opacity-10 hover:bg-white bg-opacity-20 transition-all duration-200"
             >
                 <Bell className="w-6 h-6 text-gray-300" />
                 {unreadCount > 0 && (
@@ -161,16 +161,16 @@ const NotificationSystem: React.FC = () => {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 10, scale: 0.95 }}
                             transition={{ duration: 0.2 }}
-                            className="absolute right-0 top-full mt-2 w-80 max-w-sm z-50 glass rounded-xl border border-white/20 shadow-2xl"
+                            className="absolute right-0 top-full mt-2 w-80 max-w-sm z-50 bg-gray-800 backdrop-blur-lg rounded-xl border border-gray-600 shadow-2xl"
                         >
                             {/* Header */}
-                            <div className="p-4 border-b border-white/10">
+                            <div className="p-4 border-b border-gray-600 bg-gray-750">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-white">Thông báo</h3>
                                     {unreadCount > 0 && (
                                         <button
                                             onClick={markAllAsRead}
-                                            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                                            className="text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium"
                                         >
                                             Đánh dấu tất cả đã đọc
                                         </button>
@@ -189,7 +189,7 @@ const NotificationSystem: React.FC = () => {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: index * 0.1 }}
                                                 onClick={() => !notification.read && markAsRead(notification.id)}
-                                                className={`p-3 rounded-lg border-l-4 cursor-pointer transition-all duration-200 hover:bg-white/5 ${getNotificationColor(notification.type)} ${!notification.read ? 'bg-white/5' : 'opacity-75'
+                                                className={`p-3 rounded-lg border-l-4 cursor-pointer transition-all duration-200 ${getNotificationColor(notification.type)} ${!notification.read ? 'bg-gray-700/50' : 'bg-gray-700/30 opacity-80'
                                                     }`}
                                             >
                                                 <div className="flex items-start gap-3">
@@ -211,11 +211,11 @@ const NotificationSystem: React.FC = () => {
                                                             </button>
                                                         </div>
 
-                                                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                                                        <p className="text-sm text-gray-200 mt-1 line-clamp-2">
                                                             {notification.message}
                                                         </p>
 
-                                                        <p className="text-xs text-gray-500 mt-2">
+                                                        <p className="text-xs text-gray-400 mt-2">
                                                             {formatTimestamp(notification.timestamp)}
                                                         </p>
                                                     </div>
@@ -228,19 +228,19 @@ const NotificationSystem: React.FC = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-6 text-center text-gray-400">
-                                        <Bell className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                        <p>Không có thông báo nào</p>
+                                    <div className="p-6 text-center">
+                                        <Bell className="w-12 h-12 mx-auto mb-2 text-gray-500" />
+                                        <p className="text-gray-300">Không có thông báo nào</p>
                                     </div>
                                 )}
                             </div>
 
                             {/* Footer */}
                             {notifications.length > 0 && (
-                                <div className="p-3 border-t border-white/10">
+                                <div className="p-3 border-t border-gray-600 bg-gray-750">
                                     <button
                                         onClick={() => setIsOpen(false)}
-                                        className="w-full text-center text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                                        className="w-full text-center text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium py-1"
                                     >
                                         Xem tất cả thông báo
                                     </button>

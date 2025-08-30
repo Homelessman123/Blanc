@@ -6,6 +6,7 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { Mail, Key, LogIn, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLoginRedirect } from '../hooks/useLoginRedirect';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -15,23 +16,51 @@ const LoginPage: React.FC = () => {
     const { login, register, loading, isAuthenticated } = useAuth();
     const navigate = useNavigate();
 
+    // Use the custom hook for redirect handling
+    useLoginRedirect('/', true);
+
+    // Debug log để kiểm tra state
     useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/');
+        console.log('LoginPage: Auth state changed:', { isAuthenticated, loading });
+        console.log('LoginPage: Current location:', window.location.href);
+
+        // If user is already authenticated when component loads, redirect immediately
+        if (isAuthenticated && !loading) {
+            console.log('LoginPage: User already authenticated, redirecting manually...');
+            navigate('/', { replace: true });
         }
-    }, [isAuthenticated, navigate]);
+    }, [isAuthenticated, loading, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            console.log('=== LOGIN ATTEMPT START ===');
+            console.log('Current auth state:', { isAuthenticated, loading });
+
             if (isLogin) {
+                console.log('Attempting login with:', email);
                 await login(email, password);
-                navigate('/');
+                console.log('Login function completed');
+
+                // Wait a bit and check state
+                setTimeout(() => {
+                    console.log('Post-login auth state:', { isAuthenticated, loading });
+                    console.log('Current URL:', window.location.href);
+                }, 100);
             } else {
+                console.log('Attempting registration with:', email, name);
                 await register(email, password, name);
-                navigate('/');
+                console.log('Registration function completed');
+
+                // Wait a bit and check state
+                setTimeout(() => {
+                    console.log('Post-registration auth state:', { isAuthenticated, loading });
+                    console.log('Current URL:', window.location.href);
+                }, 100);
             }
+            console.log('=== LOGIN ATTEMPT END ===');
         } catch (error) {
+            console.error('Authentication error:', error);
             // Error is already handled in context with toast
         }
     };
@@ -44,7 +73,7 @@ const LoginPage: React.FC = () => {
                 transition={{ duration: 0.6 }}
                 className="w-full max-w-md"
             >
-                <Card className="p-8 backdrop-blur-lg bg-white/10 border border-white/20 shadow-2xl">
+                <Card className="p-8 backdrop-blur-lg bg-gray-800 bg-opacity-80 border border-gray-600 shadow-2xl">
                     <motion.div
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
@@ -78,7 +107,7 @@ const LoginPage: React.FC = () => {
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         required={!isLogin}
-                                        className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                        className="w-full bg-white bg-opacity-5 border border-white border-opacity-20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                                         placeholder="Nhập họ và tên"
                                     />
                                 </div>
@@ -97,7 +126,7 @@ const LoginPage: React.FC = () => {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
-                                    className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                    className="w-full bg-white bg-opacity-5 border border-white border-opacity-20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                                     placeholder="Nhập email của bạn"
                                 />
                             </div>
@@ -115,7 +144,7 @@ const LoginPage: React.FC = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                    className="w-full bg-white bg-opacity-5 border border-white border-opacity-20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                                     placeholder="Nhập mật khẩu"
                                 />
                             </div>
@@ -157,8 +186,9 @@ const LoginPage: React.FC = () => {
                         {isLogin && (
                             <div className="text-center text-sm text-gray-400">
                                 <p>Demo accounts:</p>
-                                <p>Admin: admin@test.com / password</p>
+                                <p>Admin: admin@contesthub.com / password</p>
                                 <p>User: user@test.com / password</p>
+                                <p>Teacher: teacher@test.com / password</p>
                             </div>
                         )}
                     </form>

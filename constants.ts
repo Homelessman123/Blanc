@@ -1,9 +1,9 @@
 import type { Contest, Course, User } from './types';
 
 export const USERS: { [key: string]: User } = {
-  '1': { id: '1', name: 'Alice Student', email: 'alice@test.com', role: 'student', avatar: 'https://picsum.photos/seed/alice/200', streak: 5 },
-  '2': { id: '2', name: 'Bob Teacher', email: 'bob@test.com', role: 'teacher', avatar: 'https://picsum.photos/seed/bob/200', streak: 25, walletBalance: 1250.50 },
-  '3': { id: '3', name: 'Charlie Admin', email: 'admin@test.com', role: 'admin', avatar: 'https://picsum.photos/seed/charlie/200', streak: 99 },
+  '1': { id: '1', name: 'Alice Student', email: 'alice@test.com', role: 'USER', avatar: '/images/Competition.jpg', streak: 5 },
+  '2': { id: '2', name: 'Bob Teacher', email: 'bob@test.com', role: 'USER', avatar: '/images/Competition.jpg', streak: 25, walletBalance: 1250.50 },
+  '3': { id: '3', name: 'Charlie Admin', email: 'admin@test.com', role: 'ADMIN', avatar: '/images/Competition.jpg', streak: 99 },
 };
 
 export const CONTESTS: Contest[] = [
@@ -12,7 +12,7 @@ export const CONTESTS: Contest[] = [
     title: 'National Science & Engineering Fair',
     organization: 'Ministry of Education',
     description: 'A premier competition for young scientists to showcase their innovative projects. Categories include physics, biology, and computer science.',
-    imageUrl: 'https://picsum.photos/seed/science/600/400',
+    imageUrl: '/images/National_Science_Engineering_Fair.jpeg',
     deadline: '2024-12-15T23:59:59Z',
     startDate: '2024-10-01T00:00:00Z',
     tags: ['Science', 'Engineering', 'STEM'],
@@ -23,7 +23,7 @@ export const CONTESTS: Contest[] = [
     title: 'Global Youth Debate Championship',
     organization: 'World Debate Council',
     description: 'Engage in thought-provoking debates on global issues. Teams from over 50 countries participate in this prestigious tournament.',
-    imageUrl: 'https://picsum.photos/seed/debate/600/400',
+    imageUrl: '/images/Competition.jpg',
     deadline: '2024-11-30T23:59:59Z',
     startDate: '2024-09-15T00:00:00Z',
     tags: ['Debate', 'Public Speaking', 'Politics'],
@@ -34,7 +34,7 @@ export const CONTESTS: Contest[] = [
     title: 'International SAT Challenge',
     organization: 'College Board',
     description: 'A competitive event for high school students to test their SAT readiness and win scholarships. Includes mock tests and prep workshops.',
-    imageUrl: 'https://picsum.photos/seed/sat/600/400',
+    imageUrl: '/images/International_SAT_Challenge.webp',
     deadline: '2025-01-20T23:59:59Z',
     startDate: '2024-11-01T00:00:00Z',
     tags: ['SAT', 'Test Prep', 'Scholarship'],
@@ -45,7 +45,7 @@ export const CONTESTS: Contest[] = [
     title: 'Creative Coding Hackathon',
     organization: 'CodeArt Collective',
     description: 'A 48-hour hackathon focused on creating visually stunning and interactive art with code. All programming languages welcome.',
-    imageUrl: 'https://picsum.photos/seed/code/600/400',
+    imageUrl: '/images/Creative_Coding_Hackathon.png',
     deadline: '2024-12-01T23:59:59Z',
     startDate: '2024-11-15T00:00:00Z',
     tags: ['Coding', 'Art', 'Hackathon'],
@@ -60,7 +60,7 @@ export const COURSES: Course[] = [
     author: 'Bob Teacher',
     price: 49.99,
     description: 'Learn the fundamentals of Python and its application in data analysis and machine learning. Perfect for science fair projects.',
-    imageUrl: 'https://picsum.photos/seed/python/600/400',
+    imageUrl: '/images/Intro_to_Python_for_Data_Science.jpg',
     type: 'Online Course',
   },
   {
@@ -69,7 +69,7 @@ export const COURSES: Course[] = [
     author: 'STEM Academy',
     price: 79.99,
     description: 'Build and program complex robots using the Arduino platform. Hands-on projects included.',
-    imageUrl: 'https://picsum.photos/seed/robotics/600/400',
+    imageUrl: '/images/Advanced_Robotics_with_Arduino.webp',
     type: 'Online Course',
   },
   {
@@ -78,7 +78,7 @@ export const COURSES: Course[] = [
     author: 'Bob Teacher',
     price: 29.99,
     description: 'Develop the skills to become a confident and persuasive speaker. Essential for any debate champion.',
-    imageUrl: 'https://picsum.photos/seed/speaking/600/400',
+    imageUrl: '/images/Mastering_Persuasive_Speaking.webp',
     type: 'Online Course',
   },
   {
@@ -87,7 +87,7 @@ export const COURSES: Course[] = [
     author: 'PrepMasters Inc.',
     price: 19.99,
     description: 'A comprehensive PDF guide covering all topics in the SAT Math section, with hundreds of practice questions.',
-    imageUrl: 'https://picsum.photos/seed/math/600/400',
+    imageUrl: '/images/Ultimate_SAT_Math_Prep_Guide.webp',
     type: 'PDF Document',
   },
   {
@@ -96,7 +96,7 @@ export const COURSES: Course[] = [
     author: 'Jane Doe',
     price: 59.99,
     description: 'Learn to build beautiful web animations from scratch using GSAP and Three.js.',
-    imageUrl: 'https://picsum.photos/seed/animation/600/400',
+    imageUrl: '/images/Creative_Web_Animations_with_JavaScript.webp',
     type: 'Online Course',
   },
 ];

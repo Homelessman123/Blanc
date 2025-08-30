@@ -27,8 +27,14 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET as string, {
+      expiresIn: '7d',
+    });
+
+    // Remove password from user object before sending
     const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json(userWithoutPassword);
+
+    res.status(201).json({ token, user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: 'Something went wrong' });
   }
@@ -58,7 +64,10 @@ export const login = async (req: Request, res: Response) => {
       expiresIn: '7d',
     });
 
-    res.status(200).json({ token });
+    // Remove password from user object before sending
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.status(200).json({ token, user: userWithoutPassword });
   } catch (error) {
     res.status(500).json({ message: 'Something went wrong' });
   }

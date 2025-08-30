@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import type { User } from '../types';
+import { AuthEvents } from '../utils/authEvents';
 
 interface AuthContextType {
   user: User | null;
@@ -53,38 +54,70 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
+      console.log('AuthContext: Starting login process...');
       const response = await authAPI.login(email, password);
       const { token, user: userData } = response.data;
 
+      console.log('AuthContext: Login API successful, setting user data...');
+
+      // Store data immediately
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+
+      // Update state immediately for instant UI update
       setUser(userData);
+
+      console.log('AuthContext: User state updated, user is now:', userData);
+
+      // Emit login event to notify all components
+      AuthEvents.login();
+
       toast.success('Đăng nhập thành công!');
+
+      // Force a re-render by updating loading state
+      setLoading(false);
+
+      console.log('AuthContext: Login process completed');
     } catch (error) {
       console.error('Login failed', error);
       toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   }, []);
 
   const register = useCallback(async (email: string, password: string, name: string) => {
     setLoading(true);
     try {
+      console.log('AuthContext: Starting registration process...');
       const response = await authAPI.register(email, password, name);
       const { token, user: userData } = response.data;
 
+      console.log('AuthContext: Registration API successful, setting user data...');
+
+      // Store data immediately
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+
+      // Update state immediately for instant UI update
       setUser(userData);
+
+      console.log('AuthContext: User state updated, user is now:', userData);
+
+      // Emit login event to notify all components
+      AuthEvents.login();
+
       toast.success('Đăng ký thành công!');
+
+      // Force a re-render by updating loading state
+      setLoading(false);
+
+      console.log('AuthContext: Registration process completed');
     } catch (error) {
       console.error('Registration failed', error);
       toast.error('Đăng ký thất bại. Email có thể đã được sử dụng.');
-      throw error;
-    } finally {
       setLoading(false);
+      throw error;
     }
   }, []);
 
@@ -100,6 +133,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+
+    // Emit logout event to notify all components
+    AuthEvents.logout();
+
     toast.success('Đã đăng xuất');
   }, []);
 

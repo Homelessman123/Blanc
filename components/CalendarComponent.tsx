@@ -109,7 +109,7 @@ const CalendarComponent: React.FC<CalendarComponentProps> = ({
                         onClick={() => setViewMode('calendar')}
                         className={`px-3 py-2 rounded-lg transition-all duration-200 ${viewMode === 'calendar'
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                : 'bg-white bg-opacity-10 text-gray-300 hover:bg-white bg-opacity-20'
                             }`}
                     >
                         Lịch
@@ -118,7 +118,7 @@ const CalendarComponent: React.FC<CalendarComponentProps> = ({
                         onClick={() => setViewMode('agenda')}
                         className={`px-3 py-2 rounded-lg transition-all duration-200 ${viewMode === 'agenda'
                                 ? 'bg-blue-500 text-white'
-                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                : 'bg-white bg-opacity-10 text-gray-300 hover:bg-white bg-opacity-20'
                             }`}
                     >
                         Danh sách

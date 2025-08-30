@@ -30,7 +30,7 @@
     }
 
     .glass-effect {
-        @apply bg-white/10 backdrop-blur-lg border border-white/20;
+        @apply bg-gray-800 bg-opacity-80 backdrop-blur-lg border border-gray-600;
     }
 
     .gradient-text {

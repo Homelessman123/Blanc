@@ -113,21 +113,21 @@ const ProfilePage: React.FC = () => {
                         </h1>
                         <p className="text-purple-200 text-lg mb-4">{user.email}</p>
                         <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                            <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg px-4 py-2">
                                 <span className="text-purple-200 text-sm">Streak</span>
                                 <div className="text-white font-bold text-xl flex items-center">
                                     <Flame className="w-5 h-5 text-orange-400 mr-1" />
                                     {user.streak || 0} ngày
                                 </div>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                            <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg px-4 py-2">
                                 <span className="text-purple-200 text-sm">Số dư ví</span>
                                 <div className="text-white font-bold text-xl flex items-center">
                                     <DollarSign className="w-5 h-5 text-green-400 mr-1" />
                                     {(user.balance || 0).toLocaleString('vi-VN')} VNĐ
                                 </div>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                            <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg px-4 py-2">
                                 <span className="text-purple-200 text-sm">Vai trò</span>
                                 <div className="text-white font-bold text-xl">
                                     {user.role === 'ADMIN' ? 'Quản trị viên' : 'Người dùng'}
@@ -142,7 +142,7 @@ const ProfilePage: React.FC = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setIsEditing(!isEditing)}
-                            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2"
+                            className="bg-white bg-opacity-20 hover:bg-white bg-opacity-30 backdrop-blur-sm text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2"
                         >
                             <Edit3 className="w-5 h-5" />
                             <span>{isEditing ? 'Hủy' : 'Chỉnh sửa'}</span>

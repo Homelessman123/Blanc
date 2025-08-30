@@ -6,7 +6,7 @@
 
 @layer components {
     .glass {
-        @apply bg-white/10 backdrop-blur-lg border border-white/20;
+        @apply bg-gray-800 bg-opacity-80 backdrop-blur-lg border border-gray-600;
     }
 
     .glass-dark {
@@ -42,7 +42,7 @@
     }
 
     .input {
-        @apply w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+        @apply w-full bg-gray-800 bg-opacity-50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
     }
 
     .gradient-text {
@@ -164,7 +164,7 @@
 }
 
 .react-calendar__tile {
-    @apply aspect-square flex items-center justify-center text-sm rounded-lg transition-all duration-200 hover:bg-white/10;
+    @apply aspect-square flex items-center justify-center text-sm rounded-lg transition-all duration-200 hover:bg-gray-700;
 }
 
 .react-calendar__tile--active {
