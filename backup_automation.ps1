@@ -39,10 +39,12 @@ function New-EnvTemplate {
                 # Giữ nguyên comment lines
                 if ($key.StartsWith("#")) {
                     $_
-                } else {
+                }
+                else {
                     "$key=your_value_here"
                 }
-            } else {
+            }
+            else {
                 $_
             }
         }
@@ -104,7 +106,8 @@ if ($branchExists) {
     }
     # Switch to existing branch
     git checkout backup_1
-} else {
+}
+else {
     # Tạo branch mới
     Write-StatusMessage "🌿 Tạo branch backup_1..." "Info"
     git checkout -b backup_1
@@ -130,7 +133,8 @@ try {
     Write-StatusMessage "Repository: $remoteUrl" "Info"
     Write-StatusMessage "Branch: backup_1" "Info"
     
-} catch {
+}
+catch {
     Write-StatusMessage "Lỗi khi push: $($_.Exception.Message)" "Error"
     Write-StatusMessage "Thử push thủ công: git push -u origin backup_1" "Warning"
     exit 1

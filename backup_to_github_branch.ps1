@@ -86,7 +86,8 @@ foreach ($folder in $FoldersToBackup) {
             New-Item -ItemType Directory -Path $destDir -Recurse -Force | Out-Null
         }
         Copy-Item -Path $sourcePath -Destination $destPath -Recurse -Force
-    } else {
+    }
+    else {
         Write-Host "  ⚠️  Folder không tồn tại: $folder" -ForegroundColor Yellow
     }
 }
@@ -105,7 +106,8 @@ foreach ($file in $FilesToBackup) {
             New-Item -ItemType Directory -Path $destDir -Recurse -Force | Out-Null
         }
         Copy-Item -Path $sourcePath -Destination $destPath -Force
-    } else {
+    }
+    else {
         Write-Host "  ⚠️  File không tồn tại: $file" -ForegroundColor Yellow
     }
 }
@@ -120,7 +122,8 @@ if (Test-Path $frontendEnvPath) {
     $envExample = $envContent | ForEach-Object {
         if ($_ -match "^([^=]+)=(.*)$") {
             "$($matches[1])=your_value_here"
-        } else {
+        }
+        else {
             $_
         }
     }
@@ -135,7 +138,8 @@ if (Test-Path $backendEnvPath) {
     $envExample = $envContent | ForEach-Object {
         if ($_ -match "^([^=]+)=(.*)$") {
             "$($matches[1])=your_value_here"
-        } else {
+        }
+        else {
             $_
         }
     }
@@ -208,7 +212,8 @@ try {
     Write-Host "✅ Backup thành công!" -ForegroundColor Green
     Write-Host "🌐 Repository: $RepoUrl" -ForegroundColor Cyan
     Write-Host "🌿 Branch: $BranchName" -ForegroundColor Cyan
-} catch {
+}
+catch {
     Write-Host "❌ Lỗi khi push lên GitHub: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "💡 Bạn có thể thử push thủ công:" -ForegroundColor Yellow
     Write-Host "   git push -u origin $BranchName" -ForegroundColor Yellow

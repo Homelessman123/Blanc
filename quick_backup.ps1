@@ -24,7 +24,8 @@ if ($continue -eq "y" -or $continue -eq "Y") {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "📝 Branch backup_1 đã tồn tại, switching..." -ForegroundColor Yellow
         git checkout backup_1
-    } else {
+    }
+    else {
         Write-Host "🌿 Tạo branch backup_1 mới..." -ForegroundColor Cyan
         git checkout -b backup_1
     }
@@ -47,11 +48,13 @@ if ($continue -eq "y" -or $continue -eq "Y") {
         Write-Host "🌐 Repository: $(git remote get-url origin)" -ForegroundColor Cyan
         Write-Host "🌿 Branch: backup_1" -ForegroundColor Cyan
         Write-Host "📝 Commit: $commitMsg" -ForegroundColor Cyan
-    } else {
+    }
+    else {
         Write-Host "`n❌ Có lỗi xảy ra khi push!" -ForegroundColor Red
     }
     
-} else {
+}
+else {
     Write-Host "`n⏹️  Backup bị hủy bởi người dùng" -ForegroundColor Yellow
 }
 
