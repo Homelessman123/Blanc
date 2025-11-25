@@ -1,11 +1,18 @@
 import { Request, Response } from 'express';
 import prisma from '../db';
 
-// @desc    Create new order
+// @desc    Create new order (DISABLED - Cart system removed)
 // @route   POST /api/orders
 // @access  Private
 export const createOrder = async (req: Request, res: Response) => {
   try {
+    // Cart system has been removed
+    // Orders now need to be created directly with product info in request body
+    return res.status(501).json({
+      message: 'Cart system has been removed. Order creation needs to be updated.'
+    });
+
+    /* OLD CART-BASED CODE - COMMENTED OUT
     const cart = await prisma.cart.findUnique({
       where: { userId: req.user!.id },
       include: { items: { include: { product: true } } },
@@ -15,7 +22,7 @@ export const createOrder = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Your cart is empty' });
     }
 
-    const totalPrice = cart.items.reduce((sum, item) => sum + item.quantity * item.product.price, 0);
+    const totalPrice = cart.items.reduce((sum: number, item: any) => sum + item.quantity * item.product.price, 0);
 
     // Use a transaction to ensure all operations succeed or none do.
     const newOrder = await prisma.$transaction(async (tx) => {
@@ -31,7 +38,7 @@ export const createOrder = async (req: Request, res: Response) => {
 
       // 2. Create order items and group revenue by seller
       const sellerRevenueMap = new Map<string, number>();
-      const orderItemsData = cart.items.map((item) => {
+      const orderItemsData = cart.items.map((item: any) => {
         const revenue = item.quantity * item.product.price;
         const currentSellerRevenue = sellerRevenueMap.get(item.product.sellerId) || 0;
         sellerRevenueMap.set(item.product.sellerId, currentSellerRevenue + revenue);
@@ -81,6 +88,7 @@ export const createOrder = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(fullOrderDetails);
+    */
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Couldn't create order", error });

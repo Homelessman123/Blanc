@@ -20,50 +20,38 @@ model User {
   displayName     String?
   profileColor    String?         @default("#6366f1")
   profileGif      String?
+  phoneNumber     String?
+  location        String?         // Địa điểm người dùng ở
   streak          Int             @default(0)
   lastLoginDate   DateTime?
+  streakLogs      StreakLog[]
+  calendarEvents  CalendarEvent[]
   
   // Notification preferences
   emailNotifications    Boolean   @default(true)
   pushNotifications     Boolean   @default(true)
   contestReminders      Boolean   @default(true)
+  
+  // New Teammate Matching Fields
+  seekingRoles    String[]      @default([]) @db.Json // Roles the user is looking for, e.g., ["Backend Developer", "UI/UX Designer"]
+  skillTags       SkillTag[]
+  interestTags    InterestTag[]
+  futureMajor     String?       // Ngành học dự định (optional)
 
   contests        Contest[]
   products        Product[]
-  cart            Cart?     
   orders          Order[]
   transactions    Transaction[]
   payoutRequests  PayoutRequest[]
-  calendarEvents  CalendarEvent[]
-  notifications   Notification[]
-  chatMessages    ChatMessage[]
   contestParticipations ContestParticipation[]
+  productReviews ProductReview[]
+  teamRecruitmentsOwned TeamRecruitment[] @relation("OwnedTeamRecruitments")
+  teamRecruitmentMemberships TeamRecruitmentMember[]
+  passwordResetToken PasswordResetToken?
+  adminAuditLogs   AdminAuditLog[]
 
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-}
-
-model Cart {
-  id        String      @id @default(cuid())
-  user      User        @relation(fields: [userId], references: [id])
-  userId    String      @unique
-  items     CartItem[]
-
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-}
-
-model CartItem {
-  id          String    @id @default(cuid())
-  quantity    Int
-  
-  product     Product   @relation(fields: [productId], references: [id])
-  productId   String
-
-  cart        Cart      @relation(fields: [cartId], references: [id])
-  cartId      String
-
-  @@unique([productId, cartId])
 }
 
 model Order {
@@ -136,6 +124,20 @@ model Contest {
   requirements String?  @db.Text
   isActive    Boolean  @default(true)
   
+  // New fields
+  fee         Float?   @default(0) // Contest fee (0 means free)
+  format      ContestFormat @default(ONLINE) // Online or Offline
+  targetGrade String?  // Target grade level (e.g., "THCS", "THPT", "6-9", "10-12")
+  registrationUrl String? // URL for registration
+  
+  // Detailed information fields (similar to Course structure)
+  benefits    Json?    // Array of benefits (e.g., ["Giải thưởng cao", "Chứng chỉ quốc tế"])
+  eligibility Json?    // Array of eligibility requirements (e.g., ["Học sinh THPT", "Dưới 18 tuổi"])
+  schedule    Json?    // Array of schedule items with date and activity
+  judges      Json?    // Array of judge information (name, title, avatar, bio)
+  partners    Json?    // Array of partners/sponsors (name, logo, website)
+  contactInfo Json?    // Object with email, phone, address
+  
   author      User     @relation(fields: [authorId], references: [id])
   authorId    String
 
@@ -145,6 +147,42 @@ model Contest {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([registrationDeadline])
+  @@index([startDate])
+  @@index([category])
+}
+
+model StreakLog {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  email       String?
+  date        DateTime
+  streakCount Int
+  action      String
+  timestamp   DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model CalendarEvent {
+  id               String    @id @default(cuid())
+  user             User      @relation(fields: [userId], references: [id])
+  userId           String
+  contest          Contest?  @relation(fields: [contestId], references: [id])
+  contestId        String?
+  title            String
+  description      String?
+  startDate        DateTime
+  endDate          DateTime
+  type             String    @default("CONTEST")
+  notificationSent Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([contestId])
 }
 
 model Product {
@@ -159,12 +197,16 @@ model Product {
   categories  String?     @db.Text // JSON string of categories
   rating      Float?      @default(0)
   reviewCount Int         @default(0)
-
+  
+  // Course specific fields
+  duration    String?     // Duration in weeks/months (e.g., "8 weeks", "3 months")
+  level       CourseLevel? @default(BEGINNER)
+  language    String?     @default("Vietnamese")
+  
   seller      User        @relation(fields: [sellerId], references: [id])
   sellerId    String
 
   contests    Contest[]   @relation("ContestProducts")
-  cartItems   CartItem[]
   orderItems  OrderItem[]
   reviews     ProductReview[]
 
@@ -180,53 +222,25 @@ model ContestParticipation {
   userId      String
   contest     Contest  @relation(fields: [contestId], references: [id])
   contestId   String
+  
+  // Registration details
+  fullName    String
+  email       String
+  phone       String
+  school      String
+  grade       String
+  birthDate   DateTime
+  parentPhone String?
+  reason      String?  @db.Text
+  
+  // Registration metadata
+  status      RegistrationStatus @default(PENDING)
   joinedAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@unique([userId, contestId])
-}
-
-model CalendarEvent {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  type        EventType @default(PERSONAL)
-  isAllDay    Boolean  @default(false)
-  
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  
-  contest     Contest? @relation(fields: [contestId], references: [id])
-  contestId   String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Notification {
-  id          String           @id @default(cuid())
-  title       String
-  message     String           @db.Text
-  type        NotificationType @default(INFO)
-  isRead      Boolean          @default(false)
-  actionUrl   String?
-  
-  user        User             @relation(fields: [userId], references: [id])
-  userId      String
-  
-  createdAt   DateTime         @default(now())
-}
-
-model ChatMessage {
-  id          String      @id @default(cuid())
-  message     String      @db.Text
-  sender      MessageSender @default(USER)
-  
-  user        User?       @relation(fields: [userId], references: [id])
-  userId      String?
-  
-  createdAt   DateTime    @default(now())
+  @@index([contestId])
+  @@index([email])
 }
 
 model ProductReview {
@@ -237,12 +251,17 @@ model ProductReview {
   product     Product  @relation(fields: [productId], references: [id])
   productId   String
   
-  // reviewer info (anonymous or user-based)
+  // Enhanced reviewer info
+  reviewer    User?    @relation(fields: [reviewerId], references: [id])
+  reviewerId  String?
   reviewerName String?
   reviewerEmail String?
+  isVerifiedPurchase Boolean @default(false)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+    @@unique([productId, reviewerId]) // One review per user per product
 }
 
 enum Role {
@@ -255,6 +274,19 @@ enum ProductType {
   DOCUMENT
   WORKSHOP
   CONSULTATION
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum ContestFormat {
+  ONLINE
+  OFFLINE
+  HYBRID
 }
 
 enum OrderStatus {
@@ -278,25 +310,119 @@ enum PayoutStatus {
   PROCESSING
 }
 
-enum EventType {
-  CONTEST_DEADLINE
-  CONTEST_START
-  PERSONAL
-  REMINDER
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
-enum NotificationType {
-  INFO
-  WARNING
-  SUCCESS
-  ERROR
-  CONTEST_REMINDER
-  PAYMENT_SUCCESS
-  PAYOUT_APPROVED
+model TeamRecruitment {
+  id               String                 @id @default(cuid())
+  title            String
+  teamName         String?
+  summary          String
+  description      String                 @db.Text
+  lookingFor       String?                @db.Text
+  requirements     String?                @db.Text
+  location         String?
+  status           TeamRecruitmentStatus  @default(OPEN)
+  maxMembers       Int                    @default(4)
+  owner            User                   @relation("OwnedTeamRecruitments", fields: [ownerId], references: [id])
+  ownerId          String
+  tags             TeamRecruitmentTag[]
+  members          TeamRecruitmentMember[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([status])
+  @@index([ownerId])
 }
 
-enum MessageSender {
-  USER
-  ADMIN
-  BOT
+model TeamRecruitmentMember {
+  id         String              @id @default(cuid())
+  team       TeamRecruitment     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId     String
+  user       User                @relation(fields: [userId], references: [id])
+  userId     String
+  role       String?
+  status     TeamMemberStatus    @default(ACTIVE)
+  joinedAt   DateTime            @default(now())
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([status])
+}
+
+model TeamTag {
+  id        String               @id @default(cuid())
+  name      String               @unique
+  createdAt DateTime             @default(now())
+  teams     TeamRecruitmentTag[]
+}
+
+model TeamRecruitmentTag {
+  team   TeamRecruitment @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId String
+  tag    TeamTag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  String
+
+  assignedAt DateTime    @default(now())
+
+  @@id([teamId, tagId])
+  @@index([tagId])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actor      User     @relation(fields: [actorId], references: [id])
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}
+
+model PasswordResetToken {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @unique
+  otpHash          String?
+  otpExpiresAt     DateTime?
+  resetTokenHash   String?
+  resetExpiresAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([otpExpiresAt])
+  @@index([resetExpiresAt])
+}
+
+enum TeamRecruitmentStatus {
+  OPEN
+  FULL
+  CLOSED
+}
+
+enum TeamMemberStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+// New models for Teammate Matching v2
+model SkillTag {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model InterestTag {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
 }

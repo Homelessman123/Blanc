@@ -6,8 +6,9 @@ import { AuthEvents } from '../utils/authEvents';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string, location?: string | null) => Promise<User>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
   loading: boolean;
@@ -23,28 +24,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUser = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await authAPI.getCurrentUser();
-        setUser(response.data);
-        localStorage.setItem('user', JSON.stringify(response.data));
-      } catch (error) {
-        console.error('Failed to fetch user', error);
-        localStorage.removeItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (!token) {
+      if (savedUser) {
         localStorage.removeItem('user');
       }
-    } else {
-      // Load user from localStorage if available
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
-          localStorage.removeItem('user');
-        }
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem('user');
       }
     }
-    setLoading(false);
+
+    try {
+      const response = await authAPI.getCurrentUser();
+      // Backend now returns { user: {...} } instead of just user data
+      const userData = response.data.user || response.data;
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } catch (error) {
+      console.error('Failed to fetch user', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -74,23 +86,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       toast.success('Đăng nhập thành công!');
 
-      // Force a re-render by updating loading state
-      setLoading(false);
-
       console.log('AuthContext: Login process completed');
     } catch (error) {
       console.error('Login failed', error);
       toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      setLoading(false);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, name: string) => {
+  const register = useCallback(async (email: string, password: string, name: string, location?: string | null): Promise<User> => {
     setLoading(true);
     try {
       console.log('AuthContext: Starting registration process...');
-      const response = await authAPI.register(email, password, name);
+      const response = await authAPI.register(email, password, name, location);
       const { token, user: userData } = response.data;
 
       console.log('AuthContext: Registration API successful, setting user data...');
@@ -109,15 +119,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       toast.success('Đăng ký thành công!');
 
-      // Force a re-render by updating loading state
-      setLoading(false);
-
       console.log('AuthContext: Registration process completed');
+
+      return userData;
     } catch (error) {
       console.error('Registration failed', error);
       toast.error('Đăng ký thất bại. Email có thể đã được sử dụng.');
-      setLoading(false);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -141,10 +151,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const isAdmin = user?.role === 'ADMIN';
+  const token = localStorage.getItem('token');
 
   return (
     <AuthContext.Provider value={{
       user,
+      token,
       login,
       register,
       logout,

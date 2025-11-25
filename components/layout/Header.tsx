@@ -1,18 +1,26 @@
-
-import React from 'react';
+import React, { useRef } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../contexts/CartContext';
-import { ShoppingCart, User as UserIcon, LogIn, LogOut, Flame, Shield } from 'lucide-react';
-import NotificationSystem from '../NotificationSystem';
+import { User as UserIcon, LogIn, LogOut } from 'lucide-react';
+import StreakDisplay from '../StreakDisplay';
 
 const Header: React.FC = () => {
-  const { user, logout } = useAuth();
-  const { cartCount } = useCart();
+  const { user, logout, isAdmin } = useAuth();
 
   const activeLinkStyle = {
-    color: '#38bdf8', // light blue
-    textShadow: '0 0 5px #38bdf8'
+    color: '#38bdf8',
+    textShadow: '0 0 5px #38bdf8',
+  };
+
+  // Lazy prefetch on hover to keep bandwidth light
+  const prefetched = useRef(new Set<string>());
+  const prefetchRoute = (href: string) => {
+    if (prefetched.current.has(href)) return;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = href;
+    document.head.appendChild(link);
+    prefetched.current.add(href);
   };
 
   return (
@@ -29,31 +37,43 @@ const Header: React.FC = () => {
           </span>
         </Link>
         <div className="hidden md:flex items-center space-x-6 text-lg">
-          <NavLink to="/" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-gray-300 hover:text-sky-400 transition-colors duration-300">Home</NavLink>
-          <NavLink to="/contests" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-gray-300 hover:text-sky-400 transition-colors duration-300">Contests</NavLink>
-          <NavLink to="/marketplace" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-gray-300 hover:text-sky-400 transition-colors duration-300">Marketplace</NavLink>
+          <NavLink
+            to="/"
+            onMouseEnter={() => prefetchRoute('/')}
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            className="text-gray-300 hover:text-sky-400 transition-colors duration-300"
+          >
+            Trang chủ
+          </NavLink>
+          <NavLink
+            to="/contests"
+            onMouseEnter={() => prefetchRoute('/contests')}
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            className="text-gray-300 hover:text-sky-400 transition-colors duration-300"
+          >
+            Cuộc thi
+          </NavLink>
+          <NavLink
+            to="/marketplace"
+            onMouseEnter={() => prefetchRoute('/marketplace')}
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            className="text-gray-300 hover:text-sky-400 transition-colors duration-300"
+          >
+            Khóa học
+          </NavLink>
+          <NavLink
+            to="/community"
+            onMouseEnter={() => prefetchRoute('/community')}
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            className="text-gray-300 hover:text-sky-400 transition-colors duration-300"
+          >
+            Cộng đồng
+          </NavLink>
         </div>
         <div className="flex items-center space-x-4">
-          <Link to="/cart" className="relative text-gray-300 hover:text-sky-400 transition-colors duration-300">
-            <ShoppingCart size={24} />
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                {cartCount}
-              </span>
-            )}
-          </Link>
           {user ? (
             <div className="flex items-center space-x-4">
-              <NotificationSystem />
-              <div className="flex items-center gap-1 text-orange-400 font-bold" title={`${user.streak || 0} day streak!`}>
-                <Flame size={20} />
-                <span>{user.streak || 0}</span>
-              </div>
-              {user.role === 'ADMIN' && (
-                <Link to="/admin" className="text-gray-300 hover:text-sky-400 transition-colors duration-300" title="Admin Panel">
-                  <Shield size={24} />
-                </Link>
-              )}
+              <StreakDisplay streak={user.streak || 0} animate />
               <Link to="/profile" className="text-gray-300 hover:text-sky-400 transition-colors duration-300">
                 {user.avatar ? (
                   <img src={user.avatar} alt="User Avatar" className="w-8 h-8 rounded-full border-2 border-sky-500" />
@@ -68,7 +88,7 @@ const Header: React.FC = () => {
           ) : (
             <Link to="/login" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 transform hover:scale-105">
               <LogIn size={20} />
-              <span>Login</span>
+              <span>Đăng nhập</span>
             </Link>
           )}
         </div>

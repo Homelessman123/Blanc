@@ -7,10 +7,13 @@ async function main() {
     console.log('🌱 Seeding database...');
 
     // Create admin user
-    const hashedAdminPassword = await bcrypt.hash('password', 10);
+    const hashedAdminPassword = await bcrypt.hash('Haidang@12', 10);
     const admin = await prisma.user.upsert({
         where: { email: 'admin@contesthub.com' },
-        update: {},
+        update: {
+            password: hashedAdminPassword,
+            role: 'ADMIN',
+        },
         create: {
             email: 'admin@contesthub.com',
             name: 'ContestHub Admin',
@@ -18,6 +21,7 @@ async function main() {
             role: 'ADMIN',
             displayName: 'Admin',
             profileColor: '#dc2626',
+            phoneNumber: '0900000000',
             balance: 0,
         },
     });
@@ -34,6 +38,7 @@ async function main() {
             role: 'USER',
             displayName: 'Văn A',
             profileColor: '#3b82f6',
+            phoneNumber: '0912345678',
             balance: 100000,
             streak: 5,
         },
@@ -49,6 +54,7 @@ async function main() {
             role: 'USER',
             displayName: 'Cô B',
             profileColor: '#10b981',
+            phoneNumber: '0987654321',
             balance: 500000,
             streak: 12,
         },
@@ -72,6 +78,10 @@ async function main() {
             prize: 'Giải nhất: 50 triệu VNĐ, Giải nhì: 30 triệu VNĐ, Giải ba: 20 triệu VNĐ',
             requirements: 'Học sinh THPT, có kiến thức cơ bản về lập trình',
             authorId: admin.id,
+            fee: 0, // Miễn phí
+            format: 'ONLINE',
+            targetGrade: 'THPT (10-12)',
+            registrationUrl: 'https://olympic.edu.vn/register',
         },
     });
 
@@ -91,6 +101,10 @@ async function main() {
             prize: 'Giải nhất: Khóa học IELTS miễn phí, Giải nhì: Voucher thi IELTS',
             requirements: 'Không yêu cầu trình độ đầu vào',
             authorId: admin.id,
+            fee: 20, // $20
+            format: 'HYBRID',
+            targetGrade: 'THCS, THPT',
+            registrationUrl: 'https://ielts.org/register',
         },
     });
 
@@ -106,6 +120,9 @@ async function main() {
             categories: JSON.stringify(['Lập trình', 'Olympic Tin học', 'C++']),
             rating: 4.8,
             reviewCount: 156,
+            duration: '12 tuần',
+            level: 'INTERMEDIATE',
+            language: 'Vietnamese',
             sellerId: user2.id,
         },
     });
@@ -118,9 +135,12 @@ async function main() {
             type: 'DOCUMENT',
             imageUrl: '/images/Ultimate_SAT_Math_Prep_Guide.webp',
             isApproved: true,
-            categories: JSON.stringify(['IELTS', 'Speaking', 'Tiếng Anh']),
-            rating: 4.6,
+            categories: JSON.stringify(['Ngoại ngữ', 'IELTS', 'Speaking']),
+            rating: 4.5,
             reviewCount: 89,
+            duration: '6 tuần ôn tập',
+            level: 'ADVANCED',
+            language: 'Vietnamese',
             sellerId: user2.id,
         },
     });
@@ -144,26 +164,6 @@ async function main() {
         }
     });
 
-    // Create sample notifications
-    await prisma.notification.create({
-        data: {
-            title: 'Chào mừng đến với ContestHub!',
-            message: 'Cảm ơn bạn đã tham gia ContestHub. Hãy khám phá các cuộc thi thú vị và nâng cao kỹ năng của bạn!',
-            type: 'SUCCESS',
-            userId: user1.id,
-        },
-    });
-
-    await prisma.notification.create({
-        data: {
-            title: 'Sắp tới hạn đăng ký!',
-            message: 'Cuộc thi "Olympic Lập trình 2025" sẽ đóng đăng ký trong 2 ngày nữa. Đừng bỏ lỡ cơ hội!',
-            type: 'WARNING',
-            userId: user1.id,
-        },
-    });
-
-    // Create calendar events
     await prisma.calendarEvent.create({
         data: {
             title: 'Deadline đăng ký Olympic Lập trình',
@@ -178,13 +178,14 @@ async function main() {
 
     console.log('✅ Database seeded successfully!');
     console.log('📊 Created:');
+    console.log('? Database seeded successfully!');
+    console.log('?? Created:');
     console.log('  - 3 users (1 admin, 2 regular users)');
     console.log('  - 2 contests');
     console.log('  - 2 products');
-    console.log('  - 2 notifications');
     console.log('  - 1 calendar event');
-    console.log('\n🔐 Login credentials:');
-    console.log('  Admin: admin@contesthub.com / password');
+    console.log('\n?? Login credentials:');
+    console.log('  Admin: admin@contesthub.com / Haidang@12');
     console.log('  User: user@test.com / password');
     console.log('  Teacher: teacher@test.com / password');
 }
@@ -197,3 +198,4 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
+
