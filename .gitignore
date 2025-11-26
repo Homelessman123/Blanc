@@ -75,13 +75,15 @@ Picture/
 mysql-init/
 
 # ================================
-# Database files (không cần - dùng MongoDB trên Railway)
+# Database files (giữ Prisma schemas cho cả MySQL và MongoDB)
 # ================================
 backend/prisma/migrations_archive*/
 backend/prisma/migrations_backup*/
 backend/prisma/*.ts
 !backend/prisma/seed.ts
 !backend/prisma/schema.prisma
+!backend/prisma/schema.mysql.prisma
+!backend/prisma/schema.mongodb.prisma
 
 # ================================
 # Upload files (user uploads - không push lên git)
