@@ -2,11 +2,18 @@
 FROM node:18-alpine as build
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
 
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies for vite)
+RUN npm install
+
+# Copy source code
 COPY . .
-RUN npm run build
+
+# Build the app
+RUN npx vite build
 
 # Production stage
 FROM nginx:alpine
