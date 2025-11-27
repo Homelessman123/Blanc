@@ -1,117 +1,37 @@
-# ContestHub
+# Blanc Backend (Railway + MongoDB)
 
-Nền tảng quản lý và khám phá các cuộc thi dành cho học sinh, sinh viên.
+Nhanh `backend` duoc toi gon chi gom ma nguon backend phuc vu deploy len Railway voi MongoDB.
 
-## Công nghệ sử dụng
-
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- Axios
-
-### Backend
-- Node.js + Express
-- TypeScript
-- Prisma ORM
-- MySQL (hoặc MongoDB)
-- JWT Authentication
-- Socket.IO (real-time features)
-
-## Cài đặt
-
-### Yêu cầu
+## Yeu cau
 - Node.js >= 18
-- MySQL hoặc MongoDB database
+- MongoDB (Railway/Atlas)
 
-### Bước 1: Clone repository
-```bash
-git clone https://github.com/your-username/ContestHub.git
-cd ContestHub
-```
+## Bien moi truong can thiet
+Tao `backend/.env` (khong commit) dua tren mau `backend/.env.example`:
+- `DATABASE_URL` = mongodb+srv://thhdang12_db_user:haidang123@cluster0.ye7adzm.mongodb.net/contesthub?retryWrites=true&w=majority
+- `JWT_SECRET` = chuoi bi mat cua ban
+- `CORS_ORIGIN` = domain frontend (vd: https://your-frontend.railway.app)
+- `PORT` = de trong de Railway tu cap hoac dat 3001 khi chay local
+- `NODE_ENV=production`
+- `UPLOAD_DIR=./uploads`, `MAX_FILE_SIZE=10485760` neu can
 
-### Bước 2: Cài đặt dependencies
-```bash
-# Frontend
-npm install
-
-# Backend
-cd backend
-npm install
-```
-
-### Bước 3: Cấu hình môi trường
-```bash
-# Copy file .env.example
-cp .env.example .env
-cp backend/.env.example backend/.env
-
-# Chỉnh sửa các biến môi trường trong .env và backend/.env
-```
-
-### Bước 4: Khởi chạy database
+## Chay local nhanh
 ```bash
 cd backend
-npx prisma generate
-npx prisma db push
-npx prisma db seed
-```
-
-### Bước 5: Chạy ứng dụng
-
-**Development:**
-```bash
-# Terminal 1 - Backend
-cd backend
-npm run dev
-
-# Terminal 2 - Frontend
-npm run dev
-```
-
-**Production:**
-```bash
-# Build frontend
-npm run build
-
-# Build backend
-cd backend
+npm ci
+npx prisma generate --schema prisma/schema.prisma
 npm run build
 npm start
 ```
 
-## Deploy lên Railway
+## Deploy len Railway (service backend)
+1) Chon monorepo path `backend/` va Dockerfile `backend/Dockerfile`.
+2) Set env nhu tren (DATABASE_URL bat buoc).
+3) Railway se cap port `$PORT`; ung dung da su dung `process.env.PORT`.
 
-### Backend
-1. Tạo project mới trên Railway
-2. Connect với GitHub repository
-3. Thêm MySQL database addon
-4. Set các environment variables từ `backend/.env.example`
-5. Deploy
-
-### Frontend
-1. Sử dụng Vercel hoặc Netlify để deploy frontend
-2. Set `VITE_API_URL` thành URL của backend đã deploy
-
-## Cấu trúc thư mục
-
-```
-ContestHub/
-├── backend/              # Express backend
-│   ├── prisma/          # Prisma schema và migrations
-│   ├── src/             # Source code backend
-│   └── uploads/         # User uploaded files
-├── components/          # React components
-├── pages/               # Page components
-├── services/            # API services
-├── contexts/            # React contexts
-├── hooks/               # Custom hooks
-├── utils/               # Utility functions
-└── types/               # TypeScript types
-```
-
-## License
-
-MIT License
+## Cau truc thu muc
+- `backend/` – Express + Prisma (MongoDB)
+- `backend/prisma/schema.prisma` – schema MongoDB
+- `backend/prisma/seed.ts` – seed mau (tuy chon)
+- `backend/Dockerfile` – build/runtime backend
+- `.gitignore` – da bo qua `.env`, uploads, node_modules, build output
