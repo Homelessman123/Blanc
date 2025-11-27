@@ -145,22 +145,18 @@ async function main() {
         },
     });
 
-    // Link products to contests
+    // Link products to contests (MongoDB uses suggestedProductIds array)
     await prisma.contest.update({
         where: { id: contest1.id },
         data: {
-            suggestedProducts: {
-                connect: [{ id: product1.id }]
-            }
+            suggestedProductIds: [product1.id]
         }
     });
 
     await prisma.contest.update({
         where: { id: contest2.id },
         data: {
-            suggestedProducts: {
-                connect: [{ id: product2.id }]
-            }
+            suggestedProductIds: [product2.id]
         }
     });
 
