@@ -1,0 +1,147 @@
+/**
+ * Google Apps Script - Email Service for Blanc
+ * 
+ * Hướng dẫn cài đặt:
+ * 1. Vào https://script.google.com
+ * 2. Tạo project mới hoặc chỉnh sửa project OTP hiện có
+ * 3. Thay thế/thêm code này
+ * 4. Deploy lại (nếu cần)
+ * 
+ * Lưu ý: Đây là phiên bản mở rộng từ OTP script hiện có,
+ * hỗ trợ thêm action 'sendEmail' cho các loại email khác.
+ */
+
+// Cấu hình - giữ nguyên từ OTP script
+const CONFIG = {
+    SECRET_KEY: 'your-secret-key-here', // Cùng key với OTP_SECRET_KEY trong backend
+    ALLOWED_ORIGINS: ['http://localhost:5173', 'http://localhost:4000', 'https://your-domain.com'],
+    TIMESTAMP_TOLERANCE: 300000, // 5 phút
+};
+
+/**
+ * Handle incoming POST requests
+ */
+function doPost(e) {
+    try {
+        const data = JSON.parse(e.postData.contents);
+        
+        // Verify signature
+        if (!verifySignature(data)) {
+            return createJsonResponse({ ok: false, error: 'Invalid signature' }, 403);
+        }
+        
+        // Verify timestamp
+        if (!verifyTimestamp(data.timestamp)) {
+            return createJsonResponse({ ok: false, error: 'Request expired' }, 403);
+        }
+        
+        // Route based on action
+        switch (data.action) {
+            case 'sendOtp':
+                return handleSendOtp(data);
+            case 'sendEmail':
+                return handleSendEmail(data);
+            default:
+                return createJsonResponse({ ok: false, error: 'Unknown action' }, 400);
+        }
+    } catch (error) {
+        Logger.log('Error: ' + error.message);
+        return createJsonResponse({ ok: false, error: error.message }, 500);
+    }
+}
+
+/**
+ * Handle OTP email (existing functionality)
+ */
+function handleSendOtp(data) {
+    const { email, otp, appName, origin } = data;
+    
+    const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">${appName || 'Blanc'}</h1>
+            </div>
+            <div style="padding: 40px 30px; background: #f9fafb;">
+                <h2 style="color: #111827; margin-top: 0;">Xác thực đăng nhập</h2>
+                <p style="color: #4b5563; line-height: 1.6;">Mã xác thực của bạn là:</p>
+                <div style="background: white; border: 2px dashed #10b981; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #10b981;">${otp}</span>
+                </div>
+                <p style="color: #6b7280; font-size: 14px;">Mã này có hiệu lực trong 5 phút.</p>
+            </div>
+            <div style="padding: 20px; background: #1f2937; text-align: center;">
+                <p style="color: #9ca3af; margin: 0; font-size: 12px;">© ${new Date().getFullYear()} ${appName || 'Blanc'}</p>
+            </div>
+        </div>
+    `;
+    
+    GmailApp.sendEmail(email, `[${appName}] Mã xác thực đăng nhập`, '', {
+        htmlBody: htmlBody,
+        name: appName || 'Blanc'
+    });
+    
+    return createJsonResponse({ ok: true, message: 'OTP sent' });
+}
+
+/**
+ * Handle general email (new functionality)
+ */
+function handleSendEmail(data) {
+    const { email, subject, body, appName, type } = data;
+    
+    // Type can be: 'notification', 'marketing', 'alert', 'general'
+    Logger.log(`Sending ${type} email to ${email}: ${subject}`);
+    
+    GmailApp.sendEmail(email, subject, '', {
+        htmlBody: body,
+        name: appName || 'Blanc'
+    });
+    
+    return createJsonResponse({ ok: true, message: 'Email sent', type: type });
+}
+
+/**
+ * Verify HMAC signature
+ */
+function verifySignature(data) {
+    const { action, email, timestamp, nonce, signature } = data;
+    const canonicalString = `action=${action}&email=${email}&timestamp=${timestamp}&nonce=${nonce}`;
+    
+    const computedSignature = Utilities.computeHmacSignature(
+        Utilities.MacAlgorithm.HMAC_SHA_256,
+        canonicalString,
+        CONFIG.SECRET_KEY
+    );
+    
+    const expectedSignature = Utilities.base64Encode(computedSignature);
+    return signature === expectedSignature;
+}
+
+/**
+ * Verify timestamp is within tolerance
+ */
+function verifyTimestamp(timestamp) {
+    const now = Date.now();
+    return Math.abs(now - timestamp) <= CONFIG.TIMESTAMP_TOLERANCE;
+}
+
+/**
+ * Create JSON response
+ */
+function createJsonResponse(data, statusCode = 200) {
+    return ContentService
+        .createTextOutput(JSON.stringify({ ...data, statusCode }))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Handle GET requests (for testing)
+ */
+function doGet(e) {
+    return createJsonResponse({
+        ok: true,
+        message: 'Blanc Email Service is running',
+        supportedActions: ['sendOtp', 'sendEmail'],
+        version: '2.0.0'
+    });
+}

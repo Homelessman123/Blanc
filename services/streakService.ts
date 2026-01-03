@@ -1,0 +1,249 @@
+/**
+ * Streak Service
+ * Quản lý chuỗi học tập của người dùng
+ * Sử dụng localStorage với cache 24 giờ để giảm tải API
+ */
+
+import { api } from '@/lib/api';
+import { getVietnamDate } from './streakTime';
+
+export interface StreakData {
+    currentStreak: number;
+    longestStreak: number;
+    lastActivityDate: string | null;
+    todayCheckedIn: boolean;
+    activityHistory?: string[];
+}
+
+export interface CheckinResponse extends StreakData {
+    isNewStreak: boolean;
+    message: string;
+}
+
+export interface LeaderboardEntry {
+    rank: number;
+    userId: string;
+    name: string;
+    avatar: string | null;
+    currentStreak: number;
+    longestStreak: number;
+}
+
+// Cache keys
+const STREAK_CACHE_KEY = 'user_streak_cache';
+const CHECKIN_KEY = 'streak_last_checkin';
+const inflightCheckins = new Map<string, Promise<CheckinResponse>>();
+
+// Build a per-user cache key to avoid leaking streak data across accounts on the same device
+const buildKey = (base: string, userId?: string) => userId ? `${base}_${userId}` : base;
+
+// Cache TTL: 24 giờ (tính theo ngày Vietnam timezone)
+interface CachedStreakData {
+    data: StreakData;
+    date: string; // YYYY-MM-DD format (Vietnam timezone)
+    userId?: string;
+}
+
+/**
+ * Get cached streak data from localStorage
+ * Cache is valid for the current day (Vietnam timezone)
+ */
+function getCachedStreak(userId?: string): StreakData | null {
+    try {
+        // Prefer per-user cache; fall back to legacy key for backward compatibility
+        const userKey = buildKey(STREAK_CACHE_KEY, userId);
+        const legacyKey = STREAK_CACHE_KEY;
+        const userCached = localStorage.getItem(userKey);
+        const legacyCached = localStorage.getItem(legacyKey);
+        const cached = userCached ?? legacyCached;
+        if (!cached) return null;
+        
+        const parsed: CachedStreakData = JSON.parse(cached);
+        const today = getVietnamDate();
+        const usedKey = userCached != null ? userKey : legacyKey;
+        
+        // Invalidate if:
+        // 1. Different day
+        // 2. Different user (if userId provided)
+        if (parsed.date !== today) {
+            localStorage.removeItem(usedKey);
+            return null;
+        }
+        
+        if (userId) {
+            // Never trust unscoped legacy cache when a userId is provided (prevents cross-account leaks).
+            // If the legacy cache somehow contains the matching userId, migrate it to the per-user key.
+            if (usedKey === legacyKey) {
+                localStorage.removeItem(legacyKey);
+                if (parsed.userId && parsed.userId === userId) {
+                    localStorage.setItem(userKey, cached);
+                    return parsed.data;
+                }
+                return null;
+            }
+
+            // Per-user cache must explicitly match the requested userId.
+            if (!parsed.userId || parsed.userId !== userId) {
+                localStorage.removeItem(userKey);
+                return null;
+            }
+        }
+        
+        return parsed.data;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Cache streak data to localStorage with current date
+ */
+function cacheStreak(data: StreakData, userId?: string): void {
+    try {
+        const cacheData: CachedStreakData = {
+            data,
+            date: getVietnamDate(),
+            userId
+        };
+        localStorage.setItem(buildKey(STREAK_CACHE_KEY, userId), JSON.stringify(cacheData));
+    } catch {
+        // Ignore storage errors (quota exceeded, etc.)
+    }
+}
+
+/**
+ * Check if already checked in today (local check to avoid unnecessary API calls)
+ */
+function hasCheckedInToday(userId?: string): boolean {
+    try {
+        const lastCheckin = localStorage.getItem(buildKey(CHECKIN_KEY, userId));
+        if (!lastCheckin) return false;
+        
+        const today = getVietnamDate();
+        return lastCheckin === today;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Mark today as checked in (Vietnam timezone)
+ */
+function markCheckedIn(userId?: string): void {
+    try {
+        localStorage.setItem(buildKey(CHECKIN_KEY, userId), getVietnamDate());
+    } catch {
+        // Ignore storage errors
+    }
+}
+
+/**
+ * Get current streak data
+ * Uses localStorage cache (24h TTL based on Vietnam date)
+ * Only fetches from API once per day
+ */
+export async function getStreak(userId?: string): Promise<StreakData> {
+    // Try cache first (valid for current day)
+    const cached = getCachedStreak(userId);
+    if (cached) {
+        return cached;
+    }
+    
+    // Fetch from API
+    const data = await api.get<StreakData>('/users/streak');
+    
+    // Cache for the rest of the day
+    cacheStreak(data, userId);
+    
+    return data;
+}
+
+/**
+ * Check in for today (call on app load/login)
+ * Optimized to skip API call if already checked in today
+ */
+export async function checkin(userId?: string): Promise<CheckinResponse> {
+    const inflightKey = userId ?? 'anon';
+    const existing = inflightCheckins.get(inflightKey);
+    if (existing) return existing;
+
+    const promise = (async () => {
+        // Skip API call if already checked in today
+        if (hasCheckedInToday(userId)) {
+            const cached = getCachedStreak(userId);
+            if (cached && cached.todayCheckedIn) {
+                return {
+                    ...cached,
+                    isNewStreak: false,
+                    message: 'Bạn đã điểm danh hôm nay.'
+                };
+            }
+        }
+
+        // Call API to check in
+        const response = await api.post<CheckinResponse>('/users/streak/checkin', {});
+
+        // Update cache with new data
+        const streakData: StreakData = {
+            currentStreak: response.currentStreak,
+            longestStreak: response.longestStreak,
+            lastActivityDate: response.lastActivityDate ?? new Date().toISOString(),
+            todayCheckedIn: true
+        };
+
+        cacheStreak(streakData, userId);
+        markCheckedIn(userId);
+
+        return response;
+    })();
+
+    inflightCheckins.set(inflightKey, promise);
+    try {
+        return await promise;
+    } finally {
+        inflightCheckins.delete(inflightKey);
+    }
+}
+
+/**
+ * Get streak leaderboard
+ * Note: Leaderboard is not cached as it changes frequently
+ */
+export async function getLeaderboard(limit = 10): Promise<LeaderboardEntry[]> {
+    const response = await api.get<{ leaderboard: LeaderboardEntry[] }>(
+        `/users/streak/leaderboard?limit=${limit}`
+    );
+    return response.leaderboard;
+}
+
+/**
+ * Force refresh streak from database
+ * Use this when user expects updated data (e.g., after activity)
+ */
+export async function refreshStreak(userId?: string): Promise<StreakData> {
+    // Clear local cache
+    localStorage.removeItem(buildKey(STREAK_CACHE_KEY, userId));
+    // Also clear legacy key to avoid stale cross-user data
+    localStorage.removeItem(STREAK_CACHE_KEY);
+    
+    // Fetch fresh data
+    const data = await api.get<StreakData>('/users/streak');
+    cacheStreak(data, userId);
+    
+    return data;
+}
+
+/**
+ * Clear streak cache (call on logout)
+ */
+export function clearStreakCache(userId?: string): void {
+    try {
+        localStorage.removeItem(buildKey(STREAK_CACHE_KEY, userId));
+        localStorage.removeItem(buildKey(CHECKIN_KEY, userId));
+        // Remove legacy keys as well
+        localStorage.removeItem(STREAK_CACHE_KEY);
+        localStorage.removeItem(CHECKIN_KEY);
+    } catch {
+        // Ignore
+    }
+}

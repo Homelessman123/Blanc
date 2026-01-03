@@ -1,43 +1,34 @@
 import path from 'path';
+import fs from 'fs';
 import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    base: './',
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
-    build: {
-      chunkSizeWarningLimit: 900,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            router: ['react-router', 'react-router-dom'],
-            motion: ['framer-motion'],
-            toast: ['react-hot-toast'],
-            icons: ['lucide-react'],
-            calendar: ['react-calendar'],
-          },
-        },
+    const env = loadEnv(mode, '.', '');
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'));
+    const buildVersion =
+      env.VITE_APP_VERSION ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.GITHUB_SHA ||
+      `${pkg.version || '0.0.0'}-${Date.now()}`;
+    return {
+      server: {
+        port: 3000,
+        host: '0.0.0.0',
       },
-    },
-    server: {
-      host: '0.0.0.0',
-      port: 5173,
-      allowedHosts: [
-        'localhost',
-        '127.0.0.1',
-        'contesthub.homelabo.work',
-        '.homelabo.work'
-      ]
-    },
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      }
-    }
-  };
+      plugins: [react()],
+      define: {
+        __APP_VERSION__: JSON.stringify(buildVersion),
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, '.'),
+        }
+      },
+      test: {
+        environment: 'jsdom',
+        globals: true,
+        setupFiles: ['./tests/setup.ts'],
+      },
+    };
 });

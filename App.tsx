@@ -1,151 +1,423 @@
-
-import React, { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
-import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
-import PrivateRoute from './components/PrivateRoute';
-import { useAuth } from './contexts/AuthContext';
 
-const HomePage = lazy(() => import('./pages/HomePage'));
-const ContestsPage = lazy(() => import('./pages/ContestsPage'));
-const ContestDetailPageNew = lazy(() => import('./pages/ContestDetailPageNew'));
-const MarketplacePage = lazy(() => import('./pages/MarketplacePage'));
-const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const CommunityPage = lazy(() => import('./pages/CommunityPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
-const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+// Layout
+import Layout from './components/Layout';
+import ScrollToTop from './components/ScrollToTop';
+import LoadingSpinner from './components/LoadingSpinner';
 
-const LoadingScreen: React.FC = () => (
-  <div className="flex items-center justify-center min-h-screen text-white/80">
-    <div className="flex flex-col items-center gap-3">
-      <div className="h-10 w-10 rounded-full border-4 border-white/30 border-t-indigo-400 animate-spin" />
-      <p className="text-sm">Đang tải...</p>
-    </div>
-  </div>
-);
+// Components
+import ChatBubble from './components/ChatBubble';
 
-/**
- * NOTE ON BACKEND:
- * This is a FRONTEND-ONLY application designed to showcase a rich UI/UX.
- * All data is currently mocked and resides in `constants.ts`.
- * For full functionality (user accounts, payments, contest submissions),
- * a robust backend server and a database (e.g., Node.js with Express and MySQL) are required.
- * This frontend is ready to be connected to such a backend via API calls.
- */
+// Pages - Direct imports for critical pages
+import Home from './pages/Home';
+import Auth from './pages/Auth';
+import ForgotPassword from './pages/ForgotPassword';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 
-const AdminRoute: React.FC = () => {
-  const { isAdmin } = useAuth();
-  return isAdmin ? (
-    <PrivateRoute adminOnly>
-      <AdminPage />
-    </PrivateRoute>
-  ) : (
-    <AdminLoginPage />
-  );
+// Lazy-loaded pages for better code splitting
+const ContestList = lazy(() => import('./pages/Contests').then(m => ({ default: m.ContestList })));
+const ContestDetail = lazy(() => import('./pages/Contests').then(m => ({ default: m.ContestDetail })));
+const Marketplace = lazy(() => import('./pages/Marketplace').then(m => ({ default: m.Marketplace })));
+const CourseDetail = lazy(() => import('./pages/Marketplace').then(m => ({ default: m.CourseDetail })));
+const Documents = lazy(() => import('./pages/Documents'));
+const Community = lazy(() => import('./pages/Community'));
+const News = lazy(() => import('./pages/News'));
+const MentorList = lazy(() => import('./pages/Mentors').then(m => ({ default: m.MentorList })));
+const MentorDetail = lazy(() => import('./pages/Mentors').then(m => ({ default: m.MentorDetail })));
+const Profile = lazy(() => import('./pages/Profile'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const MyTeamPosts = lazy(() => import('./pages/MyTeamPosts'));
+const Reports = lazy(() => import('./pages/Reports'));
+const ReportTemplates = lazy(() => import('./pages/ReportTemplates'));
+
+// Types
+import { User } from './types';
+import { api, invalidateCache } from './lib/api';
+import { clientStorage, localDrafts } from './lib/cache';
+
+// Auth modal event listener type
+interface AuthModalDetail {
+    mode: 'login' | 'register';
+}
+
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
+const IDLE_ACTIVITY_KEY = clientStorage.buildKey('session', 'last_activity');
+const IDLE_USER_KEY = clientStorage.buildKey('session', 'last_activity_user');
+const IDLE_ACTIVITY_THROTTLE_MS = 5000;
+
+const App: React.FC = () => {
+    const isChatEnabled = import.meta.env.VITE_CHAT_ENABLED === 'true';
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [sessionTimeoutMs, setSessionTimeoutMs] = useState(DEFAULT_SESSION_TIMEOUT_MINUTES * 60 * 1000);
+    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastActivityRef = useRef<number>(Date.now());
+    const lastPersistedActivityRef = useRef<number>(0);
+
+    // Initialize user from localStorage
+    useEffect(() => {
+        const initAuth = async () => {
+            try {
+                const userStr = localStorage.getItem('user');
+
+                if (userStr) {
+                    const userData = JSON.parse(userStr);
+                    setUser(userData);
+                }
+
+                // Always re-sync user from backend when possible (keeps membership in sync)
+                try {
+                    const me = await api.get<{ user: User }>('/auth/me');
+                    if (me?.user) {
+                        localStorage.setItem('user', JSON.stringify(me.user));
+                        setUser(me.user);
+                    }
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err || '');
+                    const looksUnauthorized =
+                        message.includes('Unauthorized') ||
+                        message.includes('Invalid or expired token') ||
+                        message.includes('HTTP error! status: 401');
+
+                    if (looksUnauthorized) {
+                        localStorage.removeItem('user');
+                        localStorage.removeItem(IDLE_ACTIVITY_KEY);
+                        localStorage.removeItem(IDLE_USER_KEY);
+                        setUser(null);
+                        invalidateCache.all();
+                        localDrafts.clear();
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to parse user data:', err);
+                localStorage.removeItem('user');
+                localStorage.removeItem(IDLE_ACTIVITY_KEY);
+                localStorage.removeItem(IDLE_USER_KEY);
+                setUser(null);
+                invalidateCache.all();
+                localDrafts.clear();
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initAuth();
+
+        // Listen for auth changes from other components
+        const handleAuthChange = () => {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                try {
+                    setUser(JSON.parse(userStr));
+                } catch {
+                    setUser(null);
+                }
+            } else {
+                localStorage.removeItem(IDLE_ACTIVITY_KEY);
+                localStorage.removeItem(IDLE_USER_KEY);
+                setUser(null);
+            }
+        };
+
+        window.addEventListener('auth-change', handleAuthChange);
+        window.addEventListener('storage', handleAuthChange);
+
+        return () => {
+            window.removeEventListener('auth-change', handleAuthChange);
+            window.removeEventListener('storage', handleAuthChange);
+        };
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadSessionTimeout = async () => {
+            try {
+                const status = await api.get<{ sessionTimeout?: number }>('/admin/status');
+                const timeoutMinutes = Number(status?.sessionTimeout);
+                if (isMounted && Number.isFinite(timeoutMinutes) && timeoutMinutes > 0) {
+                    setSessionTimeoutMs(timeoutMinutes * 60 * 1000);
+                }
+            } catch {
+                // Ignore failures and keep the default timeout
+            }
+        };
+
+        loadSessionTimeout();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    // Logout handler
+    const handleLogout = useCallback(() => {
+        (async () => {
+            try {
+                await api.post('/auth/logout');
+            } catch {
+                // Ignore logout errors - we still clear local state
+            }
+
+            invalidateCache.all();
+            localDrafts.clear();
+            localStorage.removeItem('user');
+            localStorage.removeItem(IDLE_ACTIVITY_KEY);
+            localStorage.removeItem(IDLE_USER_KEY);
+            setUser(null);
+            window.dispatchEvent(new Event('auth-change'));
+        })();
+    }, []);
+
+    useEffect(() => {
+        if (!user) {
+            if (idleTimerRef.current) {
+                clearTimeout(idleTimerRef.current);
+                idleTimerRef.current = null;
+            }
+            return;
+        }
+
+        const timeoutMs = Number(sessionTimeoutMs);
+        if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+            return;
+        }
+
+        const now = Date.now();
+        const storedUserId = localStorage.getItem(IDLE_USER_KEY);
+        const storedActivity = Number(localStorage.getItem(IDLE_ACTIVITY_KEY));
+
+        if (storedUserId !== user.id || !Number.isFinite(storedActivity) || storedActivity <= 0) {
+            lastActivityRef.current = now;
+            lastPersistedActivityRef.current = now;
+            localStorage.setItem(IDLE_USER_KEY, user.id);
+            localStorage.setItem(IDLE_ACTIVITY_KEY, String(now));
+        } else {
+            lastActivityRef.current = storedActivity;
+        }
+
+        const scheduleLogoutCheck = () => {
+            if (idleTimerRef.current) {
+                clearTimeout(idleTimerRef.current);
+            }
+
+            const elapsed = Date.now() - lastActivityRef.current;
+            const remaining = timeoutMs - elapsed;
+
+            if (remaining <= 0) {
+                handleLogout();
+                return;
+            }
+
+            idleTimerRef.current = setTimeout(() => {
+                const elapsedNow = Date.now() - lastActivityRef.current;
+                if (elapsedNow >= timeoutMs) {
+                    handleLogout();
+                    return;
+                }
+                scheduleLogoutCheck();
+            }, remaining);
+        };
+
+        const recordActivity = () => {
+            const timestamp = Date.now();
+            lastActivityRef.current = timestamp;
+
+            if (timestamp - lastPersistedActivityRef.current < IDLE_ACTIVITY_THROTTLE_MS) {
+                return;
+            }
+
+            lastPersistedActivityRef.current = timestamp;
+            localStorage.setItem(IDLE_ACTIVITY_KEY, String(timestamp));
+            scheduleLogoutCheck();
+        };
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key !== IDLE_ACTIVITY_KEY || !event.newValue) return;
+            const next = Number(event.newValue);
+            if (!Number.isFinite(next) || next <= lastActivityRef.current) return;
+            lastActivityRef.current = next;
+            scheduleLogoutCheck();
+        };
+
+        const handleVisibility = () => {
+            if (!document.hidden) {
+                recordActivity();
+            }
+        };
+
+        const eventOptions: AddEventListenerOptions = { passive: true };
+        const activityEvents: Array<keyof WindowEventMap> = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+
+        activityEvents.forEach((eventName) => {
+            window.addEventListener(eventName, recordActivity, eventOptions);
+        });
+        window.addEventListener('focus', recordActivity);
+        window.addEventListener('storage', handleStorage);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        scheduleLogoutCheck();
+
+        return () => {
+            if (idleTimerRef.current) {
+                clearTimeout(idleTimerRef.current);
+                idleTimerRef.current = null;
+            }
+            activityEvents.forEach((eventName) => {
+                window.removeEventListener(eventName, recordActivity, eventOptions);
+            });
+            window.removeEventListener('focus', recordActivity);
+            window.removeEventListener('storage', handleStorage);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [handleLogout, sessionTimeoutMs, user]);
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            </div>
+        );
+    }
+
+    return (
+        <BrowserRouter>
+            <ScrollToTop />
+            <Toaster
+                position="top-center"
+                toastOptions={{
+                    duration: 4000,
+                    style: {
+                        background: '#fff',
+                        color: '#1e293b',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                    },
+                    success: {
+                        iconTheme: {
+                            primary: '#10b981',
+                            secondary: '#fff',
+                        },
+                    },
+                    error: {
+                        iconTheme: {
+                            primary: '#ef4444',
+                            secondary: '#fff',
+                        },
+                    },
+                }}
+            />
+
+            {/* Chatbot */}
+            {isChatEnabled && <ChatBubble />}
+
+            <Routes>
+                {/* Auth routes - no layout */}
+                <Route path="/login" element={user ? <Navigate to="/" replace /> : <Auth type="login" />} />
+                <Route path="/register" element={user ? <Navigate to="/" replace /> : <Auth type="register" />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+
+                {/* Main routes with layout */}
+                <Route element={<Layout user={user} onLogout={handleLogout} />}>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/contests" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <ContestList />
+                        </Suspense>
+                    } />
+                    <Route path="/contests/:id" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <ContestDetail />
+                        </Suspense>
+                    } />
+                    <Route path="/marketplace" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <Marketplace />
+                        </Suspense>
+                    } />
+                    <Route path="/courses/:id" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <CourseDetail />
+                        </Suspense>
+                    } />
+                    <Route path="/documents" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <Documents />
+                        </Suspense>
+                    } />
+                    <Route path="/community" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <Community />
+                        </Suspense>
+                    } />
+                    <Route path="/news" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <News />
+                        </Suspense>
+                    } />
+                    <Route path="/mentors" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <MentorList />
+                        </Suspense>
+                    } />
+                    <Route path="/mentors/:id" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <MentorDetail />
+                        </Suspense>
+                    } />
+                    <Route
+                        path="/reports"
+                        element={
+                            user ? (
+                                <Suspense fallback={<LoadingSpinner fullScreen />}>
+                                    <Reports />
+                                </Suspense>
+                            ) : <Navigate to="/login" replace />
+                        }
+                    />
+                    <Route
+                        path="/reports/new"
+                        element={
+                            user ? (
+                                <Suspense fallback={<LoadingSpinner fullScreen />}>
+                                    <ReportTemplates />
+                                </Suspense>
+                            ) : <Navigate to="/login" replace />
+                        }
+                    />
+                    <Route path="/profile" element={
+                        user ? (
+                            <Suspense fallback={<LoadingSpinner fullScreen />}>
+                                <Profile />
+                            </Suspense>
+                        ) : <Navigate to="/login" replace />
+                    } />
+                    <Route path="/user/:id" element={
+                        <Suspense fallback={<LoadingSpinner fullScreen />}>
+                            <UserProfile />
+                        </Suspense>
+                    } />
+                    <Route path="/my-team-posts" element={
+                        user ? (
+                            <Suspense fallback={<LoadingSpinner fullScreen />}>
+                                <MyTeamPosts />
+                            </Suspense>
+                        ) : <Navigate to="/login" replace />
+                    } />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                </Route>
+
+                {/* Catch all - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </BrowserRouter>
+    );
 };
-
-const Shell: React.FC = () => {
-  const location = useLocation();
-  const isAdminPage = location.pathname.startsWith('/admin');
-  const isAuthPage = ['/login', '/register', '/forgot-password'].some((path) =>
-    location.pathname.startsWith(path)
-  );
-  const hideFooter = isAdminPage || isAuthPage;
-
-  return (
-    <div className={`flex flex-col min-h-screen ${isAdminPage ? 'bg-slate-900' : 'bg-gray-900'} text-gray-100 font-sans`}>
-      {!isAdminPage && <Header />}
-      <main className="flex-grow">
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            <Route path="/" element={<div className="container mx-auto px-4 py-8"><HomePage /></div>} />
-            <Route path="/contests" element={<div className="container mx-auto px-4 py-8"><ContestsPage /></div>} />
-            <Route path="/contests/:id" element={<div className="container mx-auto px-4 py-8"><ContestDetailPageNew /></div>} />
-            <Route path="/marketplace" element={<div className="container mx-auto px-4 py-8"><MarketplacePage /></div>} />
-            <Route path="/courses/:id" element={<div className="container mx-auto px-4 py-8"><CourseDetailPage /></div>} />
-            <Route path="/community" element={<CommunityPage />} />
-            <Route path="/login" element={<div className="container mx-auto px-4 py-8"><LoginPage /></div>} />
-            <Route path="/forgot-password" element={<div className="container mx-auto px-4 py-8"><ForgotPasswordPage /></div>} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/admin" element={<AdminRoute />} />
-
-            {/* Private Routes */}
-            <Route path="/profile" element={
-              <div className="container mx-auto px-4 py-8">
-                <PrivateRoute>
-                  <ProfilePage />
-                </PrivateRoute>
-              </div>
-            } />
-          </Routes>
-        </Suspense>
-      </main>
-      {!hideFooter && <Footer />}
-      <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 5000,
-              style: {
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                color: '#ffffff',
-                border: '2px solid #3b82f6',
-                borderRadius: '12px',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(59, 130, 246, 0.3)',
-                backdropFilter: 'blur(16px)',
-                minWidth: '320px',
-              },
-              success: {
-                style: {
-                  background: 'linear-gradient(135deg, #064e3b 0%, #047857 100%)',
-                  border: '2px solid #10b981',
-                  color: '#ffffff',
-                  boxShadow: '0 25px 50px -12px rgba(16, 185, 129, 0.4), 0 0 0 1px rgba(16, 185, 129, 0.3)',
-                },
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#ffffff',
-                },
-              },
-              error: {
-                style: {
-                  background: 'linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%)',
-                  border: '2px solid #ef4444',
-                  color: '#ffffff',
-                  boxShadow: '0 25px 50px -12px rgba(239, 68, 68, 0.4), 0 0 0 1px rgba(239, 68, 68, 0.3)',
-                },
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#ffffff',
-                },
-              },
-              loading: {
-                style: {
-                  background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-                  border: '2px solid #60a5fa',
-                  color: '#ffffff',
-                  boxShadow: '0 25px 50px -12px rgba(96, 165, 250, 0.4), 0 0 0 1px rgba(96, 165, 250, 0.3)',
-                },
-              },
-            }}
-          />
-    </div>
-  );
-};
-
-const App: React.FC = () => (
-  <AuthProvider>
-    <HashRouter>
-      <Shell />
-    </HashRouter>
-  </AuthProvider>
-);
 
 export default App;

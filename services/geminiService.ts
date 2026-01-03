@@ -1,89 +1,153 @@
-
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.API_KEY;
+const apiKey = process.env.API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
 
-if (!API_KEY) {
-    console.warn("API_KEY environment variable not set. Gemini API will not be available.");
-}
+export const generateContestDescription = async (title: string, tags: string[]): Promise<string> => {
+  if (!apiKey) {
+    console.warn("API Key is missing. Returning mock data.");
+    return "This is a mock description because the API key is missing. Please add an API key to use AI features.";
+  }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+  try {
+    const prompt = `Write a short, exciting description (max 100 words) for a student coding contest titled "${title}". 
+    The contest focuses on these topics: ${tags.join(', ')}. 
+    Tone: Professional yet encouraging for university students.`;
 
-const model = 'gemini-2.5-flash';
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
 
-interface EnhancedContext {
-    userInfo?: string;
-    techKnowledge?: string;
-    recommendedContests?: any[];
-    recommendedCourses?: any[];
-}
-
-const getSystemInstruction = (context?: EnhancedContext) => {
-    let instruction = `You are "ContestBot", an intelligent AI assistant for ContestHub - a platform helping students discover academic contests and learn science & technology.
-
-**Your Capabilities:**
-- Tư vấn về các lĩnh vực khoa học kỹ thuật (Programming, AI/ML, Robotics, Web Dev, Cybersecurity, Data Science, IoT)
-- Gợi ý cuộc thi phù hợp với sở thích và kỹ năng của học sinh
-- Xây dựng lộ trình học tập cá nhân hóa
-- Chia sẻ tips, thủ thuật học tập hiệu quả
-- Hướng dẫn career paths trong tech
-
-**Personality:**
-- Thân thiện, nhiệt tình, động viên
-- Trả lời bằng tiếng Việt (trừ khi user hỏi bằng tiếng Anh)
-- Sử dụng emoji phù hợp
-- Câu trả lời ngắn gọn, dễ hiểu, có cấu trúc
-- Khuyến khích học sinh khám phá và phát triển
-
-**Guidelines:**
-- Luôn ưu tiên thông tin từ context được cung cấp
-- Nếu không có đủ thông tin, gợi ý user cập nhật profile
-- Đưa ra advice cụ thể, actionable
-- Link đến contests/courses có trong hệ thống khi phù hợp`;
-
-    if (context?.userInfo) {
-        instruction += `\n\n**USER CONTEXT:**\n${context.userInfo}`;
-    }
-
-    if (context?.techKnowledge) {
-        instruction += `\n\n**TECH KNOWLEDGE BASE:**\n${context.techKnowledge}`;
-    }
-
-    if (context?.recommendedContests && context.recommendedContests.length > 0) {
-        instruction += `\n\n**RECOMMENDED CONTESTS:**\n`;
-        context.recommendedContests.forEach(c => {
-            instruction += `- ${c.title} (${c.category}): ${c.description}\n`;
-        });
-    }
-
-    if (context?.recommendedCourses && context.recommendedCourses.length > 0) {
-        instruction += `\n\n**RECOMMENDED COURSES:**\n`;
-        context.recommendedCourses.forEach(c => {
-            instruction += `- ${c.name} (${c.price} VNĐ): ${c.description}\n`;
-        });
-    }
-
-    return instruction;
+    return response.text || "No description generated.";
+  } catch (error) {
+    console.error("Error generating content:", error);
+    return "Failed to generate description due to an API error.";
+  }
 };
 
-export const getBotResponse = async (message: string, context?: EnhancedContext): Promise<string> => {
-    if (!API_KEY) {
-        return "Xin lỗi, hiện tại mình chưa thể kết nối với hệ thống AI. Bạn vui lòng thử lại sau nhé! 🙏";
-    }
-    try {
-        const chatConfig = {
-            systemInstruction: getSystemInstruction(context),
-        };
+export const analyzePlatformStats = async (stats: any): Promise<string> => {
+  if (!apiKey) return "AI insights require an API Key.";
 
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: message,
-            config: chatConfig,
-        });
+  try {
+    const prompt = `Analyze these platform stats briefly and give 2 key insights for an admin: ${JSON.stringify(stats)}`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text || "No insights available.";
+  } catch (e) {
+    return "Could not analyze stats.";
+  }
+};
 
-        return response.text;
-    } catch (error) {
-        console.error("Error fetching bot response:", error);
-        return "Mình đang gặp chút vấn đề kỹ thuật. Bạn thử hỏi lại câu hỏi khác nhé! 😅";
-    }
+export const generateCourseSyllabus = async (title: string, level: string): Promise<string> => {
+  if (!apiKey) return "AI Syllabus generation requires an API Key.";
+
+  try {
+    const prompt = `Create a concise course description and a 4-week syllabus outline for a "${level}" level course titled "${title}". Format it clearly with "Description:" followed by "Syllabus:".`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "No content generated.";
+  } catch (error) {
+    console.error("Error generating content:", error);
+    return "Failed to generate syllabus.";
+  }
+};
+
+export const generateSystemAnnouncement = async (topic: string, audience: string): Promise<string> => {
+  if (!apiKey) return "AI features require an API Key.";
+
+  try {
+    const prompt = `Write a professional system announcement for a university platform named "Blanc". 
+    Topic: "${topic}". 
+    Target Audience: "${audience}". 
+    Tone: Clear, polite, and informative.
+    Format: Subject line followed by the body text.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "No announcement generated.";
+  } catch (error) {
+    console.error("Error generating announcement:", error);
+    return "Failed to generate announcement.";
+  }
+};
+
+export const analyzeAuditLogs = async (logs: any[]): Promise<string> => {
+  if (!apiKey) return "AI Analysis requires an API Key.";
+
+  try {
+    const prompt = `Analyze the following system audit logs for security risks or anomalies. 
+        Logs: ${JSON.stringify(logs)}.
+        Provide a concise summary (3-4 bullet points) of potential threats or important actions the admin should notice.
+        Focus on failed logins, bans, and critical setting changes.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text || "No analysis available.";
+  } catch (error) {
+    console.error("Error analyzing logs:", error);
+    return "Failed to analyze logs.";
+  }
+};
+
+// Report AI Functions
+export const generateReportContent = async (prompt: string, context: string): Promise<string> => {
+  if (!apiKey) return "Cần API Key để sử dụng tính năng AI.";
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Ngữ cảnh: ${context}\n\nNhiệm vụ: ${prompt}\n\nVui lòng viết một phần chuyên nghiệp cho báo cáo dựa trên thông tin trên. Trả lời bằng tiếng Việt.`,
+    });
+    return response.text || "Không thể tạo nội dung.";
+  } catch (error) {
+    console.error("AI Error:", error);
+    return "Lỗi khi tạo nội dung. Vui lòng thử lại.";
+  }
+};
+
+export const generateEmailDraft = async (reportContent: string, tone: string): Promise<string> => {
+  if (!apiKey) return "Cần API Key để sử dụng tính năng AI.";
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Nội dung báo cáo:\n${reportContent}\n\nNhiệm vụ: Soạn email chuyên nghiệp tóm tắt báo cáo này. Giọng điệu: ${tone}. Giữ ngắn gọn và có tính hành động. Trả lời bằng tiếng Việt.`,
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("AI Error:", error);
+    return "Lỗi khi tạo email.";
+  }
+};
+
+export const chatWithReportAgent = async (history: { role: string, parts: { text: string }[] }[], message: string): Promise<string> => {
+  if (!apiKey) return "Tôi chỉ có thể hỗ trợ nếu bạn cung cấp API Key hợp lệ.";
+
+  try {
+    const chat = ai.chats.create({
+      model: 'gemini-2.5-flash',
+      history: history as any,
+      config: {
+        systemInstruction: "Bạn là trợ lý AI hữu ích, chuyên nghiệp để viết báo cáo. Hãy ngắn gọn và chính xác. Trả lời bằng tiếng Việt."
+      }
+    });
+
+    const result = await chat.sendMessage({ message });
+    return result.text || "";
+  } catch (error) {
+    console.error("Chat Error:", error);
+    return "Tôi đang gặp sự cố kết nối. Vui lòng thử lại.";
+  }
 };

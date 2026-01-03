@@ -1,198 +1,506 @@
 
-export type ContentStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type MembershipTier = 'free' | 'plus' | 'pro' | 'business';
+
+export interface MembershipSummary {
+  tier: MembershipTier;
+  effectiveTier: MembershipTier;
+  status: 'active' | 'expired' | 'canceled';
+  startedAt: string | null;
+  expiresAt: string | null;
+  updatedAt: string | null;
+  source?: string | null;
+  orderId?: string | null;
+  active: boolean;
+}
+
+export interface MembershipEntitlements {
+  tier: MembershipTier;
+  reportsEnabled: boolean;
+  chatMessagesPerHour: number;
+}
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'USER' | 'ADMIN';
-  avatar?: string;
-  balance?: number;
-  streak?: number;
-  walletBalance?: number;
-  displayName?: string;
-  profileColor?: string;
-  profileGif?: string;
-  phoneNumber?: string;
-  location?: string | null;
-  // User preferences for contest matching
-  interests?: string[]; // JSON array
-  talents?: string[]; // JSON array
-  futureMajor?: string;
+  avatar: string;
+  role: 'student' | 'mentor' | 'admin' | 'super_admin';
+  balance: number;
+  status?: 'active' | 'banned';
+  membership?: MembershipSummary;
+  mentorBlogCompleted?: boolean;
+}
+
+export interface MentorBlog {
+  bannerUrl: string;
+  body: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface MentorSummary {
+  id: string;
+  name: string;
+  avatar?: string | null;
+  bannerUrl?: string;
+  joinedAt?: string | null;
+  mentorBlogCompleted?: boolean;
+  fields?: string[];
+}
+
+export interface MentorDetail extends MentorSummary {
+  bio?: string;
+  mentorBlog?: MentorBlog;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  user: string;
+  target: string;
+  timestamp: string;
+  ip: string;
+  status: 'Success' | 'Failed' | 'Warning';
+  details: string;
+}
+
+export interface StatCardProps {
+  title: string;
+  value: string | number;
+  trend?: string;
+  trendUp?: boolean;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+}
+
+// Prize structure for contests
+export interface ContestPrize {
+  rank: number;
+  title: string;
+  value: string;
+  description?: string;
+}
+
+// Schedule/Timeline item for contests
+export interface ContestScheduleItem {
+  date: string;
+  title: string;
+  description?: string;
+}
+
+// Organizer details
+export interface OrganizerDetails {
+  name: string;
+  school?: string;
+  logo?: string;
+  description?: string;
+  contact?: string;
+  website?: string;
 }
 
 export interface Contest {
   id: string;
   title: string;
-  organization: string;
-  organizer?: string;
-  description: string;
-  imageUrl: string;
+  organizer: string;
+  dateStart: string;
   deadline: string;
-  startDate: string;
+  status: 'OPEN' | 'FULL' | 'CLOSED';
+  fee: number;
   tags: string[];
-  relatedCourseIds: string[];
-  category?: string; // Category for matching
-  fee?: number; // Contest fee (0 or undefined means free)
-  format?: 'ONLINE' | 'OFFLINE' | 'HYBRID'; // Contest format
-  targetGrade?: string; // Target grade level (e.g., "THCS", "THPT", "6-9", "10-12")
-  registrationUrl?: string; // URL for registration
-  registrationDeadline?: string; // Registration deadline
-  prizeAmount?: number; // Prize amount for contest
-  website?: string; // Contest website URL
-
-  // Detailed information fields
-  benefits?: string[]; // Array of benefits
-  eligibility?: string[]; // Array of eligibility requirements
-  schedule?: ContestScheduleItem[]; // Array of schedule items
-  judges?: ContestJudge[]; // Array of judge information
-  partners?: ContestPartner[]; // Array of partners/sponsors
-  contactInfo?: ContestContactInfo; // Contact information
-  suggestedProducts?: DocumentResource[]; // Linked learning resources
-  status?: ContentStatus;
-  isActive?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface ContestScheduleItem {
-  date: string;
-  time: string;
-  activity: string;
-  description: string;
-}
-
-export interface ContestJudge {
-  name: string;
-  title: string;
-  avatar: string;
-  bio: string;
-}
-
-export interface ContestPartner {
-  name: string;
-  logo: string;
-  website: string;
-  type: string;
-}
-
-export interface ContestContactInfo {
-  email: string;
-  phone: string;
-  address: string;
-  facebook?: string;
-  website?: string;
+  image: string;
+  description?: string;
+  // New fields for complete contest info
+  location?: string;
+  locationType?: 'online' | 'offline' | 'hybrid';
+  category?: string; // Canonical labels: IT & Tech, Data & Analytics, Cybersecurity, etc.
+  rules?: string; // Rich text for contest rules/regulations
+  schedule?: ContestScheduleItem[]; // Timeline/milestones
+  prizes?: ContestPrize[]; // Prize structure
+  objectives?: string; // Contest objectives
+  eligibility?: string; // Eligibility requirements
+  organizerDetails?: OrganizerDetails; // Extended organizer info
+  maxParticipants?: number;
+  registrationCount?: number;
 }
 
 export interface Course {
   id: string;
   title: string;
-  author: string;
+  instructor: string;
   price: number;
-  description: string;
-  imageUrl: string;
-  type: string;
-  duration?: string;
-  level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  language?: string;
-  rating?: number | null;
-  reviewCount?: number | null;
-  reviews?: CourseReview[];
-  downloadUrl?: string | null;
-}
-
-export interface CourseReview {
-  id: string;
   rating: number;
-  comment?: string;
-  reviewerName?: string;
-  reviewerId?: string;
-  isVerifiedPurchase?: boolean;
-  createdAt: string;
+  reviewsCount: number;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  image: string;
+  description?: string;
+  // Thời gian học dự kiến (số tuần hoặc số giờ)
+  duration?: string;
+  // Thời lượng học mỗi tuần (số giờ)
+  hoursPerWeek?: number;
+  // Ngày bắt đầu và kết thúc khóa học dự kiến
+  startDate?: string;
+  endDate?: string;
+  // Thông tin liên hệ đăng ký (có thể là URL hoặc số điện thoại)
+  contactInfo?: string;
+  // Loại thông tin liên hệ
+  contactType?: 'link' | 'phone';
+  // Metadata
+  isPublic?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface DocumentResource {
+export type DocumentCategory = 'Tutorial' | 'Reference' | 'Guide' | 'Research';
+
+export interface Document {
+  id: string;
+  title: string;
+  author: string;
+  category: DocumentCategory;
+  link: string;
+  description?: string;
+  thumbnail?: string;
+  downloads: number;
+  isPublic: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Team {
   id: string;
   name: string;
   description: string;
-  price: number;
-  type: string;
-  imageUrl?: string | null;
-  downloadUrl?: string | null;
-  categories?: string[] | null;
-  duration?: string | null;
-  level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
-  language?: string | null;
-  isApproved?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  rating?: number | null;
-  reviewCount?: number | null;
-  sellerName?: string | null;
-  status?: ContentStatus;
-  reviews?: CourseReview[];
+  rolesNeeded: string[];
+  members: number;
+  avatar: string;
 }
 
-export interface CartItem extends Course {
-  quantity: number;
-}
-
-export interface CalendarEvent {
+// Team Finding Post
+export interface TeamPost {
   id: string;
   title: string;
-  start: Date;
-  end: Date;
-  type: 'contest-deadline' | 'personal-event';
+  description: string;
+  contestId?: string;
+  contestTitle?: string;
+  rolesNeeded: string[];
+  roleSlots?: RoleSlot[];
+  currentMembers: number;
+  maxMembers: number;
+  requirements?: string;
+  skills?: string[];
+  contactMethod: 'message' | 'email' | 'both';
+  status: 'open' | 'closed' | 'full';
+  deadline?: string;
+  invitedMembers?: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    avatar?: string;
+    invitedAt?: string;
+  }>;
+  createdBy: {
+    id: string;
+    name: string;
+    avatar?: string;
+    email?: string;
+  };
+  members: Array<{
+    id: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+    task?: string;
+    joinedAt: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+}
+
+export interface RoleSlot {
+  role: string;
+  count: number;
+  description?: string;
+  skills?: string[];
+}
+
+export interface TeamPostCreate {
+  title: string;
+  description: string;
+  contestId?: string;
+  rolesNeeded: string[];
+  roleSlots?: RoleSlot[];
+  maxMembers: number;
+  requirements?: string;
+  skills?: string[];
+  contactMethod: 'message' | 'email' | 'both';
+  deadline?: string;
+  expiresAt?: string;
+  invitedMembers?: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    avatar?: string;
+    role?: string;
+  }>;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time?: string;
+  createdAt?: string;
+  type: 'system' | 'invite' | 'reward' | 'course' | 'contestReminder' | 'courseUpdate' | 'announcement' | 'welcome' | 'contestRegistration';
+  isRead: boolean;
+}
+
+// User Registration for Contests
+export interface UserRegistration {
+  id: string;
+  contestId: string;
+  userId: string;
+  registeredAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+  contest?: {
+    id: string;
+    title: string;
+    organizer: string;
+    dateStart: string;
+    deadline: string;
+    status: string;
+    tags: string[];
+    image: string;
+  };
+}
+
+// Schedule Event for Calendar
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  organizer: string;
+  dateStart: string;
+  deadline: string;
+  status: string;
+  tags: string[];
+  image: string;
+  type: 'contest' | 'course';
+}
+
+// Workload Warning Types
+export interface WorkloadWarning {
+  type: 'critical' | 'warning';
+  category: 'contests' | 'courses' | 'schedule' | 'overlap';
+  message: string;
+  suggestion: string;
+  contests?: string[];
+}
+
+export interface WorkloadAnalysis {
+  workload: {
+    activeContests: number;
+    activeCourses: number;
+    weeklyEvents: number;
+    upcomingContests: Array<{
+      id: string;
+      title: string;
+      dateStart: string;
+      deadline: string;
+    }>;
+  };
+  limits: {
+    MAX_ACTIVE_CONTESTS: number;
+    MAX_ACTIVE_COURSES: number;
+    MAX_WEEKLY_EVENTS: number;
+    WARNING_THRESHOLD_CONTESTS: number;
+    WARNING_THRESHOLD_COURSES: number;
+  };
+  warnings: WorkloadWarning[];
+  overallStatus: 'normal' | 'warning' | 'critical';
+  healthScore: number;
+}
+
+// Course Enrollment
+export interface CourseEnrollment {
+  id: string;
+  courseId: string;
+  userId: string;
+  enrolledAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+  progress: number;
+  completedLessons: string[];
+  lastAccessedAt?: string;
+  completedAt?: string;
+  course?: {
+    id: string;
+    title: string;
+    instructor: string;
+    price: number;
+    rating: number;
+    reviewsCount: number;
+    level: string;
+    image: string;
+    description?: string;
+    lessonsCount: number;
+    duration?: string;
+    hoursPerWeek?: number;
+    startDate?: string;
+    endDate?: string;
+    contactInfo?: string;
+    contactType?: 'link' | 'phone';
+  };
+}
+
+export type AuthStatus = 'authenticated' | 'unauthenticated' | 'loading';
+
+// Report types for AI Report Generator
+export interface ReportTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  icon: string;
+}
+
+export interface ReportActivity {
+  id: string;
+  title: string;
+  description?: string | null;
+  occurredAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ReportEvidence {
+  id: string;
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  url: string;
+  uploadedAt?: string | null;
+}
+
+export interface Report {
+  id: string;
+  title: string;
+  template: string;
+  status: 'Draft' | 'Sent' | 'Ready';
+  reviewStatus?: 'draft' | 'submitted' | 'needs_changes' | 'approved';
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  relatedType?: 'contest' | 'course' | null;
+  relatedId?: string | null;
+  activities?: ReportActivity[];
+  evidence?: ReportEvidence[];
+  lastEdited: string;
+  content: string;
+  userId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReportsResponse {
+  reports: Report[];
+  total: number;
+  hasMore: boolean;
 }
 
 export interface ChatMessage {
-  sender: 'user' | 'bot';
+  id: string;
+  role: 'user' | 'model';
   text: string;
+  timestamp: Date;
 }
 
-export type TeamRecruitmentStatus = 'OPEN' | 'FULL' | 'CLOSED';
+export interface EmailDraft {
+  to: string;
+  subject: string;
+  body: string;
+  tone: 'Formal' | 'Neutral' | 'Friendly';
+}
 
-export interface TeamMemberPreview {
+// Review for contests, courses, documents
+export interface Review {
   id: string;
-  displayName?: string;
-  name?: string;
-  avatar?: string | null;
-  profileColor?: string | null;
-}
-
-export interface TeamOwnerInfo extends TeamMemberPreview {
-  email?: string;
-}
-
-export interface TeamPostSummary {
-  id: string;
-  title: string;
-  teamName?: string | null;
-  summary: string;
-  lookingFor?: string | null;
-  status: TeamRecruitmentStatus;
-  maxMembers: number;
-  activeMemberCount: number;
-  tags: string[];
-  owner: TeamOwnerInfo;
-  membersPreview: TeamMemberPreview[];
-  channelId?: string | null;
-  isMember: boolean;
-}
-
-export interface TeamPostMember {
-  id: string;
-  teamId: string;
+  targetId: string;
+  targetType: 'contest' | 'course' | 'document';
   userId: string;
-  role?: string | null;
-  status: 'ACTIVE' | 'LEFT' | 'REMOVED';
-  joinedAt: string;
-  user: TeamMemberPreview & { email?: string; phoneNumber?: string | null };
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  comment: string;
+  isVerified?: boolean;
+  helpfulCount: number;
+  createdAt: string;
+  updatedAt?: string;
 }
 
-export interface TeamPostDetail extends TeamPostSummary {
-  description: string;
-  requirements?: string | null;
-  location?: string | null;
-  members: TeamPostMember[];
+export interface ReviewStats {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+}
+
+export interface NewsAuthor {
+  id?: string | null;
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface NewsArticle {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body?: string;
+  tags: string[];
+  coverImage?: string;
+  type?: 'announcement' | 'minigame' | 'update' | 'event' | 'tip';
+  highlight?: boolean;
+  actionLabel?: string;
+  actionLink?: string;
+  status: 'draft' | 'published';
+  publishAt?: string | null;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  author?: NewsAuthor | null;
+}
+
+export interface RecruitmentRole {
+  role: string;
+  description?: string;
+  skills?: string[];
+}
+
+export interface RecruitmentContact {
+  name?: string;
+  email?: string;
+  phone?: string;
+  link?: string;
+  discord?: string;
+  note?: string;
+}
+
+export interface RecruitmentPost {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body?: string;
+  tags: string[];
+  coverImage?: string;
+  roles: RecruitmentRole[];
+  contact?: RecruitmentContact;
+  status: 'draft' | 'published';
+  publishAt?: string | null;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  author?: NewsAuthor | null;
 }

@@ -1,17 +1,47 @@
-# Frontend Dockerfile
-FROM node:18-alpine as build
+# Build stage for frontend
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
 
+# Copy package files
+COPY package*.json ./
+
+# Copy workspace manifests for npm workspaces
+RUN mkdir -p apps/admin
+COPY apps/admin/package.json ./apps/admin/package.json
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy source code
 COPY . .
+
+# Build frontend
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
+FROM node:20-alpine
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+WORKDIR /app
+
+# Copy package files for backend
+COPY package*.json ./
+
+# Copy workspace manifests for npm workspaces
+RUN mkdir -p apps/admin
+COPY apps/admin/package.json ./apps/admin/package.json
+
+# Install production dependencies only
+RUN npm install --omit=dev --legacy-peer-deps
+
+# Copy backend server
+COPY server ./server
+
+# Copy built frontend
+COPY --from=frontend-builder /app/dist ./dist
+
+# Expose port
+EXPOSE 4000
+
+# Start server
+CMD ["node", "server/index.js"]

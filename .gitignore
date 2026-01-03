@@ -1,22 +1,5 @@
-# ================================
-# Dependencies
-# ================================
-node_modules/
-.pnp
-.pnp.js
-
-# ================================
-# Build outputs
-# ================================
-dist/
-dist-ssr/
-build/
-*.local
-
-# ================================
 # Logs
-# ================================
-logs/
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -24,97 +7,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ================================
-# Environment variables (QUAN TRỌNG - không push lên git)
-# ================================
+node_modules
+dist
+dist-ssr
+.netlify
+*.local
 .env
-.env.local
-.env.development
-.env.production
-.env*.local
-backend/.env
+.env.*
+!.env.example
+tmp_*.png
 
-# ================================
-# Editor & IDE
-# ================================
+# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-!.vscode/settings.json
-.idea/
+*.code-workspace
+.idea
+.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-# ================================
-# OS generated files
-# ================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# ================================
-# PowerShell scripts (không cần cho deployment)
-# ================================
-*.ps1
-*.bat
-
-# ================================
-# Backup và files tạm
-# ================================
-*.backup
-*.bak
-*_backup*
-backup_*/
-Picture/
-mysql-init/
-
-# ================================
-# Database files (giữ Prisma schemas cho cả MySQL và MongoDB)
-# ================================
-backend/prisma/migrations_archive*/
-backend/prisma/migrations_backup*/
-backend/prisma/*.ts
-!backend/prisma/seed.ts
-!backend/prisma/schema.prisma
-!backend/prisma/schema.mysql.prisma
-!backend/prisma/schema.mongodb.prisma
-
-# ================================
-# Upload files (user uploads - không push lên git)
-# ================================
-backend/uploads/*
-!backend/uploads/.gitkeep
-
-# ================================
-# Test và debug files
-# ================================
-test-*.html
-*.test.ts
-*.spec.ts
-coverage/
-.nyc_output/
-COMMUNITY_CHAT_POSTMAN.json
-
-# ================================
-# Documentation files (không cần cho production)
-# ================================
-*.md
-!README.md
-
-# ================================
-# Các thư mục không cần cho production
-# ================================
-blogmaster-admin/
-google-apps-script/
-
-# ================================
-# Lock files (giữ package-lock.json cho consistent builds)
-# ================================
-yarn.lock
-pnpm-lock.yaml
