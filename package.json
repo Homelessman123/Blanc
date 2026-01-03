@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "netlify:build": "node scripts/netlify-build.mjs",
     "admin:dev": "npm -w apps/admin run dev",
     "admin:build": "npm -w apps/admin run build",
     "admin:preview": "npm -w apps/admin run preview",
