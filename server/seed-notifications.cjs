@@ -1,15 +1,12 @@
-// Seed admin notifications for testing
-const { MongoClient } = require('mongodb');
-
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/blanc';
+// Seed admin notifications for testing (PostgreSQL/CockroachDB)
+require('dotenv').config();
 
 async function seedNotifications() {
-    const client = new MongoClient(MONGO_URI);
+    const { connectToDatabase, disconnectFromDatabase, getCollection } = await import('./lib/db.js');
 
     try {
-        await client.connect();
-        const db = client.db();
-        const notifications = db.collection('admin_notifications');
+        await connectToDatabase();
+        const notifications = getCollection('admin_notifications');
 
         // Clear existing notifications
         await notifications.deleteMany({});
@@ -23,7 +20,7 @@ async function seedNotifications() {
                 category: 'contest',
                 link: '/contests',
                 read: false,
-                createdAt: new Date(now - 10 * 60 * 1000) // 10 minutes ago
+                createdAt: new Date(now - 10 * 60 * 1000),
             },
             {
                 title: 'New User Registration',
@@ -32,7 +29,7 @@ async function seedNotifications() {
                 category: 'user',
                 link: '/users',
                 read: false,
-                createdAt: new Date(now - 30 * 60 * 1000) // 30 minutes ago
+                createdAt: new Date(now - 30 * 60 * 1000),
             },
             {
                 title: 'Security Alert',
@@ -41,7 +38,7 @@ async function seedNotifications() {
                 category: 'security',
                 link: '/security',
                 read: false,
-                createdAt: new Date(now - 2 * 60 * 60 * 1000) // 2 hours ago
+                createdAt: new Date(now - 2 * 60 * 60 * 1000),
             },
             {
                 title: 'Course Published Successfully',
@@ -50,7 +47,7 @@ async function seedNotifications() {
                 category: 'course',
                 link: '/courses',
                 read: true,
-                createdAt: new Date(now - 5 * 60 * 60 * 1000) // 5 hours ago
+                createdAt: new Date(now - 5 * 60 * 60 * 1000),
             },
             {
                 title: 'System Maintenance Scheduled',
@@ -58,7 +55,7 @@ async function seedNotifications() {
                 type: 'info',
                 category: 'system',
                 read: true,
-                createdAt: new Date(now - 24 * 60 * 60 * 1000) // 1 day ago
+                createdAt: new Date(now - 24 * 60 * 60 * 1000),
             },
             {
                 title: 'User Milestone Reached',
@@ -66,17 +63,23 @@ async function seedNotifications() {
                 type: 'success',
                 category: 'system',
                 read: true,
-                createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000) // 3 days ago
-            }
+                createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+            },
         ];
 
-        await notifications.insertMany(testNotifications);
-        console.log('Seeded', testNotifications.length, 'notifications successfully!');
-
+        const result = await notifications.insertMany(testNotifications);
+        // eslint-disable-next-line no-console
+        console.log('Seeded', result.insertedCount, 'notifications successfully!');
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Error seeding notifications:', error);
+        process.exitCode = 1;
     } finally {
-        await client.close();
+        try {
+            await disconnectFromDatabase();
+        } catch {
+            // ignore
+        }
     }
 }
 

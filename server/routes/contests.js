@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard, requireRole } from '../middleware/auth.js';

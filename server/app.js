@@ -65,7 +65,16 @@ const corsOrigins = process.env.FRONTEND_ORIGIN
     'http://localhost:5174',
   ];
 
-app.use(helmet({ crossOriginResourcePolicy: false }));
+const helmetCrossOriginResourcePolicy =
+  String(process.env.HELMET_CORP || 'false').toLowerCase() === 'true'
+    ? { policy: 'same-site' }
+    : false;
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: helmetCrossOriginResourcePolicy,
+  })
+);
 app.use(
   cors({
     origin: corsOrigins,
@@ -80,7 +89,8 @@ app.use(
 app.use(ipBlocklist);
 
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '10mb';
+app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestSanitizer);
 

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { connectToDatabase, disconnectFromDatabase, getCollection } from '../lib/db.js';
 
 const contests = [
@@ -904,10 +905,14 @@ async function seedTeamPosts() {
   const allContests = await contestsCollection.find({}).toArray();
   const contestMap = new Map(allContests.map(c => [c.code, c]));
 
-  // Clear existing team posts to avoid duplicates
-  await teamPostsCollection.deleteMany({});
+  const operations = teamPostsData.map((post, index) => {
+    // Stable ID so reruns don't create duplicates (team post APIs require ObjectId-shaped IDs)
+    const stableId = crypto
+      .createHash('sha256')
+      .update(`seed:team_posts:${post.contestCode}:${post.title}`)
+      .digest('hex')
+      .slice(0, 24);
 
-  const teamPosts = teamPostsData.map((post, index) => {
     // Rotate through users as creators
     const creator = allUsers[index % allUsers.length];
     const contest = contestMap.get(post.contestCode);
@@ -932,31 +937,41 @@ async function seedTeamPosts() {
       })),
     ];
 
-    return {
-      title: post.title,
-      description: post.description,
-      contestId: contest ? contest._id.toString() : null,
-      contestTitle: contest ? contest.title : null,
-      rolesNeeded: post.rolesNeeded,
-      currentMembers: members.length,
-      maxMembers: post.maxMembers,
-      requirements: '',
-      contactMethod: post.contactMethod,
-      status: 'open',
-      createdBy: {
-        id: creator._id.toString(),
-        name: creator.name,
-        avatar: creator.avatar || ''
+    return teamPostsCollection.updateOne(
+      { _id: stableId },
+      {
+        $set: {
+          seedSource: 'seed',
+          title: post.title,
+          description: post.description,
+          contestId: contest ? contest._id.toString() : null,
+          contestTitle: contest ? contest.title : null,
+          rolesNeeded: post.rolesNeeded,
+          currentMembers: members.length,
+          maxMembers: post.maxMembers,
+          requirements: '',
+          contactMethod: post.contactMethod,
+          status: 'open',
+          createdBy: {
+            id: creator._id.toString(),
+            name: creator.name,
+            avatar: creator.avatar || '',
+            email: creator.email || '',
+          },
+          members,
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        },
+        $setOnInsert: {
+          createdAt: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000), // Random within last 2 weeks
+        },
       },
-      members: members,
-      createdAt: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000), // Random within last 2 weeks
-      updatedAt: new Date(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    };
+      { upsert: true }
+    );
   });
 
-  await teamPostsCollection.insertMany(teamPosts);
-  console.log(`✅ Created ${teamPosts.length} team posts`);
+  await Promise.all(operations);
+  console.log(`✅ Seeded ${teamPostsData.length} team posts`);
 }
 
 async function setupLoginAttemptsCollection() {
@@ -980,7 +995,7 @@ async function main() {
     await seedTeamPosts();
     await setupLoginAttemptsCollection();
     // eslint-disable-next-line no-console
-    console.log('✅ Seed data has been migrated to MongoDB.');
+    console.log('✅ Seed data has been inserted into PostgreSQL/CockroachDB.');
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('❌ Migration failed:', error);
@@ -990,7 +1005,7 @@ async function main() {
       await disconnectFromDatabase();
     } catch (disconnectError) {
       // eslint-disable-next-line no-console
-      console.error('Failed to disconnect from MongoDB:', disconnectError);
+      console.error('Failed to disconnect from PostgreSQL/CockroachDB:', disconnectError);
       process.exitCode = process.exitCode || 1;
     }
   }

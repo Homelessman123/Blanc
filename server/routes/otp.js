@@ -79,7 +79,7 @@ async function checkRateLimit(email, ip) {
     );
 
     const cooldownEnd = lastRequest
-        ? new Date(lastRequest.createdAt.getTime() + OTP_CONFIG.COOLDOWN_SECONDS * 1000)
+        ? new Date(new Date(lastRequest.createdAt).getTime() + OTP_CONFIG.COOLDOWN_SECONDS * 1000)
         : null;
 
     const remainingCooldown = cooldownEnd
@@ -218,20 +218,35 @@ router.post('/request', async (req, res, next) => {
 
         // CRITICAL: Update pending_logins sessionTokenHash when requesting new OTP for login_2fa
         // This ensures the sessionToken used for OTP matches the one stored in pending_logins
+        // Also extend expiry time by 2 minutes from now on each resend
         if (action === 'login_2fa') {
             const pendingLogins = getCollection('pending_logins');
+            const newExpiresAt = new Date(Date.now() + 2 * 60 * 1000); // Extend by 2 minutes from now
             await pendingLogins.updateMany(
                 { email: normalizedEmail, status: 'PENDING_OTP' },
-                { $set: { sessionTokenHash, updatedAt: new Date() } }
+                {
+                    $set: {
+                        sessionTokenHash,
+                        expiresAt: newExpiresAt,
+                        updatedAt: new Date()
+                    }
+                }
             );
         }
 
-        // Similarly for register_verify - update pending_registrations
+        // Similarly for register_verify - update pending_registrations and extend expiry
         if (action === 'register_verify') {
             const pendingRegistrations = getCollection('pending_registrations');
+            const newExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // Extend to 10 minutes
             await pendingRegistrations.updateMany(
                 { email: normalizedEmail, status: 'PENDING' },
-                { $set: { sessionTokenHash, updatedAt: new Date() } }
+                {
+                    $set: {
+                        sessionTokenHash,
+                        expiresAt: newExpiresAt,
+                        updatedAt: new Date()
+                    }
+                }
             );
         }
 
@@ -261,11 +276,7 @@ router.post('/request', async (req, res, next) => {
             // Don't fail the request, but log it
         }
 
-        // Log for development (remove in production)
-        if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
-            console.log(`[DEV] OTP for ${normalizedEmail}: ${otp}`);
-        }
+        // SECURITY: Never log OTP values.
 
         res.json({
             ok: true,
@@ -532,11 +543,7 @@ router.post('/resend', async (req, res, next) => {
             console.error('[OTP] Failed to send email:', emailError.message);
         }
 
-        // Dev logging
-        if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
-            console.log(`[DEV] New OTP for ${normalizedEmail}: ${otp}`);
-        }
+        // SECURITY: Never log OTP values.
 
         res.json({
             ok: true,
@@ -633,10 +640,16 @@ async function sendOtpEmail(email, otp, action) {
         return result;
     }
 
-    // Fallback: just log (in production, integrate with email service)
+    // SECURITY: Do not ever log OTP values.
+    // In production, fail fast to avoid silently "sending" nothing.
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('OTP_EMAIL_URL is not configured');
+    }
+
+    // In development, keep behavior non-blocking but avoid exposing OTP.
     // eslint-disable-next-line no-console
-    console.log(`[EMAIL] Would send OTP ${otp} to ${email} for ${actionText}`);
-    return { ok: true, method: 'log' };
+    console.warn(`[OTP] OTP_EMAIL_URL is not configured; cannot send OTP email to ${email} (${actionText})`);
+    return { ok: false, method: 'noop' };
 }
 
 export default router;

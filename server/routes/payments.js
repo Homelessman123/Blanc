@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import {
     extractOrderCodeFromContent,

@@ -575,7 +575,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
       });
 
       setLogin2FASessionToken(newSessionToken);
-      setOtpExpiresAt(new Date(Date.now() + 2 * 60 * 1000)); // 2 minutes
+      setOtpExpiresAt(new Date(Date.now() + 2 * 60 * 1000)); // 2 minutes - auto-extends on resend
       setCountdown(60);
       setOtp('');
 

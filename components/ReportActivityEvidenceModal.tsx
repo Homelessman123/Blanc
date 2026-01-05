@@ -234,17 +234,18 @@ export const ReportActivityEvidenceModal: React.FC<ReportActivityEvidenceModalPr
         });
 
         const uploadResult = await uploadResponse.json().catch(() => null);
-        const driveFileId = uploadResult?.result?.id;
-        if (uploadResult?.status !== 200 || !driveFileId) {
+        const mediaId = uploadResult?.result?.id;
+        const mediaUrl = uploadResult?.result?.url;
+        if (uploadResult?.status !== 200 || !mediaId || !mediaUrl) {
           throw new Error(uploadResult?.result?.error || 'Upload failed');
         }
 
         uploaded.push({
           id: generateId(),
-          fileId: String(driveFileId),
+          fileId: String(mediaId),
           fileName: file.name,
           mimeType: file.type,
-          url: '',
+          url: String(mediaUrl),
           uploadedAt: new Date().toISOString(),
         });
       }

@@ -60,29 +60,23 @@ const App: React.FC = () => {
     // Initialize user from localStorage
     useEffect(() => {
         const initAuth = async () => {
+            const hasCookie = (name: string) => {
+                if (typeof document === 'undefined') return false;
+                const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return new RegExp(`(?:^|; )${escaped}=`).test(document.cookie);
+            };
+
             try {
                 const userStr = localStorage.getItem('user');
+                let hasLocalUser = false;
 
                 if (userStr) {
-                    const userData = JSON.parse(userStr);
-                    setUser(userData);
-                }
-
-                // Always re-sync user from backend when possible (keeps membership in sync)
-                try {
-                    const me = await api.get<{ user: User }>('/auth/me');
-                    if (me?.user) {
-                        localStorage.setItem('user', JSON.stringify(me.user));
-                        setUser(me.user);
-                    }
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err || '');
-                    const looksUnauthorized =
-                        message.includes('Unauthorized') ||
-                        message.includes('Invalid or expired token') ||
-                        message.includes('HTTP error! status: 401');
-
-                    if (looksUnauthorized) {
+                    try {
+                        const userData = JSON.parse(userStr);
+                        setUser(userData);
+                        hasLocalUser = true;
+                    } catch (err) {
+                        console.error('Failed to parse user data:', err);
                         localStorage.removeItem('user');
                         localStorage.removeItem(IDLE_ACTIVITY_KEY);
                         localStorage.removeItem(IDLE_USER_KEY);
@@ -91,14 +85,40 @@ const App: React.FC = () => {
                         localDrafts.clear();
                     }
                 }
-            } catch (err) {
-                console.error('Failed to parse user data:', err);
-                localStorage.removeItem('user');
-                localStorage.removeItem(IDLE_ACTIVITY_KEY);
-                localStorage.removeItem(IDLE_USER_KEY);
-                setUser(null);
-                invalidateCache.all();
-                localDrafts.clear();
+
+                const hasSessionCookie = hasCookie('csrf_token');
+
+                // Only re-sync user when we likely have an existing session (avoids noisy 401s on fresh/guest visits)
+                if (hasLocalUser || hasSessionCookie) {
+                    try {
+                        const me = await api.get<{ user: User }>('/auth/me');
+                        if (me?.user) {
+                            localStorage.setItem('user', JSON.stringify(me.user));
+                            setUser(me.user);
+                        }
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err || '');
+                        const looksUnauthorized =
+                            message.includes('Unauthorized') ||
+                            message.includes('Invalid or expired token') ||
+                            message.includes('HTTP error! status: 401');
+
+                        if (looksUnauthorized) {
+                            localStorage.removeItem('user');
+                            localStorage.removeItem(IDLE_ACTIVITY_KEY);
+                            localStorage.removeItem(IDLE_USER_KEY);
+                            setUser(null);
+                            invalidateCache.all();
+                            localDrafts.clear();
+
+                            try {
+                                await api.post('/auth/logout');
+                            } catch {
+                                // ignore
+                            }
+                        }
+                    }
+                }
             } finally {
                 setIsLoading(false);
             }

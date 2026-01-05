@@ -10,8 +10,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 cp .env.example .env.production
 # Edit and add the values above
 
-# 3. Create database indexes
-node server/scripts/optimize-indexes.cjs
+# 3. Initialize DB schema/indexes
+npm run db:init
 
 # 4. Verify data consistency
 node server/scripts/verify-data.cjs
@@ -39,7 +39,7 @@ app.use('/api', RateLimiters.api);            // 100/15min
 NODE_ENV=production
 JWT_SECRET=<32+ character random string>
 FRONTEND_ORIGIN=https://example.com
-MONGODB_URI=mongodb+srv://...
+DATABASE_URL=postgresql://...
 ```
 
 ---

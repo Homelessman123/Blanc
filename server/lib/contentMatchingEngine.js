@@ -25,7 +25,7 @@
  */
 
 import { getCollection } from './db.js';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 
 // ============================================================================
 // CONSTANTS

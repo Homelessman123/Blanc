@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
 
@@ -65,19 +65,19 @@ function mapReport(doc, owner, { includeContent = false } = {}) {
     updatedAt: doc.updatedAt,
     ...(includeContent
       ? {
-          content: doc.content || '',
-          activities: doc.activities || [],
-          evidence: doc.evidence || [],
-        }
+        content: doc.content || '',
+        activities: doc.activities || [],
+        evidence: doc.evidence || [],
+      }
       : {}),
     user: owner
       ? {
-          id: owner._id?.toString(),
-          name: owner.name || '',
-          email: owner.email || '',
-          avatar: owner.avatar || null,
-          role: owner.role || 'student',
-        }
+        id: owner._id?.toString(),
+        name: owner.name || '',
+        email: owner.email || '',
+        avatar: owner.avatar || null,
+        role: owner.role || 'student',
+      }
       : { id: doc.userId || null, name: '', email: '', avatar: null, role: 'student' },
   };
 }
@@ -172,8 +172,8 @@ router.get('/', authGuard, requireMentorOrAdmin, async (req, res, next) => {
     );
     const owners = ownerIds.length
       ? await users
-          .find({ _id: { $in: ownerIds } }, { projection: { name: 1, email: 1, avatar: 1, role: 1 } })
-          .toArray()
+        .find({ _id: { $in: ownerIds } }, { projection: { name: 1, email: 1, avatar: 1, role: 1 } })
+        .toArray()
       : [];
     const ownerMap = new Map(owners.map((u) => [u._id.toString(), u]));
 

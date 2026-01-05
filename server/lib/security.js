@@ -11,6 +11,9 @@ export const RateLimiters = {
         max: 5, // max 5 requests per 15 minutes
         standardHeaders: true,
         legacyHeaders: false,
+        // Mounted at /api/auth. Exclude non-sensitive endpoints that are called frequently in normal flows.
+        // (e.g. app bootstrapping calls /auth/me to check session)
+        skip: (req) => req.path === '/me' || req.path === '/logout',
         keyGenerator: (req) => getClientIp(req),
         message: 'Too many authentication attempts, please try again later',
     }),
@@ -32,7 +35,11 @@ export const RateLimiters = {
         standardHeaders: true,
         legacyHeaders: false,
         // Mounted at /api, so health path here is usually "/health"
-        skip: (req) => req.path === '/health' || req.path?.startsWith('/health/'),
+        // Exempt cheap/read-only endpoints that may be called frequently in normal flows.
+        skip: (req) =>
+            req.path === '/health'
+            || req.path?.startsWith('/health/')
+            || req.path === '/auth/me',
     }),
 
     // Strict limiting for admin endpoints
@@ -85,6 +92,20 @@ export function validateProductionSetup(options = {}) {
         errors.push('JWT_SECRET must be at least 32 characters long');
     }
 
+    // Check OTP_SECRET_KEY (avoid sharing JWT secret across purposes in production)
+    const otpSecret = process.env.OTP_SECRET_KEY;
+    if (!otpSecret) {
+        errors.push('OTP_SECRET_KEY is not configured');
+    } else if (otpSecret.length < 32) {
+        errors.push('OTP_SECRET_KEY must be at least 32 characters long');
+    }
+
+    // Ensure OTP delivery is configured (optional strictness)
+    const requireOtpEmailProvider = String(process.env.REQUIRE_OTP_EMAIL_URL_IN_PROD || 'false').toLowerCase() === 'true';
+    if (requireOtpEmailProvider && !process.env.OTP_EMAIL_URL) {
+        errors.push('OTP_EMAIL_URL is not configured (required in production)');
+    }
+
     // Check NODE_ENV
     if (process.env.NODE_ENV !== 'production') {
         console.warn('[Security] NODE_ENV is not set to "production"');
@@ -104,9 +125,9 @@ export function validateProductionSetup(options = {}) {
         }
     }
 
-    // Check MongoDB URI
-    if (!process.env.MONGODB_URI) {
-        errors.push('MONGODB_URI is not configured');
+    // Check Database URL
+    if (!process.env.DATABASE_URL) {
+        errors.push('DATABASE_URL is not configured');
     }
 
     if (errors.length > 0 && log) {

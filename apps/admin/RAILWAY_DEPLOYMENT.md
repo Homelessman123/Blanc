@@ -31,7 +31,7 @@
                               │
                               ▼
                     ┌──────────────────┐
-                    │   MongoDB Atlas  │
+                    │ PostgreSQL / CRDB│
                     │   (External DB)  │
                     └──────────────────┘
 ```
@@ -87,8 +87,9 @@ PORT=4000
 NODE_ENV=production
 
 # MongoDB Atlas Connection String
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/blanc
-DB_NAME=blanc
+
+# PostgreSQL/CockroachDB Connection String
+DATABASE_URL=postgresql://username:password@host:26257/blanc?sslmode=verify-full
 
 # JWT Secret (generate a strong random string)
 JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters
@@ -97,7 +98,8 @@ JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters
 FRONTEND_ORIGIN=https://your-user-app.railway.app,https://your-admin-app.railway.app
 
 # Google Apps Script URLs
-MEDIA_UPLOAD_URL=https://script.google.com/macros/s/YOUR_MEDIA_SCRIPT_ID/exec
+MEDIA_MAX_BYTES=26214400
+MEDIA_PUBLIC_FOLDERS=avatars,mentor-blog
 OTP_EMAIL_URL=https://script.google.com/macros/s/YOUR_OTP_SCRIPT_ID/exec
 NOTIFICATION_EMAIL_URL=https://script.google.com/macros/s/YOUR_NOTIFICATION_SCRIPT_ID/exec
 OTP_SECRET_KEY=your-otp-secret-key
@@ -194,23 +196,10 @@ FRONTEND_ORIGIN=https://user-frontend-production-xxxx.up.railway.app,https://adm
 
 ## Bước 6: Cấu hình MongoDB Atlas
 
-### 6.1 Tạo Cluster miễn phí
-1. Đăng ký [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Create Cluster → M0 Free Tier
-3. Chọn region gần nhất (Singapore/Hong Kong)
-
-### 6.2 Tạo Database User
-1. Database Access → Add New Database User
-2. Ghi nhớ username và password
-
-### 6.3 Network Access
-1. Network Access → Add IP Address
-2. Click **"Allow Access from Anywhere"** (0.0.0.0/0)
-   > Railway có IP động nên cần allow all
-
-### 6.4 Get Connection String
-1. Connect → Drivers → Copy connection string
-2. Thay `<password>` bằng password thực
+### 6.1 Tạo DB (PostgreSQL/CockroachDB)
+1. Provision PostgreSQL/CockroachDB ở nhà cung cấp bạn chọn
+2. Lấy connection string và set vào `DATABASE_URL` (Raw Editor)
+3. Nếu dùng TLS verify-full, đảm bảo CA cert được cấu hình (ví dụ `PGSSLROOTCERT`) theo hướng dẫn của nhà cung cấp
 
 ---
 
@@ -245,9 +234,9 @@ Response mong đợi:
 3. Redeploy backend sau khi thay đổi env
 
 ### Database Connection Failed
-1. Verify MongoDB URI đúng format
-2. Check Network Access trong Atlas
-3. Verify username/password
+1. Verify `DATABASE_URL` đúng format
+2. Verify username/password
+3. Verify TLS/CA cert (nếu dùng `sslmode=verify-full`)
 
 ### 502 Bad Gateway
 1. Check Port đúng (4000 cho backend)
@@ -272,10 +261,10 @@ MongoDB Atlas M0: **FREE**
 ## 🔐 Security Checklist
 
 - [ ] JWT_SECRET là random string dài (32+ chars)
-- [ ] MongoDB password mạnh
+- [ ] DB password mạnh
 - [ ] CORS chỉ allow domains cần thiết
 - [ ] Không commit .env files
-- [ ] Enable 2FA trên Railway và MongoDB Atlas
+- [ ] Enable 2FA trên Railway và DB provider
 
 ---
 

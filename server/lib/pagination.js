@@ -59,7 +59,7 @@ export function normalizePagination(page = 1, limit = null, type = 'USERS') {
 }
 
 /**
- * Add pagination to a MongoDB query result
+ * Add pagination to a query result
  * @param {Array} items - Array of items
  * @param {number} page - Current page
  * @param {number} limit - Items per page
@@ -99,7 +99,7 @@ export function paginationMiddleware(req, res, next) {
 }
 
 /**
- * Example: Generate MongoDB aggregation pipeline with pagination
+ * Example: Generate aggregation pipeline with pagination
  */
 export function buildPaginationStage(pagination) {
     return [

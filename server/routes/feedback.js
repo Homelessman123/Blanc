@@ -41,8 +41,11 @@ router.get('/news', async (req, res, next) => {
     await ensureIndexes();
     const collection = getCollection(collectionName);
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
-    const total = await collection.estimatedDocumentCount();
 
+    // Get total count
+    const total = await collection.countDocuments({});
+
+    // Get documents
     const docs = await collection
       .find({})
       .sort({ createdAt: -1 })

@@ -783,7 +783,7 @@ const UserSettings: React.FC = () => {
         }));
     };
 
-    // Upload avatar to Google Apps Script
+    // Upload avatar to backend media storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -817,7 +817,7 @@ const UserSettings: React.FC = () => {
                 folder: 'avatars'
             });
 
-            // Upload to Google Apps Script
+            // Upload to backend
             const formData = new FormData();
             formData.append('file', file);
             formData.append('fileName', presignData.fileName);
@@ -838,9 +838,10 @@ const UserSettings: React.FC = () => {
                 throw new Error(uploadResult.result?.error || 'Upload failed');
             }
 
-            // Convert Drive URL to direct image URL
-            const driveFileId = uploadResult.result.id;
-            const directImageUrl = `https://lh3.googleusercontent.com/d/${driveFileId}`;
+            const directImageUrl = uploadResult.result.url;
+            if (!directImageUrl) {
+                throw new Error('Upload failed');
+            }
 
             // Update avatar URL in database
             await api.patch('/users/me/avatar', { avatarUrl: directImageUrl });

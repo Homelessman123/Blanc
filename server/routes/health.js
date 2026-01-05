@@ -23,10 +23,13 @@ router.get('/', async (_req, res) => {
   // Check database connectivity
   try {
     const db = getDb();
-    await db.command({ ping: 1 });
+    await db.query('SELECT 1');
     health.services.database = 'healthy';
   } catch (err) {
-    health.services.database = 'unhealthy';
+    const msg = String(err?.message || '');
+    health.services.database = msg.includes('Database has not been initialized')
+      ? 'not_initialized'
+      : 'unhealthy';
     health.status = 'degraded';
   }
 

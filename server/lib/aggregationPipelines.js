@@ -3,7 +3,7 @@
  * AGGREGATION PIPELINE BUILDER
  * ============================================================================
  * 
- * MongoDB aggregation pipelines for efficient data retrieval and processing.
+ * Aggregation pipelines for efficient data retrieval and processing.
  * 
  * Benefits:
  * - Server-side filtering reduces network traffic
@@ -18,7 +18,7 @@
  * - Benefit: 20x reduction in network data transfer
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 
 /**
  * Build pipeline to find potential team matches for a user
@@ -29,7 +29,7 @@ import { ObjectId } from 'mongodb';
  * @param {string} options.contestId - Optional contest filter
  * @param {string[]} options.excludeUserIds - User IDs to exclude
  * @param {number} options.limit - Result limit (default: 200)
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildMatchCandidatePipeline(userId, options = {}) {
     const {
@@ -88,7 +88,7 @@ export function buildMatchCandidatePipeline(userId, options = {}) {
  * 
  * @param {string} roleCategory - Role category (development, design, business, data, support)
  * @param {number} limit - Result limit
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildRoleCategoryPipeline(roleCategory, limit = 50) {
     const roleMaps = {
@@ -130,7 +130,7 @@ export function buildRoleCategoryPipeline(roleCategory, limit = 50) {
  * @param {string[]} requiredSkills - Skills that candidates must have
  * @param {string[]} optionalSkills - Bonus skills
  * @param {number} limit - Result limit
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildSkillMatchPipeline(requiredSkills = [], optionalSkills = [], limit = 50) {
     const pipeline = [
@@ -192,7 +192,7 @@ export function buildSkillMatchPipeline(requiredSkills = [], optionalSkills = []
  * @param {string[]} userAvailability - User's available time slots
  * @param {number} minOverlapSlots - Minimum slots to match
  * @param {number} limit - Result limit
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildAvailabilityMatchPipeline(userAvailability = [], minOverlapSlots = 1, limit = 50) {
     return [
@@ -247,7 +247,7 @@ export function buildAvailabilityMatchPipeline(userAvailability = [], minOverlap
  * 
  * @param {string[]} selectedRoles - Roles already in team
  * @param {number} limit - Number of candidates to fetch
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildDiverseTeamPipeline(selectedRoles = [], limit = 10) {
     return [
@@ -292,7 +292,7 @@ export function buildDiverseTeamPipeline(selectedRoles = [], limit = 10) {
  * @param {string} contestId - Contest ID
  * @param {string[]} contestTags - Contest topic tags
  * @param {number} limit - Result limit
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildContestTeamPipeline(contestId, contestTags = [], limit = 5) {
     return [
@@ -342,7 +342,7 @@ export function buildContestTeamPipeline(contestId, contestTags = [], limit = 5)
  * 
  * @param {Date} afterDate - Fetch users active after this date
  * @param {number} limit - Result limit
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildActiveUsersPipeline(afterDate, limit = 50) {
     return [
@@ -379,7 +379,7 @@ export function buildActiveUsersPipeline(afterDate, limit = 50) {
  * Useful for explore/discovery features
  * 
  * @param {Object} criteria - Facet criteria
- * @returns {Array} MongoDB aggregation pipeline
+ * @returns {Array} Aggregation pipeline
  */
 export function buildFacetedSearchPipeline(criteria = {}) {
     return [

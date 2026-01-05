@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, requireRole } from '../middleware/auth.js';
 
@@ -112,11 +112,13 @@ router.get('/', async (req, res, next) => {
 
         if (search && search.trim()) {
             const safeSearch = escapeRegExp(search.trim().slice(0, 200));
-            and.push({ $or: [
-                { title: { $regex: safeSearch, $options: 'i' } },
-                { author: { $regex: safeSearch, $options: 'i' } },
-                { description: { $regex: safeSearch, $options: 'i' } },
-            ] });
+            and.push({
+                $or: [
+                    { title: { $regex: safeSearch, $options: 'i' } },
+                    { author: { $regex: safeSearch, $options: 'i' } },
+                    { description: { $regex: safeSearch, $options: 'i' } },
+                ]
+            });
         }
 
         const normalizedField = field ? field.toLowerCase().trim() : '';

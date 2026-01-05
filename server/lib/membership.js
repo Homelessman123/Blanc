@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 import { connectToDatabase, getCollection } from './db.js';
 
 export const MEMBERSHIP_TIERS = /** @type {const} */ (['free', 'plus', 'pro', 'business']);

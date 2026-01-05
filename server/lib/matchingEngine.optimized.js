@@ -29,7 +29,7 @@
  */
 
 import { getCollection } from './db.js';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 import {
     buildMatchCandidatePipeline,
     buildDiverseTeamPipeline,
@@ -109,8 +109,8 @@ function calculateLightweightScore(userProfile, candidateProfile, options = {}) 
     const candExp = candidateProfile?.matchingProfile?.experienceLevel || '';
     if (userExp === candExp) {
         score += 10;
-    } else if (Math.abs(['beginner', 'intermediate', 'advanced', 'expert'].indexOf(userExp) - 
-                        ['beginner', 'intermediate', 'advanced', 'expert'].indexOf(candExp)) === 1) {
+    } else if (Math.abs(['beginner', 'intermediate', 'advanced', 'expert'].indexOf(userExp) -
+        ['beginner', 'intermediate', 'advanced', 'expert'].indexOf(candExp)) === 1) {
         score += 8;
     } else {
         score += 3;
@@ -135,7 +135,7 @@ function calculateLightweightScore(userProfile, candidateProfile, options = {}) 
  * OPTIMIZED: Get recommended teammates using aggregation pipeline
  * 
  * Eliminates N+1 queries by:
- * 1. Using MongoDB aggregation for candidate filtering
+ * 1. Using aggregation for candidate filtering
  * 2. Batch loading user profiles only for candidates
  * 3. Processing scores on fetched batch only
  * 4. Early limiting to reduce data transfer

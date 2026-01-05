@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
 
@@ -559,12 +559,15 @@ router.get('/:id', async (req, res, next) => {
 
         const { id } = req.params;
 
-        if (!ObjectId.isValid(id)) {
+        // Accept both ObjectId format (24-char hex) and PostgreSQL string IDs
+        if (!id || typeof id !== 'string' || id.trim() === '') {
             return res.status(400).json({ error: 'ID không hợp lệ' });
         }
 
         const teamPosts = getCollection('team_posts');
-        const post = await teamPosts.findOne({ _id: new ObjectId(id) });
+        // Try ObjectId first, fallback to string ID for PostgreSQL compatibility
+        const searchId = ObjectId.isValid(id) ? new ObjectId(id) : id;
+        const post = await teamPosts.findOne({ _id: searchId });
 
         if (!post) {
             return res.status(404).json({ error: 'Không tìm thấy bài đăng' });

@@ -21,33 +21,27 @@ View your app in AI Studio: https://ai.studio/apps/drive/1GlTghfKTWF6q0HKfLY-gJh
 4. Run the admin app:
    `npm run admin:dev` (http://localhost:3001)
 
-## API server (MongoDB + media upload)
+## API server (PostgreSQL/CockroachDB + media upload)
 
 1. Copy [.env.example](.env.example) to `.env` and set:
-   - `MONGODB_URI` to your MongoDB connection string
+   - `DATABASE_URL` to your PostgreSQL/CockroachDB connection string
    - `JWT_SECRET` to a long random string
-   - `OTP_SECRET_KEY` - secret key for HMAC signature verification
+   - `OTP_SECRET_KEY` - (legacy) shared secret used for OTP + optional media HMAC fallback
+   - `MEDIA_UPLOAD_SECRET_KEY` - HMAC secret for media upload signature verification
+   - `MEDIA_MAX_BYTES` - max upload size in bytes (default: 25MB)
+   - `MEDIA_PUBLIC_FOLDERS` - comma-separated folders that are publicly readable (default: `avatars,mentor-blog`)
    - Payments (SePay):
      - `PAYMENTS_ENABLED=true` (or `FEATURE_PAYMENTS_ENABLED=true`) to enable membership checkout
      - `PAYMENT_BANK_CODE`, `PAYMENT_ACCOUNT_NUMBER`, `PAYMENT_ACCOUNT_NAME` to generate VietQR
      - `SEPAY_API_KEY` to protect `POST /api/payments/sepay/webhook`
      - Optional: `PAYMENT_AMOUNT_TOLERANCE_VND` to allow small amount mismatches
    - `OTP_EMAIL_URL` - deployed App Script URL for OTP emails (see `scripts/otpService.gs`)
-   - `MEDIA_UPLOAD_URL` - deployed App Script URL for media uploads (see `scripts/mediaUpload.gs`)
    - `NOTIFICATION_EMAIL_URL` - deployed App Script URL for notification emails (see `scripts/notificationService.gs`)
    - `OPENROUTER_API_KEY` - API key from [OpenRouter](https://openrouter.ai) for AI Chat
    - `CHAT_MODELS` - (optional) comma-separated model priority list (fallback order), defaults to `qwen/qwen3-coder,qwen/qwen3-235b-a22b,tngtech/deepseek-r1t2-chimera,mistralai/devstral-2512,meta-llama/llama-3.3-70b-instruct`
    - `FRONTEND_ORIGIN` - allowed web origins (comma separated); local dev: `http://localhost:3000,http://localhost:3001`
    
 2. **Deploy Google Apps Scripts:**
-
-   **Media Upload (`scripts/mediaUpload.gs`):**
-   - Create new Google Apps Script project
-   - Copy content from `scripts/mediaUpload.gs`
-   - Set script property `DRIVE_FOLDER_ID` to target Google Drive folder
-   - Set script property `MEDIA_UPLOAD_SECRET_KEY` (same as `MEDIA_UPLOAD_SECRET_KEY` or `OTP_SECRET_KEY` on the backend)
-   - Deploy as Web app, set "Execute as: Me", "Who has access: Anyone"
-   - Copy deployment URL to `MEDIA_UPLOAD_URL`
    
    **OTP Service (`scripts/otpService.gs`):**
    - Create new Google Apps Script project  
@@ -64,7 +58,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1GlTghfKTWF6q0HKfLY-gJh
    - Copy deployment URL to `NOTIFICATION_EMAIL_URL`
 
 3. Start the API:
-   (Recommended once per DB) Create MongoDB indexes: `npm run db:indexes`
+   (Recommended once per DB) Initialize DB schema/indexes: `npm run db:init`
    `npm run server`
 
 ## SePay webhook setup
@@ -78,7 +72,10 @@ View your app in AI Studio: https://ai.studio/apps/drive/1GlTghfKTWF6q0HKfLY-gJh
    - **Contests:** `GET /api/contests`, `GET /api/contests/:id`, `POST/PATCH /api/contests` (admin)
    - **Courses:** `GET /api/courses`, `POST /api/courses/:id/lessons`, `POST /api/courses/:id/materials`
    - **Notifications:** `POST /api/notifications/contest-reminder`, `POST /api/notifications/course-update`, `POST /api/notifications/announcement`
-  - **Media:** `POST /api/media/presign` -> returns `uploadUrl`, `fileName`, `folder`, `mimeType`, `nonce`, `timestamp`, `signature` (required by `scripts/mediaUpload.gs`)
+   - **Media:**
+     - `POST /api/media/presign` -> returns `uploadUrl`, `fileName`, `folder`, `mimeType`, `nonce`, `timestamp`, `signature`
+     - `POST /api/media/upload` (multipart/form-data) -> returns `{status:200,result:{id,url}}`
+     - `GET /api/media/:id` -> streams content (public folders are readable without auth; others require owner/admin)
    - **Membership:** `GET /api/membership/plans`, `POST /api/membership/checkout`, `GET /api/membership/orders/:id`, `GET /api/membership/me`
    - **Payments (SePay webhook):** `POST /api/payments/sepay/webhook`
    - **User Settings:** `GET /api/users/me/settings`, `PATCH /api/users/me/profile`, `PATCH /api/users/me/notifications`
@@ -158,9 +155,12 @@ Users can control their notification preferences in Settings > Notifications:
 - Course updates  
 - Marketing emails
 
-## Seed/Migrate data to MongoDB
-1. Ensure `.env` has `MONGODB_URI` (example: `mongodb+srv://<user>:<password>@cluster0.rfqxqob.mongodb.net/blanc`).
+## Seed/Migrate data
+1. Ensure `.env` has `DATABASE_URL` (example: `postgresql://user:pass@host:26257/Blanc?sslmode=verify-full`).
 2. Run migration to insert/update sample users, contests, and courses:
    `npm run seed`
    - Creates default admin `admin@blanc.dev` (password `Admin123!`) and student `student@blanc.dev` (password `Student123!`).
    - Upserts demo contests and courses with timestamps so the frontend can be wired to the API easily.
+3. (Optional) Populate a larger demo dataset (users/contests/courses/team posts/registrations/enrollments/reviews/reports):
+   - `npm run seed:large`
+   - Reset + re-generate: `npm run seed:large:reset`

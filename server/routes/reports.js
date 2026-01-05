@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
 
@@ -89,10 +89,18 @@ function sanitizeEvidenceInput(value) {
         const uploadedAt = uploadedAtInput ? normalizeIsoDate(uploadedAtInput) : new Date().toISOString();
         if (uploadedAtInput && !uploadedAt) return { error: 'Invalid evidence uploadedAt' };
 
-        // Manual evidence: allow arbitrary URL input (http/https).
+        // URL evidence:
+        // - If fileId + mimeType is provided, treat as stored upload and validate allowed mime types.
+        // - If only a URL is provided, treat as manual link evidence.
         if (urlInput) {
             if (!fileName) return { error: 'Evidence fileName is required' };
             if (!/^https?:\/\//i.test(urlInput)) return { error: 'Evidence url must be http(s)' };
+
+            if (fileId || mimeType) {
+                if (!fileId) return { error: 'Evidence fileId is required' };
+                if (!mimeType) return { error: 'Evidence mimeType is required' };
+                if (!ALLOWED_EVIDENCE_MIME_TYPES.has(mimeType)) return { error: 'Unsupported evidence mimeType' };
+            }
 
             return {
                 id: sanitizeString(raw?.id, 80) || new ObjectId().toString(),

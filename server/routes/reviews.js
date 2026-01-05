@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import rateLimit from 'express-rate-limit';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
@@ -291,7 +291,7 @@ router.post('/:targetType/:targetId', authGuard, reviewLimiter, async (req, res,
 
         // Check if target exists - support both ObjectId and string ID
         const targetCollection = getCollection(getTargetCollection(targetType));
-        const targetQuery = ObjectId.isValid(targetId) 
+        const targetQuery = ObjectId.isValid(targetId)
             ? { $or: [{ _id: new ObjectId(targetId) }, { _id: targetId }] }
             : { _id: targetId };
         const target = await targetCollection.findOne(targetQuery);

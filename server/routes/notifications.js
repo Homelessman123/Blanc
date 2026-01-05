@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
 

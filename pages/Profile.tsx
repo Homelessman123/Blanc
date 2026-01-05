@@ -260,10 +260,12 @@ const Profile: React.FC = () => {
             throw new Error(uploadResult.result?.error || 'Upload failed');
          }
 
-         const driveFileId = uploadResult.result.id;
-         const directImageUrl = `https://lh3.googleusercontent.com/d/${driveFileId}`;
+         const mediaUrl = uploadResult.result.url;
+         if (!mediaUrl) {
+            throw new Error('Upload failed');
+         }
 
-         setMentorBlog(prev => ({ ...prev, bannerUrl: directImageUrl }));
+         setMentorBlog(prev => ({ ...prev, bannerUrl: String(mediaUrl) }));
       } catch (err) {
          setBlogError(err instanceof Error ? err.message : 'Khong the tai len banner');
       } finally {
@@ -441,14 +443,14 @@ const Profile: React.FC = () => {
                                        </div>
                                     </div>
 
-                                     {/* Progress UI removed */}
+                                    {/* Progress UI removed */}
                                     <div className="mt-3">
                                        <div className="flex items-center justify-between text-xs mb-1.5">
                                           <span className="text-slate-500">
                                              {enrollment.completedLessons?.length || 0} / {enrollment.course.lessonsCount || '?'} bài học
                                           </span>
-                                        </div>
-                                     </div>
+                                       </div>
+                                    </div>
 
                                     {/* Actions */}
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
@@ -623,8 +625,8 @@ const Profile: React.FC = () => {
                   {/* Streak Message Toast */}
                   {streakMessage && (
                      <div className="mb-4 p-4 bg-linear-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl flex items-center gap-3 animate-fade-in">
-                         <img src="/streak/flame-tight.gif" className="streak-motion w-6 h-6 object-contain mix-blend-screen" alt="" aria-hidden="true" />
-                         <img src="/streak/flame-tight.png" className="streak-reduce-motion w-6 h-6 object-contain mix-blend-screen" alt="" aria-hidden="true" />
+                        <img src="/streak/flame-tight.gif" className="streak-motion w-6 h-6 object-contain mix-blend-screen" alt="" aria-hidden="true" />
+                        <img src="/streak/flame-tight.png" className="streak-reduce-motion w-6 h-6 object-contain mix-blend-screen" alt="" aria-hidden="true" />
                         <span className="text-orange-800 font-medium">{streakMessage}</span>
                      </div>
                   )}
@@ -666,7 +668,7 @@ const Profile: React.FC = () => {
                                     />
                                  </>
                               ) : (
-                                  <img src="/streak/flame-tight.png" className="w-[150%] h-[150%] -translate-y-[8%] object-contain mix-blend-screen opacity-60 grayscale" alt="" aria-hidden="true" />
+                                 <img src="/streak/flame-tight.png" className="w-[150%] h-[150%] -translate-y-[8%] object-contain mix-blend-screen opacity-60 grayscale" alt="" aria-hidden="true" />
                               )}
                            </div>
 
@@ -677,8 +679,8 @@ const Profile: React.FC = () => {
                                     <span className="text-base font-semibold text-slate-600">ngày</span>
                                  </span>
 
-                                  {/* star removed */}
-                               </div>
+                                 {/* star removed */}
+                              </div>
 
                               <div className="text-xs text-slate-500 flex items-center gap-1">
                                  {todayCheckedIn ? (
@@ -768,10 +770,10 @@ const Profile: React.FC = () => {
                            {enrollments.filter(e => e.status === 'active').slice(0, 3).map(enrollment => enrollment.course && (
                               <div key={enrollment.id}>
                                  <div className="flex justify-between text-sm">
-                                     <span className="font-medium text-slate-900 line-clamp-1">{enrollment.course.title}</span>
+                                    <span className="font-medium text-slate-900 line-clamp-1">{enrollment.course.title}</span>
                                  </div>
-                               </div>
-                            ))}
+                              </div>
+                           ))}
                         </div>
                      ) : (
                         <p className="text-center text-slate-500 py-4">

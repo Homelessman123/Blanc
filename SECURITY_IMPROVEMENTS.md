@@ -41,20 +41,15 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 NODE_ENV=production
 JWT_SECRET=<generated-above>
 FRONTEND_ORIGIN=https://blanc.up.railway.app,https://admin-blanc.up.railway.app
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>
+DATABASE_URL=postgresql://<user>:<pass>@<host>:26257/<db>?sslmode=verify-full
 ```
 
 ### 2. Database Setup
 
-**Run index optimization:**
+**Initialize DB schema/indexes:**
 ```bash
-node server/scripts/optimize-indexes.cjs
+npm run db:init
 ```
-
-This creates all necessary indexes for:
-- Fast user/contest searches (text indexes)
-- Efficient filtering (compound indexes)
-- TTL cleanup for temporary data (sessions, chat messages)
 
 **Verify data consistency:**
 ```bash
@@ -77,7 +72,7 @@ npm run dev  # or npm start for production
 The server will automatically:
 - ✅ Validate JWT_SECRET is 32+ characters
 - ✅ Check FRONTEND_ORIGIN doesn't contain localhost in production
-- ✅ Verify MONGODB_URI is configured
+- ✅ Verify DATABASE_URL is configured
 - ✅ Exit with error if any critical config is missing
 
 ---
@@ -214,13 +209,8 @@ node server/scripts/verify-data.cjs
 
 ### Test Database Indexes
 ```bash
-# Check index creation
-node server/scripts/optimize-indexes.cjs
-
-# Verify in MongoDB:
-db.users.getIndexes()
-db.contests.getIndexes()
-db.reports.getIndexes()
+# Initialize DB schema/indexes (idempotent)
+npm run db:init
 ```
 
 ---
@@ -281,7 +271,7 @@ If you encounter issues:
 
 1. Check logs: `tail -f logs/server.log`
 2. Verify env vars: `echo $JWT_SECRET`
-3. Test connection: `node -e "require('dotenv').config(); console.log(process.env.MONGODB_URI)"`
+3. Test connection: `node -e "require('dotenv').config(); console.log(!!process.env.DATABASE_URL)"`
 4. Run verification: `node server/scripts/verify-data.cjs`
 
 ---

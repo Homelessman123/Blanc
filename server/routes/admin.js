@@ -1,22 +1,19 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { isIP } from 'net';
 import { GoogleGenAI } from '@google/genai';
 import { connectToDatabase, getCollection } from '../lib/db.js';
-import { authGuard } from '../middleware/auth.js';
+import { authGuard, requireAdmin as requireAdminFactory } from '../middleware/auth.js';
+import { getClientIp } from '../lib/security.js';
 import { sendSystemNotification, sendMarketingEmail } from '../lib/emailService.js';
 import { getPlatformSettings } from '../lib/platformSettings.js';
 import { getMembershipSummary, isTierAtLeast, normalizeTier, setUserMembership } from '../lib/membership.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
-// Middleware: Require admin role
-const requireAdmin = (req, res, next) => {
-    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
-};
+// Middleware: Require admin role (centralized implementation)
+const requireAdmin = requireAdminFactory();
 
 // Basic user sanitizer (avoid leaking sensitive fields)
 function sanitizeUser(user) {
@@ -102,15 +99,6 @@ function getGeminiClient() {
     return geminiClient;
 }
 
-// Helper: Get client IP
-function getClientIp(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-        || req.headers['x-real-ip']
-        || req.connection?.remoteAddress
-        || req.ip
-        || '-';
-}
-
 function normalizeIpAddress(value) {
     const ip = String(value || '').trim();
     if (!ip) return null;
@@ -193,11 +181,9 @@ router.get('/users', authGuard, requireAdmin, async (req, res, next) => {
         const users = getCollection('users');
 
         // Parse query parameters
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit, 'USERS');
 
-        const search = req.query.search?.trim() || '';
+        const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : '';
         const roleFilter = req.query.role || ''; // 'admin', 'student', ''
         const statusFilter = req.query.status || ''; // 'active', 'banned', ''
         const sortBy = req.query.sortBy || 'createdAt';
@@ -208,9 +194,10 @@ router.get('/users', authGuard, requireAdmin, async (req, res, next) => {
 
         // Search by name or email
         if (search) {
+            const escaped = escapeRegex(search);
             query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } }
+                { name: { $regex: escaped, $options: 'i' } },
+                { email: { $regex: escaped, $options: 'i' } }
             ];
         }
 
@@ -313,14 +300,14 @@ router.get('/users', authGuard, requireAdmin, async (req, res, next) => {
 // GET /api/admin/users/:id/profile - detailed profile
 router.get('/users/:id/profile', authGuard, requireAdmin, async (req, res, next) => {
     try {
-        const { id } = req.params;
-        if (!ObjectId.isValid(id)) {
+        const rawId = String(req.params?.id || '').trim();
+        if (!rawId || rawId.length > 128) {
             return res.status(400).json({ error: 'Invalid user id' });
         }
 
         await connectToDatabase();
         const users = getCollection('users');
-        const user = await users.findOne({ _id: new ObjectId(id) });
+        const user = await users.findOne(buildUserIdQuery(rawId));
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -335,8 +322,8 @@ router.get('/users/:id/profile', authGuard, requireAdmin, async (req, res, next)
 // PUT /api/admin/users/:id - update user fields
 router.put('/users/:id', authGuard, requireAdmin, async (req, res, next) => {
     try {
-        const { id } = req.params;
-        if (!ObjectId.isValid(id)) {
+        const rawId = String(req.params?.id || '').trim();
+        if (!rawId || rawId.length > 128) {
             return res.status(400).json({ error: 'Invalid user id' });
         }
 
@@ -366,7 +353,7 @@ router.put('/users/:id', authGuard, requireAdmin, async (req, res, next) => {
         await connectToDatabase();
         const users = getCollection('users');
         const result = await users.findOneAndUpdate(
-            { _id: new ObjectId(id) },
+            buildUserIdQuery(rawId),
             { $set: updates },
             { returnDocument: 'after' }
         );
@@ -611,14 +598,14 @@ router.post(['/users/:id/activate', '/user_:id/activate', '/user/:id/activate'],
 // DELETE /api/admin/users/:id - delete user
 router.delete('/users/:id', authGuard, requireAdmin, async (req, res, next) => {
     try {
-        const { id } = req.params;
-        if (!ObjectId.isValid(id)) {
+        const rawId = String(req.params?.id || '').trim();
+        if (!rawId || rawId.length > 128) {
             return res.status(400).json({ error: 'Invalid user id' });
         }
 
         await connectToDatabase();
         const users = getCollection('users');
-        const result = await users.deleteOne({ _id: new ObjectId(id) });
+        const result = await users.deleteOne(buildUserIdQuery(rawId));
 
         if (result.deletedCount === 0) {
             return res.status(404).json({ error: 'User not found' });
@@ -629,9 +616,9 @@ router.delete('/users/:id', authGuard, requireAdmin, async (req, res, next) => {
             userId: req.user.id,
             userEmail: req.user.email,
             userName: req.user.name,
-            target: id,
+            target: rawId,
             status: 'Success',
-            details: `Deleted user ${id}`,
+            details: `Deleted user ${rawId}`,
             ip: getClientIp(req)
         });
 
@@ -729,9 +716,7 @@ router.get('/team-posts', authGuard, requireAdmin, async (req, res, next) => {
         await connectToDatabase();
         const teamPosts = getCollection('team_posts');
 
-        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit, 'TEAM_POSTS');
 
         const status = typeof req.query.status === 'string' ? req.query.status : '';
         const includeDeleted = req.query.includeDeleted === 'true';
@@ -1346,16 +1331,16 @@ router.post('/email/broadcast', authGuard, requireAdmin, async (req, res, next) 
  */
 router.get('/audit-logs', authGuard, requireAdmin, async (req, res, next) => {
     try {
-        const {
-            page = 1,
-            limit = 50,
-            action,
-            status,
-            user,
-            startDate,
-            endDate,
-            search
-        } = req.query;
+        const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, Number.parseInt(req.query?.limit, 10) || 50));
+        const skip = (page - 1) * limit;
+
+        const action = typeof req.query?.action === 'string' ? req.query.action.trim().slice(0, 50) : '';
+        const status = typeof req.query?.status === 'string' ? req.query.status.trim().slice(0, 30) : '';
+        const user = typeof req.query?.user === 'string' ? req.query.user.trim().slice(0, 100) : '';
+        const startDate = typeof req.query?.startDate === 'string' ? req.query.startDate : '';
+        const endDate = typeof req.query?.endDate === 'string' ? req.query.endDate : '';
+        const search = typeof req.query?.search === 'string' ? req.query.search.trim().slice(0, 200) : '';
 
         await connectToDatabase();
         const auditLogs = getCollection('audit_logs');
@@ -1363,53 +1348,67 @@ router.get('/audit-logs', authGuard, requireAdmin, async (req, res, next) => {
         // Build query
         const query = {};
 
-        if (action) {
-            query.action = action;
-        }
+        if (action) query.action = action;
+        if (status) query.status = status;
 
-        if (status) {
-            query.status = status;
-        }
-
+        let userOr = null;
         if (user) {
-            query.$or = [
-                { user: { $regex: user, $options: 'i' } },
-                { userEmail: { $regex: user, $options: 'i' } },
-                { userName: { $regex: user, $options: 'i' } }
+            const u = escapeRegex(user);
+            userOr = [
+                { user: { $regex: u, $options: 'i' } },
+                { userEmail: { $regex: u, $options: 'i' } },
+                { userName: { $regex: u, $options: 'i' } }
             ];
         }
 
         if (startDate || endDate) {
             query.timestamp = {};
             if (startDate) {
-                query.timestamp.$gte = new Date(startDate);
+                const parsedStart = new Date(startDate);
+                if (Number.isNaN(parsedStart.getTime())) {
+                    return res.status(400).json({ error: 'Invalid startDate' });
+                }
+                query.timestamp.$gte = parsedStart;
             }
             if (endDate) {
-                query.timestamp.$lte = new Date(endDate);
+                const parsedEnd = new Date(endDate);
+                if (Number.isNaN(parsedEnd.getTime())) {
+                    return res.status(400).json({ error: 'Invalid endDate' });
+                }
+                query.timestamp.$lte = parsedEnd;
             }
         }
 
+        let searchOr = null;
         if (search) {
-            query.$or = [
-                { action: { $regex: search, $options: 'i' } },
-                { details: { $regex: search, $options: 'i' } },
-                { user: { $regex: search, $options: 'i' } },
-                { userEmail: { $regex: search, $options: 'i' } },
-                { userName: { $regex: search, $options: 'i' } },
-                { target: { $regex: search, $options: 'i' } }
+            const s = escapeRegex(search);
+            searchOr = [
+                { action: { $regex: s, $options: 'i' } },
+                { details: { $regex: s, $options: 'i' } },
+                { user: { $regex: s, $options: 'i' } },
+                { userEmail: { $regex: s, $options: 'i' } },
+                { userName: { $regex: s, $options: 'i' } },
+                { target: { $regex: s, $options: 'i' } }
             ];
+        }
+
+        if (userOr && searchOr) {
+            query.$and = [{ $or: userOr }, { $or: searchOr }];
+        } else if (userOr) {
+            query.$or = userOr;
+        } else if (searchOr) {
+            query.$or = searchOr;
         }
 
         // Get total count
         const total = await auditLogs.countDocuments(query);
 
         // Get paginated logs
-        const skip = (parseInt(page) - 1) * parseInt(limit);
         const logs = await auditLogs
             .find(query)
             .sort({ timestamp: -1 })
             .skip(skip)
-            .limit(parseInt(limit))
+            .limit(limit)
             .toArray();
 
         // Format logs for frontend

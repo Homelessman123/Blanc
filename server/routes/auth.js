@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, issueToken } from '../middleware/auth.js';
 import { logAuditEvent } from './admin.js';
@@ -20,7 +20,8 @@ function getClientIp(req) {
 
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
 const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || 'csrf_token';
-const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const AUTH_COOKIE_MAX_AGE_MS =
+  Number.parseInt(process.env.AUTH_COOKIE_MAX_AGE_MS || '', 10) || 24 * 60 * 60 * 1000;
 
 function getCookieBaseOptions() {
   const sameSiteRaw = String(process.env.AUTH_COOKIE_SAMESITE || 'lax').toLowerCase();
@@ -69,7 +70,7 @@ function clearAuthCookies(res) {
 
 // ============ CONSTANTS ============
 const PENDING_REGISTRATION_TTL_MINUTES = 10; // Pending registrations expire in 10 minutes
-const LOGIN_2FA_TTL_MINUTES = 2; // 2FA/OTP session expires in 2 minutes (matches OTP TTL)
+const LOGIN_2FA_TTL_MINUTES = 2; // 2FA/OTP session expires in 2 minutes (auto-extends on OTP resend)
 
 // ============ TEST ACCOUNTS (bypass OTP) ============
 const OTP_BYPASS_EMAILS = (() => {

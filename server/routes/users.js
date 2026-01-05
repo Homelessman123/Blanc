@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 import bcrypt from 'bcryptjs';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getVietnamStartOfDay } from '../lib/time.js';

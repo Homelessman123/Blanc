@@ -3,7 +3,7 @@
  * Tự động gửi email nhắc nhở 24h và 1h trước khi cuộc thi bắt đầu
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 import crypto from 'crypto';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 

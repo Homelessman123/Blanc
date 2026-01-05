@@ -6,6 +6,7 @@ import { startContestReminderScheduler } from './lib/scheduler.js';
 import { validateProductionSetup } from './lib/security.js';
 const port = process.env.PORT || 4000;
 let server;
+let schedulerStarted = false;
 
 // Validate production setup first
 if (process.env.NODE_ENV === 'production') {
@@ -15,21 +16,49 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-connectToDatabase()
-  .then(() => {
-    server = app.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`API server listening on port ${port}`);
+server = app.listen(port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`API server listening on port ${port}`);
+});
 
-      // Start contest reminder scheduler
-      startContestReminderScheduler();
-    });
-  })
-  .catch((error) => {
-    // eslint-disable-next-line no-console
-    console.error('Failed to start API server', error);
-    process.exit(1);
-  });
+async function connectDatabaseWithRetry() {
+  const failFast =
+    process.env.FAIL_FAST_DB === 'true' ||
+    process.env.NODE_ENV === 'production';
+
+  const baseDelayMs = Number(process.env.DB_RETRY_DELAY_MS || 5_000);
+  const maxDelayMs = Number(process.env.DB_RETRY_MAX_DELAY_MS || 60_000);
+  let delayMs = baseDelayMs;
+
+  // Keep trying in development to avoid crashing the API server when the DB is temporarily unreachable.
+  // In production, preserve the previous fail-fast behavior unless overridden.
+  while (true) {
+    try {
+      await connectToDatabase();
+
+      if (!schedulerStarted) {
+        startContestReminderScheduler();
+        schedulerStarted = true;
+      }
+
+      return;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[db] Connection failed:', error?.message || error);
+
+      if (failFast) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to start API server', error);
+        process.exit(1);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(maxDelayMs, Math.round(delayMs * 1.5));
+    }
+  }
+}
+
+connectDatabaseWithRetry();
 
 // ============================================================================
 // GRACEFUL SHUTDOWN HANDLERS

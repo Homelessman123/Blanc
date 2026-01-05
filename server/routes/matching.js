@@ -32,7 +32,7 @@ import {
     getRecommendedContent,
     invalidateContentCache
 } from '../lib/contentMatchingEngine.js';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from '../lib/objectId.js';
 
 const router = Router();
 

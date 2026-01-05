@@ -6,25 +6,15 @@
  * Chạy: node server/scripts/seed-team-posts.js
  */
 
-import { MongoClient, ObjectId } from 'mongodb';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
-
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/contesthub';
+import 'dotenv/config';
+import { connectToDatabase, getCollection } from '../lib/db.js';
 
 async function seedTeamPosts() {
-    const client = new MongoClient(MONGO_URI);
-
     try {
-        await client.connect();
-        console.log('✅ Connected to MongoDB');
-
-        const db = client.db();
-        const users = db.collection('users');
-        const teamPosts = db.collection('team_posts');
-        const contests = db.collection('contests');
+        await connectToDatabase();
+        const users = getCollection('users');
+        const teamPosts = getCollection('team_posts');
+        const contests = getCollection('contests');
 
         // Tìm user với email dangthhfct31147@gmail.com
         const targetEmail = 'dangthhfct31147@gmail.com';
@@ -60,7 +50,7 @@ Mình đang tìm 2 bạn Frontend Developer để cùng xây dựng một websit
 **Về dự án:**
 - Website bán hàng trực tuyến với đầy đủ tính năng: giỏ hàng, thanh toán, quản lý đơn hàng
 - Sử dụng React + TypeScript + Tailwind CSS
-- Backend đã sẵn sàng (Node.js + MongoDB)
+- Backend đã sẵn sàng (Node.js + PostgreSQL/CockroachDB)
 
 **Yêu cầu:**
 - Có kinh nghiệm với React (hooks, state management)
@@ -192,9 +182,6 @@ Mình đang lập team để tham gia cuộc thi Hackathon về AI/ML. Cần th�
 
     } catch (error) {
         console.error('❌ Error:', error);
-    } finally {
-        await client.close();
-        console.log('\n🔌 Disconnected from MongoDB');
     }
 }
 

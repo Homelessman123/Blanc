@@ -17,12 +17,12 @@ Edit with:
 NODE_ENV=production
 JWT_SECRET=<paste from step 1>
 FRONTEND_ORIGIN=https://blanc.up.railway.app
-MONGODB_URI=<your-production-uri>
+DATABASE_URL=<your-production-uri>
 ```
 
 ### 3. Run Database Setup
 ```bash
-node server/scripts/optimize-indexes.cjs
+npm run db:init
 node server/scripts/verify-data.cjs
 ```
 
@@ -124,7 +124,7 @@ res.json(createPaginatedResponse(items, pagination.page, pagination.limit, total
 for i in {1..6}; do echo "Attempt $i:"; curl -X POST http://localhost:4000/api/auth/login; done
 
 # Test 2: Check indexes are created
-node -e "require('dotenv').config({path:'.env.production'}); const {MongoClient}=require('mongodb'); new MongoClient(process.env.MONGODB_URI).connect().then(c=>c.db().collection('users').getIndexes().then(console.log))"
+node -e "require('dotenv').config({path:'.env.production'}); console.log('DATABASE_URL:', !!process.env.DATABASE_URL);"
 
 # Test 3: Verify data consistency
 node server/scripts/verify-data.cjs
@@ -152,7 +152,7 @@ curl -X POST http://localhost:4000/api/auth/register \
 ## 🚨 Critical Reminders
 
 1. ✅ **MUST** generate new JWT_SECRET before production
-2. ✅ **MUST** run `optimize-indexes.cjs` before production
+2. ✅ **MUST** run `npm run db:init` before production
 3. ✅ **MUST** remove localhost from FRONTEND_ORIGIN in production
 4. ✅ **MUST** set NODE_ENV=production
 5. ✅ **MUST** use HTTPS in production
@@ -164,13 +164,13 @@ curl -X POST http://localhost:4000/api/auth/register \
 **Server won't start?**
 ```bash
 # Check required env vars
-node -e "console.log('JWT_SECRET length:', (process.env.JWT_SECRET || '').length); console.log('MONGODB_URI:', !!process.env.MONGODB_URI);"
+node -e "console.log('JWT_SECRET length:', (process.env.JWT_SECRET || '').length); console.log('DATABASE_URL:', !!process.env.DATABASE_URL);"
 ```
 
 **Indexes not working?**
 ```bash
 # Recreate them
-rm -f .index-cache && node server/scripts/optimize-indexes.cjs
+npm run db:init
 ```
 
 **Data integrity issues?**

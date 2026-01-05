@@ -3,15 +3,12 @@
  * 
  * Usage: node server/scripts/create-admin.js
  * 
- * Make sure to set MONGODB_URI and DB_NAME environment variables
+ * Make sure to set DATABASE_URL environment variable
  */
 
 import bcrypt from 'bcryptjs';
-import { MongoClient, ServerApiVersion } from 'mongodb';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import 'dotenv/config';
+import { connectToDatabase, getCollection } from '../lib/db.js';
 
 // Admin user configuration
 const ADMIN_CONFIG = {
@@ -22,37 +19,16 @@ const ADMIN_CONFIG = {
 };
 
 async function createAdminUser() {
-  const uri = process.env.MONGODB_URI;
-  const dbName = process.env.DB_NAME || 'blanc';
-
-  if (!uri) {
-    console.error('❌ MONGODB_URI is not set. Please set it in your environment variables.');
-    process.exit(1);
-  }
-
-  console.log('🔄 Connecting to MongoDB...');
-
-  const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    },
-  });
-
   try {
-    await client.connect();
-    console.log('✅ Connected to MongoDB');
-
-    const db = client.db(dbName);
-    const users = db.collection('users');
+    await connectToDatabase();
+    const users = getCollection('users');
 
     // Check if user already exists
     const existingUser = await users.findOne({ email: ADMIN_CONFIG.email.toLowerCase() });
-    
+
     if (existingUser) {
       console.log('⚠️  User already exists with email:', ADMIN_CONFIG.email);
-      
+
       // Update to admin role and enable 2FA if not already
       const updateResult = await users.updateOne(
         { email: ADMIN_CONFIG.email.toLowerCase() },
@@ -62,7 +38,7 @@ async function createAdminUser() {
             'security.twoFactorEnabled': true,
             'security.twoFactorUpdatedAt': new Date(),
             updatedAt: new Date(),
-          }
+          },
         }
       );
 
@@ -80,7 +56,7 @@ async function createAdminUser() {
       console.log('   - Email:', user.email);
       console.log('   - Role:', user.role);
       console.log('   - 2FA Enabled:', user.security?.twoFactorEnabled === true);
-      
+
       return;
     }
 
@@ -107,7 +83,7 @@ async function createAdminUser() {
 
     // Insert into database
     const result = await users.insertOne(adminUser);
-    
+
     console.log('\n✅ Admin user created successfully!');
     console.log('\n📋 User Info:');
     console.log('   - ID:', result.insertedId.toString());
@@ -123,9 +99,6 @@ async function createAdminUser() {
   } catch (error) {
     console.error('❌ Error:', error.message);
     process.exit(1);
-  } finally {
-    await client.close();
-    console.log('\n🔌 Disconnected from MongoDB');
   }
 }
 

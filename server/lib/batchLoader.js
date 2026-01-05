@@ -25,14 +25,14 @@
  * - Improvement: 100x faster
  */
 
-import { ObjectId } from 'mongodb';
+import { ObjectId } from './objectId.js';
 
 /**
  * Create a batch loader for a specific collection
- * @param {Collection} collection - MongoDB collection
+ * @param {Collection} collection - Collection adapter
  * @param {Object} options - Configuration options
  * @param {number} options.batchSize - Max IDs to batch in single query (default: 100)
- * @param {Object} options.projection - MongoDB projection for fields (default: all fields)
+ * @param {Object} options.projection - Projection for fields (default: all fields)
  * @param {number} options.cacheTTL - Cache TTL in ms (default: 5 minutes)
  * @returns {Object} Loader with load(), loadMany(), clear() methods
  */
@@ -93,10 +93,10 @@ export function createBatchLoader(collection, options = {}) {
      */
     async function loadMany(ids) {
         if (!ids?.length) return [];
-        
+
         const promises = ids.map(id => load(id));
         const results = await Promise.allSettled(promises);
-        
+
         return results.map((result, idx) => {
             if (result.status === 'fulfilled') return result.value;
             console.warn(`[BatchLoader] Failed to load ID ${ids[idx]}:`, result.reason);
@@ -202,12 +202,12 @@ export function createBatchLoader(collection, options = {}) {
 
 /**
  * Create specialized loader for user profiles with common fields
- * @param {Collection} usersCollection - MongoDB users collection
+ * @param {Collection} usersCollection - Users collection
  * @param {string[]} fields - Fields to fetch (default: commonly used fields)
  * @returns {Object} User-specific loader
  */
 export function createUserLoader(usersCollection, fields = null) {
-    const projection = fields ? 
+    const projection = fields ?
         Object.fromEntries(fields.map(f => [f, 1])) :
         {
             name: 1,
@@ -239,7 +239,7 @@ export class BatchLoaderRegistry {
     /**
      * Register a loader for a collection
      * @param {string} name - Loader name (e.g., 'users', 'contests')
-     * @param {Collection} collection - MongoDB collection
+        * @param {Collection} collection - Collection adapter
      * @param {Object} options - Loader options
      */
     register(name, collection, options = {}) {
@@ -301,7 +301,7 @@ export class BatchLoaderRegistry {
  * Additional Benefits:
  * - Local cache prevents duplicate queries within same request
  * - Automatic cleanup prevents memory leaks
- * - Works with any MongoDB query shape
+ * - Works with any query shape
  * - Transparent to calling code (same API as direct queries)
  */
 
