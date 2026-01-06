@@ -23,13 +23,25 @@ import Redis from 'ioredis';
 let redis = null;
 let isRedisAvailable = false;
 
+function normalizeRedisUrl(value) {
+    if (!value) return value;
+    const trimmed = String(value).trim();
+    if (
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed;
+}
+
 /**
  * Initialize Redis connection
  */
 function initRedis() {
     if (redis) return redis;
 
-    const redisUrl = process.env.REDIS_URL || process.env.REDIS_URI;
+    const redisUrl = normalizeRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
 
     if (!redisUrl) {
         console.warn('⚠️ Redis URL not configured, caching will be disabled');
@@ -72,6 +84,23 @@ function initRedis() {
     } catch (err) {
         console.error('Failed to initialize Redis:', err);
         return null;
+    }
+}
+
+export async function checkRedisHealth(timeoutMs = 1500) {
+    const client = initRedis();
+    if (!client) return false;
+
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Redis healthcheck timeout')), timeoutMs)
+        );
+        await Promise.race([client.ping(), timeoutPromise]);
+        isRedisAvailable = true;
+        return true;
+    } catch (_err) {
+        isRedisAvailable = false;
+        return false;
     }
 }
 

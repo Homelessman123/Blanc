@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../lib/db.js';
-import { isAvailable as isRedisAvailable } from '../lib/cache.js';
+import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.js';
 
 const router = Router();
 
@@ -35,7 +35,8 @@ router.get('/', async (_req, res) => {
 
   // Check Redis availability
   try {
-    health.services.redis = isRedisAvailable() ? 'healthy' : 'unavailable';
+    const ok = await checkRedisHealth();
+    health.services.redis = ok || isRedisAvailable() ? 'healthy' : 'unavailable';
   } catch (err) {
     health.services.redis = 'error';
   }
