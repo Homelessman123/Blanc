@@ -29,7 +29,7 @@ services:
       - "-c"
       - "work_mem=16MB"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,23 +48,13 @@ services:
     image: redis:7-alpine
     container_name: contesthub-redis-prod
     command: >
-      redis-server
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-      --tcp-backlog 511
-      --timeout 300
-      --tcp-keepalive 300
+      redis-server --appendonly yes --appendfsync everysec --maxmemory 512mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10 --save 60 10000 --tcp-backlog 511 --timeout 300 --tcp-keepalive 300
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_prod_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -103,7 +93,7 @@ services:
       - contesthub-prod-network
     restart: always
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -4,22 +4,24 @@
 # This Dockerfile builds both frontend and backend in a single optimized image
 # Perfect for Railway deployment with Redis support
 
+# =============================================================================
 # Build stage for frontend
+# =============================================================================
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies with clean npm cache
+# Install dependencies
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit && \
     npm cache clean --force
 
-# Copy all source code (will exclude node_modules via .dockerignore)
+# Copy all source code for build
 COPY . .
 
-# Build frontend with optimizations
+# Build frontend
 ENV NODE_ENV=production
 RUN npm run build
 
