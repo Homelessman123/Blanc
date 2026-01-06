@@ -16,20 +16,8 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps --prefer-offline --no-audit && \
     npm cache clean --force
 
-# Copy only necessary source code for build
-COPY index.html ./
-COPY vite.config.ts tsconfig.json ./
-COPY tailwind.config.js postcss.config.js ./
-COPY *.ts *.tsx *.css ./
-COPY public ./public
-COPY components ./components
-COPY pages ./pages
-COPY lib ./lib
-COPY hooks ./hooks
-COPY contexts ./contexts
-COPY constants ./constants
-COPY services ./services
-COPY utils ./utils
+# Copy all source code (will exclude node_modules via .dockerignore)
+COPY . .
 
 # Build frontend with optimizations
 ENV NODE_ENV=production
@@ -70,7 +58,7 @@ EXPOSE 4000
 
 # Health check for Railway
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+    CMD node -e "require('http').get('http://localhost:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

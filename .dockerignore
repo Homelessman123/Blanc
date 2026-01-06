@@ -1,31 +1,55 @@
+# Dependencies
 node_modules
 npm-debug.log
+
+# Git
 .git
 .gitignore
+.github
+
+# Environment files (will be set by Railway)
 .env
 .env.local
 .env.*.local
+.env.docker
+.env.railway
+
+# Build artifacts (will be created during build)
 dist
-.DS_Store
-*.log
-coverage
+
+# IDE
 .vscode
 .idea
-README.md
-docs
-tests
+.DS_Store
+
+# Logs and temp files
+*.log
+coverage
 tmp_*
+
+# Documentation (not needed in container)
 *.md
-!PRODUCTION_READY.md
-.github
-scripts/export-*
-scripts/seed-*
+!README.md
+
+# Test files
+tests
+test-*.js
+test-*.ps1
+
+# Deployment configs (not needed in container)
 Dockerfile*
 docker-compose*
+railway.toml
 netlify
 netlify.toml
 .netlify
-railway.toml
+
+# Scripts not needed in production
+scripts/export-*
+scripts/seed-*
+list-users.js
+
+# Legacy/deprecated
 apps/admin
 CHECKLIST.md
 IMPLEMENTATION_SUMMARY.md
@@ -37,6 +61,3 @@ QUICK_*.md
 QUERY_OPTIMIZATION_GUIDE.md
 SECURITY_IMPROVEMENTS.md
 VISUAL_REPORT.txt
-test-*.js
-test-*.ps1
-list-users.js
