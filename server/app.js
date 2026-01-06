@@ -3,6 +3,8 @@ import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { RateLimiters } from './lib/security.js';
 import { trackConcurrentUsers } from './lib/concurrentUsers.js';
 import { ipBlocklist } from './middleware/ipBlocklist.js';
@@ -35,6 +37,9 @@ import usersRouter from './routes/users.js';
 
 const app = express();
 app.disable('x-powered-by');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Trust the upstream proxy so rate limiting can read the real client IP from X-Forwarded-For
 // Defaults to a single hop but can be overridden via TRUST_PROXY env (e.g. "true", "false", number, or subnet string)
@@ -140,6 +145,23 @@ app.use('/api/recruitments', recruitmentsRouter);
 app.use('/api/membership', membershipRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/mentors', mentorsRouter);
+
+// Serve the built user frontend from /dist when running full-stack on Railway.
+// This keeps API under /api and supports SPA client-side routing.
+if (process.env.NODE_ENV === 'production') {
+  const distDir = path.resolve(__dirname, '..', 'dist');
+  app.use(
+    express.static(distDir, {
+      maxAge: '1y',
+      immutable: true,
+    })
+  );
+
+  app.get('*', (req, res, next) => {
+    if (req.path?.startsWith('/api')) return next();
+    return res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });

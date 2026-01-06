@@ -9,6 +9,32 @@
 
 ## Tổng quan kiến trúc
 
+## ✅ Cách A (Khuyến nghị): Deploy Admin như service độc lập
+
+Mục tiêu: Railway build **trong thư mục `apps/admin`** như một dự án Vite riêng.
+Điều này tránh lỗi kiểu:
+
+`npm error No workspaces found: --workspace=blanc-admin`
+
+Lý do lỗi trên: khi Railway chạy lệnh `npm --workspace=...` nhưng thư mục đang build không có cấu hình `workspaces`.
+
+### Cấu hình Railway cho Admin Service
+
+1) Tạo service mới → chọn GitHub repo
+
+2) Settings
+- **Root Directory**: `apps/admin`
+
+3) Build
+- **Builder**: Dockerfile
+- **Dockerfile Path**: `Dockerfile` (vì Root Directory đã là `apps/admin`)
+
+4) Deploy
+- Không cần Start Command (image nginx tự chạy)
+
+> Gợi ý: nếu Railway không tự đọc config-as-code trong thư mục root directory,
+> hãy set thủ công theo các mục trên (quan trọng nhất là Builder = Dockerfile).
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Railway Project                          │

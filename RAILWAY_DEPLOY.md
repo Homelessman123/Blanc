@@ -12,7 +12,16 @@ Dự án này được tối ưu hóa để deploy trên Railway với:
 - ✅ Redis support (optional)
 - ✅ Graceful shutdown handling
 
-## 🚀 Deploy trên Railway
+## 🚀 Deploy trên Railway (khuyến nghị)
+
+Mục tiêu setup:
+
+- **1 service**: Full-stack **Backend + User Frontend** (dùng `Dockerfile` ở root)
+- **1 service**: **Admin Frontend** (dùng `apps/admin/railway.toml` + `apps/admin/Dockerfile`)
+- **1 plugin**: **Redis** (Railway Redis) → Railway tự tạo `REDIS_URL`
+
+> Lưu ý thực tế: Railway không có nút “Deploy 1 lần cho mọi service” theo kiểu bấm 1 cái là redeploy đồng loạt.
+> Cách tiện nhất là **setup 2 services + Redis 1 lần**, sau đó bật **GitHub Autodeploy**: mỗi lần bạn `git push` là cả 2 services tự deploy (Redis là managed plugin).
 
 ### Bước 1: Tạo dự án mới trên Railway
 
@@ -90,20 +99,38 @@ Railway sẽ tự động:
 - ✅ Deploy container
 - ✅ Assign public domain
 
+### Bước 4.1: Tạo 2 services (Full-stack + Admin)
+
+1) **Service 1: Full-stack (Backend + User Frontend)**
+
+- Source: GitHub repo (root)
+- Builder: Dockerfile
+- Dockerfile path: `Dockerfile`
+- Start command: `node server/index.js`
+- Healthcheck: `/api/health`
+
+2) **Service 2: Admin Frontend**
+
+- Source: cùng GitHub repo
+- Root Directory: `apps/admin`
+- Config as Code: Railway sẽ tự đọc `apps/admin/railway.toml`
+
+> Nếu bạn không set Root Directory là `apps/admin`, bạn phải trỏ đúng Dockerfile/config cho admin (vì build context khác nhau).
+
 ## 🏗️ Build Configurations
 
-### Dockerfile chính (Full-stack)
+### Dockerfile chính (Full-stack: Backend + User Frontend)
 ```dockerfile
 # Railway sẽ tự động detect file này
 Dockerfile
 ```
 
-**Sử dụng khi**: Deploy full-stack (frontend + backend) trong 1 container
+**Sử dụng khi**: Deploy full-stack (user frontend + backend) trong 1 container
 
 **Ưu điểm**:
 - 💰 Chi phí thấp (1 service)
 - 🚀 Đơn giản, dễ quản lý
-- ⚡ Serving static files từ Node.js
+- ⚡ Serving static files từ Node.js (build output trong `dist/`)
 
 ### Dockerfile.backend (Backend-only)
 

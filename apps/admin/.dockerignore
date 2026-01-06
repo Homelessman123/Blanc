@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Git
+.git
+.gitignore
+.github
+
+# Environment files (set via Railway)
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+/dist
+
+# IDE
+.vscode
+.idea
+.DS_Store
+
+# Logs and temp files
+*.log
+coverage
+
+# Docs
+*.md
+!README.md
