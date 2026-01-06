@@ -1,16 +1,20 @@
 # Multi-stage build for Railway deployment
-FROM node:20-alpine AS builder
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# Copy manifests first for better caching
+COPY package*.json ./
 
-# Install all dependencies and build
-RUN npm install --legacy-peer-deps && npm run build
+# Install deps (include dev deps for build) and build
+RUN npm ci --legacy-peer-deps
+
+# Copy source and build
+COPY . .
+RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM public.ecr.aws/docker/library/node:20-alpine
 
 WORKDIR /app
 
@@ -18,7 +22,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm install --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Copy server code
 COPY server ./server
