@@ -87,7 +87,7 @@ function initRedis() {
     }
 }
 
-export async function checkRedisHealth(timeoutMs = 1500) {
+export async function checkRedisHealth(timeoutMs = 5000) {
     const client = initRedis();
     if (!client) return false;
 
@@ -98,7 +98,11 @@ export async function checkRedisHealth(timeoutMs = 1500) {
         await Promise.race([client.ping(), timeoutPromise]);
         isRedisAvailable = true;
         return true;
-    } catch (_err) {
+    } catch (err) {
+        const message = String(err?.message || err || '').slice(0, 300);
+        if (message) {
+            console.warn('⚠️ Redis healthcheck failed:', message);
+        }
         isRedisAvailable = false;
         return false;
     }

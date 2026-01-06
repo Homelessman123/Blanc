@@ -5,6 +5,14 @@ import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.
 const router = Router();
 
 router.get('/', async (_req, res) => {
+  const rawRedisUrl = process.env.REDIS_URL || process.env.REDIS_URI || '';
+  const sanitizedRedisUrl = rawRedisUrl
+    ? String(rawRedisUrl)
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/:\/\/([^@]+)@/i, '://***@')
+    : '';
+
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -12,6 +20,10 @@ router.get('/', async (_req, res) => {
     services: {
       database: 'unknown',
       redis: 'unknown',
+    },
+    redisConfig: {
+      configured: Boolean(rawRedisUrl),
+      url: sanitizedRedisUrl || undefined,
     },
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
