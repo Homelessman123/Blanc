@@ -117,6 +117,14 @@ Railway sẽ tự động:
 
 > Nếu bạn không set Root Directory là `apps/admin`, bạn phải trỏ đúng Dockerfile/config cho admin (vì build context khác nhau).
 
+**Alternative (Cách 2 - npm workspaces)**
+
+- Root Directory: repo root
+- Builder: Dockerfile
+- Dockerfile Path: `Dockerfile.admin`
+
+Cách này phù hợp nếu bạn đang dùng các lệnh `npm --workspace=blanc-admin ...` và muốn Railway build từ repo root.
+
 ## 🏗️ Build Configurations
 
 ### Dockerfile chính (Full-stack: Backend + User Frontend)

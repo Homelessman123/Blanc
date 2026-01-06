@@ -50,7 +50,6 @@ scripts/seed-*
 list-users.js
 
 # Legacy/deprecated
-apps/admin
 CHECKLIST.md
 IMPLEMENTATION_SUMMARY.md
 MIGRATION_GUIDE.js

@@ -35,6 +35,29 @@ Lý do lỗi trên: khi Railway chạy lệnh `npm --workspace=...` nhưng thư 
 > Gợi ý: nếu Railway không tự đọc config-as-code trong thư mục root directory,
 > hãy set thủ công theo các mục trên (quan trọng nhất là Builder = Dockerfile).
 
+---
+
+## ✅ Cách 2: Deploy Admin bằng npm workspaces (từ repo root)
+
+Dùng cách này nếu bạn muốn dùng các lệnh dạng:
+
+`npm run build --workspace=blanc-admin`
+
+và muốn Railway build từ **repo root** (để `workspaces` được nhận).
+
+### Cấu hình Railway cho Admin Service
+
+1) **Root Directory**: để trống (repo root)
+
+2) **Build**
+- Builder: Dockerfile
+- Dockerfile Path: `Dockerfile.admin`
+
+3) **Custom Build Command**: để trống (không cần)
+
+> Lý do: `Dockerfile.admin` đã build admin bằng `npm -w apps/admin run build`.
+> Nếu bạn set Root Directory = `apps/admin` thì npm sẽ báo `No workspaces found`.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Railway Project                          │
