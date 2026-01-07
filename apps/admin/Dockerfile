@@ -26,8 +26,11 @@ RUN npm run build
 # Production stage
 FROM public.ecr.aws/docker/library/nginx:alpine
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Railway expects the app to listen on $PORT; default to 80 locally.
+ENV PORT=80
+
+# Copy nginx template so the official nginx entrypoint can envsubst ${PORT}
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
