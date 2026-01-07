@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(buildVersion),
     },
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
