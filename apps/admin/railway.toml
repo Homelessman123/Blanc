@@ -7,5 +7,7 @@ VITE_API_URL = "${{VITE_API_URL}}"
 VITE_GEMINI_API_KEY = "${{VITE_GEMINI_API_KEY}}"
 
 [deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

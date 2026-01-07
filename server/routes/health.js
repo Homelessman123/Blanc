@@ -8,9 +8,9 @@ router.get('/', async (_req, res) => {
   const rawRedisUrl = process.env.REDIS_URL || process.env.REDIS_URI || '';
   const sanitizedRedisUrl = rawRedisUrl
     ? String(rawRedisUrl)
-        .trim()
-        .replace(/^["']|["']$/g, '')
-        .replace(/:\/\/([^@]+)@/i, '://***@')
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .replace(/:\/\/([^@]+)@/i, '://***@')
     : '';
 
   const health = {
