@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "apps/admin/Dockerfile"
 
 [build.args]
 VITE_API_URL = "${{VITE_API_URL}}"

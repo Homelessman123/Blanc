@@ -64,6 +64,8 @@ Trong Railway project:
 - Root Directory: `apps/admin`
 - Config as code: Railway sẽ tự đọc `apps/admin/railway.toml`
 
+> Nếu bạn cấu hình thủ công trong UI thay vì Config-as-Code, hãy đặt Dockerfile path là `apps/admin/Dockerfile` để tránh Railway chọn nhầm Dockerfile ở repo root.
+
 ### Bước B: Set Variables / Build Args cho từng service
 
 #### Service 1 (Backend) - Variables
