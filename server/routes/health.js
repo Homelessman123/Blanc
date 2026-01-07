@@ -53,7 +53,10 @@ router.get('/', async (_req, res) => {
     health.services.redis = 'error';
   }
 
-  const statusCode = health.status === 'ok' ? 200 : 503;
+  // Always return 200 for health checks to allow container orchestration (Railway/K8s)
+  // to keep the service alive while it attempts to reconnect to dependencies.
+  // The 'status' field in the body will indicate if services are degraded.
+  const statusCode = 200;
   res.status(statusCode).json(health);
 });
 
