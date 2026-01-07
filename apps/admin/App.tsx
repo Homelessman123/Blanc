@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -22,7 +22,7 @@ import ReportReviewManager from './components/ReportReviewManager';
  * Protected Route Wrapper
  * Redirects to login if not authenticated
  */
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: FC<{ children: ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -46,7 +46,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 /**
  * Main App Routes
  */
-const AppRoutes: React.FC = () => {
+const AppRoutes: FC = () => {
   const { isAuthenticated, user } = useAuth();
   const isMentor = user?.role === 'mentor';
 
@@ -203,7 +203,7 @@ const AppRoutes: React.FC = () => {
 /**
  * Main App Component with Auth Provider
  */
-const App: React.FC = () => {
+const App: FC = () => {
   return (
     <HashRouter>
       <AuthProvider>
