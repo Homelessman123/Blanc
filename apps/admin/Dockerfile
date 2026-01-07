@@ -15,7 +15,7 @@ ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
 COPY package*.json ./
 
 # Install dependencies (use npm install if no package-lock.json)
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --no-audit
 
 # Copy source code
 COPY . .

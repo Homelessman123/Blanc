@@ -20,6 +20,99 @@ Mục tiêu setup:
 - **1 service**: **Admin Frontend** (dùng `apps/admin/railway.toml` + `apps/admin/Dockerfile`)
 - **1 plugin**: **Redis** (Railway Redis) → Railway tự tạo `REDIS_URL`
 
+## 🚀 Deploy trên Railway (Option B - 3 services, tách scale & tách release)
+
+Mục tiêu setup:
+
+- **Service 1: Backend API** (dùng `Dockerfile.backend`)
+- **Service 2: User Frontend** (dùng `Dockerfile.frontend`)
+- **Service 3: Admin Frontend** (dùng `apps/admin/railway.toml` + `apps/admin/Dockerfile`)
+- **Plugin: Redis** (Railway Redis) → Railway tự tạo `REDIS_URL`
+
+### Khi nào chọn Option B?
+
+- Bạn muốn frontend deploy độc lập backend (tách release)
+- Bạn muốn scale backend riêng (CPU/RAM) mà không “kéo” frontend theo
+- Bạn muốn user/admin có domain riêng (2 apps tách biệt)
+
+### Lưu ý quan trọng về Vite env (`VITE_*`)
+
+- `VITE_*` là **build-time** (Vite sẽ “bake” vào file static)
+- Vì vậy trên Railway, bạn cần set `VITE_API_URL` (và `VITE_GEMINI_API_KEY` nếu dùng) dưới dạng **Build Args** của service frontend/admin
+- Backend không cần `VITE_*`
+
+### Bước A: Tạo 3 services từ cùng GitHub repo
+
+Trong Railway project:
+
+1) **New Service → GitHub Repo** (Backend)
+
+- Root Directory: repo root
+- Builder: Dockerfile
+- Dockerfile Path: `Dockerfile.backend`
+- Healthcheck Path: `/api/health`
+
+2) **New Service → GitHub Repo** (User Frontend)
+
+- Root Directory: repo root
+- Builder: Dockerfile
+- Dockerfile Path: `Dockerfile.frontend`
+- Healthcheck Path: `/health` (được cấu hình trong nginx template)
+
+3) **New Service → GitHub Repo** (Admin Frontend)
+
+- Root Directory: `apps/admin`
+- Config as code: Railway sẽ tự đọc `apps/admin/railway.toml`
+
+### Bước B: Set Variables / Build Args cho từng service
+
+#### Service 1 (Backend) - Variables
+
+Xem template: `.env.railway.backend`
+
+Tối thiểu cần:
+```
+NODE_ENV=production
+DATABASE_URL=<your-postgres-url>
+JWT_SECRET=<your-secret>
+OTP_EMAIL_URL=<...>
+OTP_SECRET_KEY=<...>
+FRONTEND_ORIGIN=<user-frontend-url>,<admin-url>
+TRUST_PROXY=1
+```
+
+> `FRONTEND_ORIGIN` nên chứa **cả 2 domain** (User Frontend + Admin) để CORS hoạt động.
+
+#### Service 2 (User Frontend) - Build Args
+
+Xem template: `.env.railway.frontend`
+
+Set build args:
+```
+VITE_API_URL=https://<your-backend-domain>/api
+VITE_GEMINI_API_KEY=<optional>
+VITE_CHAT_ENABLED=false
+```
+
+#### Service 3 (Admin) - Variables/Build Args
+
+Xem template: `.env.railway.admin`
+
+`apps/admin/railway.toml` đã map:
+- `VITE_API_URL` → build arg
+- `VITE_GEMINI_API_KEY` → build arg
+
+### Bước C: Add Redis plugin (Recommended)
+
+1. Click **New → Database → Add Redis**
+2. Railway tự set `REDIS_URL` cho backend service
+
+### Bước D: Verify nhanh sau deploy
+
+- Backend health: `GET https://<backend-domain>/api/health`
+- User frontend: `GET https://<frontend-domain>/health` (returns `ok`)
+- Admin frontend: `GET https://<admin-domain>/health` (returns `ok`)
+
 > Lưu ý thực tế: Railway không có nút “Deploy 1 lần cho mọi service” theo kiểu bấm 1 cái là redeploy đồng loạt.
 > Cách tiện nhất là **setup 2 services + Redis 1 lần**, sau đó bật **GitHub Autodeploy**: mỗi lần bạn `git push` là cả 2 services tự deploy (Redis là managed plugin).
 
