@@ -115,6 +115,46 @@ Xem template: `.env.railway.admin`
 - User frontend: `GET https://<frontend-domain>/health` (returns `ok`)
 - Admin frontend: `GET https://<admin-domain>/health` (returns `ok`)
 
+### Bước E: Nâng role user lên admin (QUAN TRỌNG!)
+
+Admin panel yêu cầu user có role `admin` hoặc `super_admin`. Sau khi deploy, làm theo:
+
+1. Login user frontend bình thường (đăng ký tài khoản mới nếu chưa có)
+2. Vào Backend service → **Connect** → Terminal
+3. Chạy lệnh sau (thay `YOUR_EMAIL`):
+
+```bash
+node -e "
+const { MongoClient } = require('mongodb');
+const uri = process.env.DATABASE_URL;
+const client = new MongoClient(uri);
+
+(async () => {
+  try {
+    await client.connect();
+    const db = client.db();
+    const result = await db.collection('users').updateOne(
+      { email: 'YOUR_EMAIL@example.com' },
+      { \$set: { role: 'super_admin', updatedAt: new Date() } }
+    );
+    console.log('Updated:', result.modifiedCount, 'user(s)');
+  } finally {
+    await client.close();
+  }
+})();
+"
+```
+
+4. Truy cập `https://<admin-domain>` và login bằng email vừa nâng quyền
+
+> ⚠️ **Lưu ý**: Nếu không nâng role, bạn sẽ gặp lỗi 403 "Insufficient permissions" khi thao tác trên admin panel.
+
+---
+
+## 🐛 Troubleshooting
+
+Nếu gặp lỗi 403 / CORS / Admin build fail, xem chi tiết tại [RAILWAY_TROUBLESHOOTING.md](RAILWAY_TROUBLESHOOTING.md).
+
 > Lưu ý thực tế: Railway không có nút “Deploy 1 lần cho mọi service” theo kiểu bấm 1 cái là redeploy đồng loạt.
 > Cách tiện nhất là **setup 2 services + Redis 1 lần**, sau đó bật **GitHub Autodeploy**: mỗi lần bạn `git push` là cả 2 services tự deploy (Redis là managed plugin).
 
