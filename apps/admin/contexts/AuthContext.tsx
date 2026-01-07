@@ -73,6 +73,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         pending2FA: null,
     });
 
+    const getCookieValue = (name: string): string | null => {
+        if (typeof document === 'undefined') return null;
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+        return match ? decodeURIComponent(match[1]) : null;
+    };
+
+    // If admin is hosted on a different site (e.g. netlify.app) than the backend,
+    // browsers may block third-party cookies. The CSRF cookie is not httpOnly,
+    // so its presence is a good signal that cookie-based auth is working.
+    const shouldFallbackToBearerAuth = (): boolean => {
+        return !getCookieValue('csrf_token');
+    };
+
     // Helper: Check if user can access privileged area (admin/mentor)
     const isPrivilegedRole = (role: string): boolean => {
         return role === 'admin' || role === 'super_admin' || role === 'mentor';
@@ -179,8 +193,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 throw new Error('Access denied. Privileged access required.');
             }
 
-            // Prefer httpOnly cookie auth; avoid persisting tokens in localStorage
-            tokenManager.clearTokens();
+            // Prefer httpOnly cookie auth; avoid persisting tokens in localStorage.
+            // If cookies are blocked (cross-site admin), fall back to Bearer token.
+            const token = (response.data as unknown as { token?: string })?.token;
+            if (token && shouldFallbackToBearerAuth()) {
+                tokenManager.setTokens({ accessToken: token, refreshToken: '' });
+            } else {
+                tokenManager.clearTokens();
+            }
 
             setState({
                 user: userData,
@@ -235,8 +255,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 throw new Error('Access denied. Privileged access required.');
             }
 
-            // Prefer httpOnly cookie auth; avoid persisting tokens in localStorage
-            tokenManager.clearTokens();
+            // Prefer httpOnly cookie auth; avoid persisting tokens in localStorage.
+            // If cookies are blocked (cross-site admin), fall back to Bearer token.
+            const token = response.data.token;
+            if (token && shouldFallbackToBearerAuth()) {
+                tokenManager.setTokens({ accessToken: token, refreshToken: '' });
+            } else {
+                tokenManager.clearTokens();
+            }
 
             setState({
                 user: userData,
