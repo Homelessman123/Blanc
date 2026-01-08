@@ -163,34 +163,109 @@ router.get('/tags', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     await connectToDatabase();
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
     const tag = typeof req.query.tag === 'string' ? req.query.tag : undefined;
-    const query = tag ? { tags: tag } : {};
+    const tagsRaw = typeof req.query.tags === 'string' ? req.query.tags : undefined;
+    const tags = (tagsRaw || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : undefined;
+    const sortOrder = String(req.query.sortOrder || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-    // Cache key based on query params
-    const cacheKey = `contests:list:${tag || 'all'}:${limit}`;
+    const queryParts = [];
+    if (tag) queryParts.push({ tags: tag });
+    if (tags.length === 1) queryParts.push({ tags: tags[0] });
+    if (tags.length > 1) queryParts.push({ tags: { $in: tags } });
+    if (status) queryParts.push({ status });
+    if (search) {
+      queryParts.push({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { organizer: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+        ],
+      });
+    }
+    const query = queryParts.length ? { $and: queryParts } : {};
+
+    const sortMap = {
+      title: { title: sortOrder === 'asc' ? 1 : -1 },
+      createdAt: { createdAt: sortOrder === 'asc' ? 1 : -1 },
+      deadline: { deadline: sortOrder === 'asc' ? 1 : -1 },
+      dateStart: { dateStart: sortOrder === 'asc' ? 1 : -1 },
+    };
+    const sortSpec = sortBy && sortMap[sortBy] ? sortMap[sortBy] : { createdAt: -1 };
+
+    const cacheKey = `contests:list:${encodeURIComponent(
+      JSON.stringify({ tag: tag || '', tags, status: status || '', search, page, limit, sortBy: sortBy || '', sortOrder })
+    )}`;
 
     const mapped = await getCached(
       cacheKey,
       async () => {
+        const total = await getCollection('contests').countDocuments(query);
+        const totalPages = Math.ceil(total / limit);
+
         const contests = await getCollection('contests')
           .find(query, contestFields)
-          .sort({ createdAt: -1 })
+          .sort(sortSpec)
+          .skip((page - 1) * limit)
           .limit(limit)
           .toArray();
 
         const countMap = await getActiveRegistrationCountMap(contests.map((c) => c._id));
 
-        return contests.map((doc) => {
+        const items = contests.map((doc) => {
           const contest = mapContest(doc);
           contest.registrationCount = countMap.get(doc._id.toString()) ?? 0;
           return contest;
         });
+
+        return { items, total, page, limit, totalPages };
       },
       600 // 10 minutes cache
     );
 
-    res.json({ contests: mapped });
+    res.json({
+      contests: mapped.items,
+      items: mapped.items,
+      total: mapped.total,
+      page: mapped.page,
+      limit: mapped.limit,
+      totalPages: mapped.totalPages,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete ALL contests (admin only)
+router.delete('/', authGuard, requireRole('admin'), async (req, res, next) => {
+  try {
+    await connectToDatabase();
+
+    const contests = getCollection('contests');
+    const registrations = getCollection('registrations');
+    const teams = getCollection('teams');
+    const teamPosts = getCollection('team_posts');
+
+    const deletedRegistrations = await registrations.deleteMany({ contestId: { $exists: true, $ne: null } });
+    const deletedTeams = await teams.deleteMany({ contestId: { $exists: true, $ne: null } });
+    const deletedTeamPosts = await teamPosts.deleteMany({ contestId: { $exists: true, $ne: null } });
+    const deletedContests = await contests.deleteMany({});
+
+    await invalidate('contests:*');
+
+    res.json({
+      deletedContests: deletedContests.deletedCount || 0,
+      deletedRegistrations: deletedRegistrations.deletedCount || 0,
+      deletedTeams: deletedTeams.deletedCount || 0,
+      deletedTeamPosts: deletedTeamPosts.deletedCount || 0,
+    });
   } catch (error) {
     next(error);
   }

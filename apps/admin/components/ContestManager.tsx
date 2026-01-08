@@ -90,6 +90,7 @@ const ContestManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [editingContest, setEditingContest] = useState<Contest | null>(null);
   const [viewingContest, setViewingContest] = useState<Contest | null>(null);
@@ -181,6 +182,11 @@ const ContestManager: React.FC = () => {
     fetchContests();
   }, [fetchContests]);
 
+  // Reset to first page on filter/search changes
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [debouncedSearch, filterStatus]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -198,6 +204,55 @@ const ContestManager: React.FC = () => {
     const description = await generateContestDescription(newTitle, tagsArray);
     setGeneratedDesc(description);
     setIsGenerating(false);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination((prev) => {
+      const maxPage = Math.max(prev.totalPages || 1, 1);
+      const nextPage = Math.min(Math.max(newPage, 1), maxPage);
+      return { ...prev, page: nextPage };
+    });
+  };
+
+  const handleDeleteAllContests = async () => {
+    if (!canManageContests) {
+      alert('Admin access required');
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure you want to delete ALL contests? This action cannot be undone.');
+    if (!confirmed) return;
+
+    setIsBulkDeleting(true);
+    setError(null);
+    try {
+      await contestService.deleteAll();
+
+      const filters: ContestFilters = {
+        search: debouncedSearch || undefined,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        page: 1,
+        limit: pagination.limit,
+      };
+      const response = await contestService.getAll(filters);
+      setContests(response.items);
+      setPagination((prev) => ({
+        ...prev,
+        page: 1,
+        total: response.total,
+        totalPages: response.totalPages,
+      }));
+    } catch (err) {
+      console.error('Failed to delete all contests:', err);
+      const message = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Failed to delete all contests. Please try again.';
+      alert(message);
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   const resetForm = () => {
@@ -422,6 +477,15 @@ const ContestManager: React.FC = () => {
             <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
           </button>
           <button
+            onClick={handleDeleteAllContests}
+            disabled={!canManageContests || isLoading || isBulkDeleting}
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
+            title="Delete all contests"
+          >
+            <Trash2 size={18} />
+            {isBulkDeleting ? 'Deleting...' : 'Delete All'}
+          </button>
+          <button
             onClick={() => {
               resetForm();
               setIsModalOpen(true);
@@ -576,58 +640,32 @@ const ContestManager: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} contests
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                title="Previous page"
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (pagination.totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (pagination.page <= 3) {
-                    pageNum = i + 1;
-                  } else if (pagination.page >= pagination.totalPages - 2) {
-                    pageNum = pagination.totalPages - 4 + i;
-                  } else {
-                    pageNum = pagination.page - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
-                      className={`min-w-9 h-9 rounded-lg text-sm font-medium transition-colors ${pagination.page === pageNum
-                        ? 'bg-emerald-500 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.totalPages}
-                title="Next page"
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            {pagination.total === 0
+              ? 'Showing 0 to 0 of 0 contests'
+              : `Showing ${((pagination.page - 1) * pagination.limit) + 1} to ${Math.min(pagination.page * pagination.limit, pagination.total)} of ${pagination.total} contests`}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1 || isLoading}
+              className="px-3 py-1 border border-gray-300 rounded bg-white text-sm text-gray-600 disabled:opacity-50 hover:bg-gray-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 text-sm text-gray-600">
+              Page {pagination.page} of {pagination.totalPages || 1}
+            </span>
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={!pagination.totalPages || pagination.page >= pagination.totalPages || isLoading}
+              className="px-3 py-1 border border-gray-300 rounded bg-white text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Create/Edit Modal */}

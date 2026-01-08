@@ -25,6 +25,13 @@ export interface PaginatedResponse<T> {
     totalPages: number;
 }
 
+export interface DeleteAllContestsResponse {
+    deletedContests: number;
+    deletedRegistrations: number;
+    deletedTeams: number;
+    deletedTeamPosts: number;
+}
+
 export interface ContestPrize {
     rank: number;
     title: string;
@@ -80,7 +87,7 @@ export const contestService = {
      */
     getAll: async (filters: ContestFilters = {}): Promise<PaginatedResponse<Contest>> => {
         try {
-            const response = await api.get<{ contests?: Contest[]; items?: Contest[]; total?: number }>('/contests', {
+            const response = await api.get<{ contests?: Contest[]; items?: Contest[]; total?: number; page?: number; limit?: number; totalPages?: number }>('/contests', {
                 params: {
                     search: filters.search,
                     status: filters.status,
@@ -92,16 +99,20 @@ export const contestService = {
                 },
             });
 
-            const contests = response.data.contests || response.data.items || [];
-            const total = response.data.total || contests.length;
-            const limit = filters.limit || 10;
+            const contests = response.data.items || response.data.contests || [];
+            const total = typeof response.data.total === 'number' ? response.data.total : contests.length;
+            const page = typeof response.data.page === 'number' ? response.data.page : (filters.page || 1);
+            const limit = typeof response.data.limit === 'number' ? response.data.limit : (filters.limit || 10);
+            const totalPages = typeof response.data.totalPages === 'number'
+                ? response.data.totalPages
+                : Math.ceil(total / limit);
 
             return {
                 items: contests,
                 total,
-                page: filters.page || 1,
+                page,
                 limit,
-                totalPages: Math.ceil(total / limit),
+                totalPages,
             };
         } catch {
             return {
@@ -143,6 +154,14 @@ export const contestService = {
      */
     delete: async (id: string): Promise<void> => {
         await api.delete(`/contests/${id}`);
+    },
+
+    /**
+     * Delete ALL contests (admin only)
+     */
+    deleteAll: async (): Promise<DeleteAllContestsResponse> => {
+        const response = await api.delete<DeleteAllContestsResponse>('/contests');
+        return response.data;
     },
 
     /**
