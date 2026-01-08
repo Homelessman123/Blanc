@@ -37,9 +37,6 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return;
 
-            // Keep React core separate for better long-term caching
-            if (id.includes('/react/') || id.includes('/react-dom/')) return 'react-vendor';
-
             // Router
             if (id.includes('/react-router') || id.includes('/@remix-run/')) return 'router-vendor';
 
