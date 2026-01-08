@@ -14,6 +14,9 @@ const API_BASE_URL = apiBaseUrlRaw.replace(/\/+$/, '');
 
 const CSRF_COOKIE_NAME = import.meta.env.VITE_CSRF_COOKIE_NAME || 'csrf_token';
 
+let csrfTokenCache: string | null = null;
+let csrfTokenInFlight: Promise<string | null> | null = null;
+
 // Token storage keys
 const ACCESS_TOKEN_KEY = 'admin_access_token';
 const REFRESH_TOKEN_KEY = 'admin_refresh_token';
@@ -40,6 +43,45 @@ function getCookieValue(name: string): string | null {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
     return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function fetchCsrfTokenFromApi(): Promise<string | null> {
+    if (csrfTokenCache) return csrfTokenCache;
+    if (csrfTokenInFlight) return csrfTokenInFlight;
+
+    csrfTokenInFlight = (async () => {
+        try {
+            const fallbackOrigin =
+                typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null'
+                    ? window.location.origin
+                    : 'http://localhost';
+
+            const url = new URL(`${API_BASE_URL}/auth/csrf`, fallbackOrigin).toString();
+            const res = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => ({}));
+            const token =
+                data && typeof data === 'object' && 'csrfToken' in data && typeof (data as any).csrfToken === 'string'
+                    ? (data as any).csrfToken
+                    : null;
+
+            csrfTokenCache = token;
+            return token;
+        } catch {
+            return null;
+        } finally {
+            csrfTokenInFlight = null;
+        }
+    })();
+
+    return csrfTokenInFlight;
 }
 
 // Token management
@@ -162,21 +204,20 @@ async function apiRequest<T>(
         ...fetchConfig.headers,
     };
 
-    // Add CSRF token for cookie-based auth on state-changing requests
-    const method = String(fetchConfig.method || 'GET').toUpperCase();
-    const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
-    if (!isSafeMethod) {
-        const csrf = getCookieValue(CSRF_COOKIE_NAME);
-        if (csrf) {
-            (headers as Record<string, string>)['X-CSRF-Token'] = csrf;
-        }
+    // Add authorization header if not skipped (legacy support)
+    const accessToken = !skipAuth ? tokenManager.getAccessToken() : null;
+    if (accessToken) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    // Add authorization header if not skipped (legacy support)
-    if (!skipAuth) {
-        const accessToken = tokenManager.getAccessToken();
-        if (accessToken) {
-            (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+    // Add CSRF token for cookie-based auth on state-changing requests.
+    // If the CSRF cookie isn't readable (e.g., API on sibling subdomain), fetch it via /auth/csrf.
+    const method = String(fetchConfig.method || 'GET').toUpperCase();
+    const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    if (!isSafeMethod && !accessToken) {
+        const csrf = getCookieValue(CSRF_COOKIE_NAME) || csrfTokenCache || (await fetchCsrfTokenFromApi());
+        if (csrf) {
+            (headers as Record<string, string>)['X-CSRF-Token'] = csrf;
         }
     }
 
