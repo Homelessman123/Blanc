@@ -1,6 +1,9 @@
 # Multi-stage build for Railway deployment
 FROM public.ecr.aws/docker/library/node:20-alpine AS builder
 
+# Cache buster - change this to force rebuild
+ARG CACHEBUST=2026-01-08-v2
+
 WORKDIR /app
 
 # Copy manifests first for better caching
