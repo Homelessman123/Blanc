@@ -6,10 +6,12 @@ WORKDIR /app
 # Build arguments for Vite environment variables
 ARG VITE_API_URL
 ARG VITE_GEMINI_API_KEY
+ARG RAILWAY_GIT_COMMIT_SHA
 
 # Set environment variables for build
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
+ENV RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA
 
 # Copy package files
 COPY package*.json ./

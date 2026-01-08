@@ -5,6 +5,7 @@ dockerfilePath = "apps/admin/Dockerfile"
 [build.args]
 VITE_API_URL = "${{VITE_API_URL}}"
 VITE_GEMINI_API_KEY = "${{VITE_GEMINI_API_KEY}}"
+RAILWAY_GIT_COMMIT_SHA = "${{RAILWAY_GIT_COMMIT_SHA}}"
 
 [deploy]
 healthcheckPath = "/"
