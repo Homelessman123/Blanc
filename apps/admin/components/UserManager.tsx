@@ -128,6 +128,11 @@ const UserManager: React.FC = () => {
     };
   }, [fetchUsers]);
 
+  // Reset to first page on search/filter changes
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [debouncedSearch, filterRole, filterStatus]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -469,15 +474,15 @@ const UserManager: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Students & Admins</h2>
           <p className="text-gray-500 mt-1">Manage user roles and permissions</p>
         </div>
-        <div className="flex gap-2">
-          <div className="relative">
+        <div className="flex flex-wrap items-end justify-end gap-2">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none w-full sm:w-64"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none w-full"
             />
           </div>
           <button
@@ -495,6 +500,22 @@ const UserManager: React.FC = () => {
           >
             <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
           </button>
+          <div className="min-w-40">
+            <Dropdown
+              label="Role"
+              options={[
+                { value: 'all', label: 'All Roles' },
+                { value: 'student', label: 'Student', color: 'bg-gray-400' },
+                { value: 'mentor', label: 'Mentor', color: 'bg-emerald-500' },
+                { value: 'admin', label: 'Admin', color: 'bg-purple-500' },
+                { value: 'super_admin', label: 'Super Admin', color: 'bg-red-500' }
+              ]}
+              value={filterRole}
+              onChange={(val) => setFilterRole(val as typeof filterRole)}
+              placeholder="Select role"
+              size="sm"
+            />
+          </div>
           <div className="min-w-40">
             <Dropdown
               label="Sort"
@@ -527,22 +548,6 @@ const UserManager: React.FC = () => {
       {/* Filters */}
       {showFilters && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-wrap gap-4 animate-fade-in-up">
-          <div className="min-w-40">
-            <Dropdown
-              label="Role"
-              options={[
-                { value: 'all', label: 'All Roles' },
-                { value: 'student', label: 'Student', color: 'bg-gray-400' },
-                { value: 'mentor', label: 'Mentor', color: 'bg-emerald-500' },
-                { value: 'admin', label: 'Admin', color: 'bg-purple-500' },
-                { value: 'super_admin', label: 'Super Admin', color: 'bg-red-500' }
-              ]}
-              value={filterRole}
-              onChange={(val) => setFilterRole(val as typeof filterRole)}
-              placeholder="Select role"
-              size="sm"
-            />
-          </div>
           <div className="min-w-40">
             <Dropdown
               label="Status"
@@ -625,12 +630,12 @@ const UserManager: React.FC = () => {
                         <Shield size={16} className="text-gray-400" />
                       )}
                       <span className={`capitalize ${user.role === 'super_admin'
-                          ? 'text-red-700 font-medium'
-                          : user.role === 'admin'
-                            ? 'text-purple-700 font-medium'
-                            : user.role === 'mentor'
-                              ? 'text-emerald-700 font-medium'
-                              : 'text-gray-700'
+                        ? 'text-red-700 font-medium'
+                        : user.role === 'admin'
+                          ? 'text-purple-700 font-medium'
+                          : user.role === 'mentor'
+                            ? 'text-emerald-700 font-medium'
+                            : 'text-gray-700'
                         }`}>
                         {user.role === 'super_admin' ? 'super admin' : user.role}
                       </span>
