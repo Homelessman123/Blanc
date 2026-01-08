@@ -9,9 +9,8 @@ WORKDIR /app
 # Copy manifests first for better caching
 COPY package*.json ./
 
-# Install deps (include dev deps for build) with cache mount
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --legacy-peer-deps && \
+# Install deps (include dev deps for build)
+RUN npm ci --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy source and build
@@ -31,9 +30,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies with cache mount
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev --legacy-peer-deps && \
+# Install production dependencies
+RUN npm ci --omit=dev --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy server code and built frontend
