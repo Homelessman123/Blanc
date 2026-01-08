@@ -68,6 +68,40 @@ function clearAuthCookies(res) {
   res.clearCookie(CSRF_COOKIE_NAME, { ...base, httpOnly: false });
 }
 
+function parseCookies(cookieHeader = '') {
+  const header = String(cookieHeader || '');
+  if (!header) return {};
+  return header.split(';').reduce((acc, part) => {
+    const [rawKey, ...rest] = part.split('=');
+    const key = rawKey?.trim();
+    if (!key) return acc;
+    const value = rest.join('=').trim();
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
+
+// GET /auth/csrf - Return CSRF token for cookie-based auth
+// Useful when the CSRF cookie is not readable by JS (e.g., API on a sibling subdomain).
+// Intentionally does NOT require auth: the token is not a secret and is only meaningful
+// alongside the user's authenticated cookie session.
+router.get('/csrf', (req, res) => {
+  const cookies = parseCookies(req.headers.cookie);
+  let csrfToken = cookies[CSRF_COOKIE_NAME];
+
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(32).toString('hex');
+    const base = getCookieBaseOptions();
+    res.cookie(CSRF_COOKIE_NAME, csrfToken, {
+      ...base,
+      httpOnly: false,
+      maxAge: AUTH_COOKIE_MAX_AGE_MS,
+    });
+  }
+
+  return res.json({ csrfToken });
+});
+
 // ============ CONSTANTS ============
 const PENDING_REGISTRATION_TTL_MINUTES = 10; // Pending registrations expire in 10 minutes
 const LOGIN_2FA_TTL_MINUTES = 2; // 2FA/OTP session expires in 2 minutes (auto-extends on OTP resend)

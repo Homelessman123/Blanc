@@ -83,6 +83,15 @@ FRONTEND_ORIGIN=<user-frontend-url>,<admin-url>
 TRUST_PROXY=1
 ```
 
+Khuyến nghị thêm (tránh lỗi CSRF/cookie khi deploy thật):
+```
+AUTH_COOKIE_SAMESITE=lax
+AUTH_COOKIE_SECURE=true
+# AUTH_COOKIE_DOMAIN=  (để trống trừ khi bạn dùng custom parent domain)
+```
+
+> Nếu Admin chạy domain riêng, frontend sẽ gọi `GET /api/auth/csrf` để lấy CSRF token (khi không đọc được cookie `csrf_token`).
+
 > `FRONTEND_ORIGIN` nên chứa **cả 2 domain** (User Frontend + Admin) để CORS hoạt động.
 
 #### Service 2 (User Frontend) - Build Args

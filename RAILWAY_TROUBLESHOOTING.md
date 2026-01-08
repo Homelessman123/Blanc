@@ -120,6 +120,10 @@ Backend log hiển thị:
 - Cookie `csrf_token` không khớp với header `X-CSRF-Token`
 - Hoặc cookie bị chặn bởi trình duyệt (cross-site)
 
+**Ghi chú quan trọng (Admin tách domain):**
+- Khi Admin chạy trên domain khác Backend, `document.cookie` của Admin **không đọc được** cookie `csrf_token` (cookie nằm trên domain Backend).
+- Vì vậy frontend cần lấy CSRF token qua `GET /api/auth/csrf` (backend trả JSON `{ csrfToken }`).
+
 ### Cách fix
 
 #### 1. Kiểm tra cookie settings
@@ -141,6 +145,10 @@ Quan trọng vì Railway chạy sau load balancer.
 1. DevTools → Application → Clear storage
 2. Logout admin panel
 3. Login lại
+
+#### 4. Nếu thấy 429 khi gọi `/api/auth/csrf`
+- Đây thường là do rate limit quá chặt cho nhóm `/api/auth`.
+- Bản vá mới đã exempt endpoint `/csrf` khỏi limiter strict (không tính vào 5 lần/15 phút).
 
 ---
 

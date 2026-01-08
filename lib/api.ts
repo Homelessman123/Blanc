@@ -9,11 +9,43 @@ const API_BASE_URL = apiBaseUrlRaw.replace(/\/+$/, '');
 // Request deduplication - prevent multiple identical requests
 const pendingRequests = new Map<string, Promise<unknown>>();
 
+let cachedCsrfToken: string | null = null;
+let csrfTokenInFlight: Promise<string | null> | null = null;
+
 function getCookieValue(name: string): string | null {
   if (typeof document === 'undefined') return null;
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function fetchCsrfToken(): Promise<string | null> {
+  if (cachedCsrfToken) return cachedCsrfToken;
+  if (csrfTokenInFlight) return csrfTokenInFlight;
+
+  csrfTokenInFlight = (async () => {
+    try {
+      const url = `${API_BASE_URL}/auth/csrf`;
+      const res = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const data = (await res.json().catch(() => null)) as null | { csrfToken?: string };
+      const token = data?.csrfToken ? String(data.csrfToken) : null;
+      cachedCsrfToken = token;
+      return token;
+    } finally {
+      csrfTokenInFlight = null;
+    }
+  })();
+
+  return csrfTokenInFlight;
 }
 
 // Generic fetch wrapper with error handling and caching
@@ -67,7 +99,8 @@ async function fetchAPI<T>(
   const method = String(config.method || 'GET').toUpperCase();
   const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
   if (!isSafeMethod) {
-    const csrf = getCookieValue('csrf_token');
+    const csrfFromCookie = getCookieValue('csrf_token');
+    const csrf = csrfFromCookie || (await fetchCsrfToken());
     if (csrf) {
       config.headers = {
         ...config.headers,

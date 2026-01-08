@@ -26,6 +26,27 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(buildVersion),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+
+            // Router
+            if (id.includes('/react-router') || id.includes('/@remix-run/')) return 'router-vendor';
+
+            // Charts can be heavy
+            if (id.includes('/recharts/')) return 'charts-vendor';
+
+            // Icons can be large
+            if (id.includes('/lucide-react/')) return 'icons-vendor';
+
+            // Default: one vendor chunk
+            return 'vendor';
+          },
+        },
+      },
+    },
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {

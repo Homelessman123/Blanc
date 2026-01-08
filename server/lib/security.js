@@ -13,7 +13,7 @@ export const RateLimiters = {
         legacyHeaders: false,
         // Mounted at /api/auth. Exclude non-sensitive endpoints that are called frequently in normal flows.
         // (e.g. app bootstrapping calls /auth/me to check session)
-        skip: (req) => req.path === '/me' || req.path === '/logout',
+        skip: (req) => req.path === '/me' || req.path === '/logout' || req.path === '/csrf',
         keyGenerator: (req) => getClientIp(req),
         message: 'Too many authentication attempts, please try again later',
     }),
