@@ -303,6 +303,9 @@ router.patch('/:id', authGuard, requireRole('admin'), async (req, res, next) => 
       return res.status(404).json({ error: 'Contest not found' });
     }
 
+    // Invalidate contests cache so list views reflect updates immediately
+    await invalidate('contests:*');
+
     res.json({ updated: true });
   } catch (error) {
     next(error);
@@ -327,6 +330,9 @@ router.delete('/:id', authGuard, requireRole('admin'), async (req, res, next) =>
     if (deleteResult.deletedCount === 0) {
       return res.status(404).json({ error: 'Contest not found' });
     }
+
+    // Invalidate contests cache so list views don't show deleted items
+    await invalidate('contests:*');
 
     // Best-effort cleanup of related data
     const [registrationCleanup, teamPostsCleanup] = await Promise.allSettled([
