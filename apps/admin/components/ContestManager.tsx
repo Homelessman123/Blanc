@@ -15,6 +15,19 @@ import { Dropdown } from './ui/Dropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 
+const safeStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === 'string');
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 // Category options for contests (grouped + expanded)
 const CONTEST_CATEGORIES = [
   { value: '', label: 'Select category', color: 'bg-gray-400' },
@@ -321,10 +334,18 @@ const ContestManager: React.FC = () => {
 
       if (editingContest) {
         const updated = await contestService.update(editingContest.id, contestData);
-        setContests(contests.map(c => c.id === editingContest.id ? updated : c));
+        const normalizedUpdated: Contest = {
+          ...(updated as Contest),
+          tags: safeStringArray((updated as any).tags),
+        };
+        setContests(contests.map(c => c.id === editingContest.id ? normalizedUpdated : c));
       } else {
         const created = await contestService.create(contestData);
-        setContests([created, ...contests]);
+        const normalizedCreated: Contest = {
+          ...(created as Contest),
+          tags: safeStringArray((created as any).tags),
+        };
+        setContests([normalizedCreated, ...contests]);
       }
       setIsModalOpen(false);
       resetForm();
@@ -365,7 +386,7 @@ const ContestManager: React.FC = () => {
           }
           setEditingContest(contest);
           setNewTitle(contest.title);
-          setNewTags(contest.tags.join(', '));
+          setNewTags(safeStringArray((contest as any).tags).join(', '));
           setNewOrganizer(contest.organizer);
           setNewFee(contest.fee);
           setNewDateStart(contest.dateStart?.split('T')[0] || '');
@@ -563,11 +584,11 @@ const ContestManager: React.FC = () => {
                       <div>
                         <p className="font-semibold text-gray-900">{contest.title}</p>
                         <div className="flex gap-2 mt-1">
-                          {contest.tags.slice(0, 3).map(tag => (
+                          {safeStringArray((contest as any).tags).slice(0, 3).map(tag => (
                             <span key={tag} className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{tag}</span>
                           ))}
-                          {contest.tags.length > 3 && (
-                            <span className="text-xs text-gray-400">+{contest.tags.length - 3}</span>
+                          {safeStringArray((contest as any).tags).length > 3 && (
+                            <span className="text-xs text-gray-400">+{safeStringArray((contest as any).tags).length - 3}</span>
                           )}
                         </div>
                       </div>
