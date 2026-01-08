@@ -117,16 +117,16 @@ router.get('/ready', async (_req, res) => {
 
   try {
     // Check 1: Database URL configured
-    const dbUrl = process.env.DATABASE_URL || 
-                  process.env.POSTGRES_URL || 
-                  process.env.COCKROACH_DATABASE_URL;
-    
+    const dbUrl = process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.COCKROACH_DATABASE_URL;
+
     if (!dbUrl || dbUrl.trim() === '') {
       diagnostics.checks.database_url = 'MISSING';
       diagnostics.error = 'DATABASE_URL not configured in Railway variables';
       return res.status(503).json(diagnostics);
     }
-    
+
     // Check for placeholder that wasn't replaced
     if (dbUrl.includes('${{') || dbUrl.includes('}}')) {
       diagnostics.checks.database_url = 'PLACEHOLDER_NOT_REPLACED';
@@ -134,14 +134,14 @@ router.get('/ready', async (_req, res) => {
       diagnostics.debug = { prefix: dbUrl.substring(0, 50) };
       return res.status(503).json(diagnostics);
     }
-    
+
     diagnostics.checks.database_url = 'configured';
 
     // Check 2: Database connection
     await connectToDatabase();
     const db = getDb();
     const result = await db.query('SELECT 1 as test');
-    
+
     if (result.rows && result.rows[0]?.test === 1) {
       diagnostics.checks.database_connection = 'healthy';
     } else {

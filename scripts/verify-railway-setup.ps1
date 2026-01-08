@@ -53,12 +53,14 @@ function Test-Endpoint {
             Write-Success "$Name - Status: $($response.StatusCode)"
             $script:passCount++
             return $true
-        } else {
+        }
+        else {
             Write-Failure "$Name - Expected $ExpectedStatus, got $($response.StatusCode)"
             $script:failCount++
             return $false
         }
-    } catch {
+    }
+    catch {
         Write-Failure "$Name - $($_.Exception.Message)"
         $script:failCount++
         return $false
@@ -82,7 +84,8 @@ try {
     if ($health.databaseConfig.configured -eq $true) {
         Write-Success "Database configuration OK"
         $script:passCount++
-    } else {
+    }
+    else {
         Write-Failure "Database not configured (DATABASE_URL missing in Railway variables)"
         $script:failCount++
         Write-Warning "Fix: Railway Dashboard → Backend Service → Variables → Add DATABASE_URL"
@@ -91,7 +94,8 @@ try {
     if ($health.services.database -eq "healthy") {
         Write-Success "Database connection healthy"
         $script:passCount++
-    } else {
+    }
+    else {
         Write-Failure "Database connection: $($health.services.database)"
         $script:failCount++
     }
@@ -99,7 +103,8 @@ try {
     # Test readiness endpoint
     Test-Endpoint -Name "Readiness Check" -Url "$BackendUrl/api/health/ready" -ExpectedStatus 200
     
-} catch {
+}
+catch {
     Write-Failure "Health check failed: $($_.Exception.Message)"
     $script:failCount++
 }
@@ -116,11 +121,13 @@ try {
     if ($csrf.csrfToken -and $csrf.csrfToken.Length -gt 10) {
         Write-Success "CSRF endpoint working - Token: $($csrf.csrfToken.Substring(0, 10))..."
         $script:passCount++
-    } else {
+    }
+    else {
         Write-Failure "CSRF token invalid or missing"
         $script:failCount++
     }
-} catch {
+}
+catch {
     Write-Failure "CSRF endpoint failed: $($_.Exception.Message)"
     $script:failCount++
     Write-Warning "This endpoint is required for cross-domain Admin authentication"
@@ -143,18 +150,21 @@ if ($AdminUrl) {
         if ($corsHeader -and ($corsHeader -eq $AdminUrl -or $corsHeader -eq '*')) {
             Write-Success "CORS configured for Admin: $corsHeader"
             $script:passCount++
-        } else {
+        }
+        else {
             Write-Failure "CORS not allowing Admin origin"
             Write-Info "Expected: $AdminUrl"
             Write-Info "Got: $corsHeader"
             $script:failCount++
             Write-Warning "Fix: Update FRONTEND_ORIGIN in Backend Railway variables"
         }
-    } catch {
+    }
+    catch {
         Write-Warning "CORS preflight test skipped (might need authentication)"
         $script:warnCount++
     }
-} else {
+}
+else {
     Write-Warning "Admin URL not provided, skipping CORS test"
     Write-Info "Usage: .\verify-railway-setup.ps1 -AdminUrl https://admin.yourdomain.com"
     $script:warnCount++
@@ -177,15 +187,18 @@ try {
         if ($debugEnv.hasDATABASE_URL) {
             Write-Success "DATABASE_URL configured"
             $script:passCount++
-        } else {
+        }
+        else {
             Write-Failure "DATABASE_URL not set in Railway"
             $script:failCount++
         }
-    } else {
+    }
+    else {
         Write-Warning "Debug endpoint not available (might be removed in production)"
         $script:warnCount++
     }
-} catch {
+}
+catch {
     Write-Warning "Environment debug endpoint not accessible"
     $script:warnCount++
 }
@@ -205,11 +218,13 @@ try {
     $response = Invoke-WebRequest -Uri "$BackendUrl/api/auth/me" -Method Get -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
     Write-Failure "Protected endpoint /auth/me returned $($response.StatusCode) (should be 401)"
     $script:failCount++
-} catch {
+}
+catch {
     if ($_.Exception.Response.StatusCode -eq 401) {
         Write-Success "Protected endpoint correctly requires authentication"
         $script:passCount++
-    } else {
+    }
+    else {
         Write-Warning "Protected endpoint returned unexpected error"
         $script:warnCount++
     }
@@ -250,11 +265,13 @@ Write-Host ""
 if ($script:failCount -eq 0) {
     Write-Host "🎉 All critical tests passed! ($passPercent% success rate)" -ForegroundColor Green
     exit 0
-} elseif ($script:failCount -le 2) {
+}
+elseif ($script:failCount -le 2) {
     Write-Host "⚠️  Minor issues detected ($passPercent% success rate)" -ForegroundColor Yellow
     Write-Host "Review failures above and fix in Railway Dashboard" -ForegroundColor Yellow
     exit 1
-} else {
+}
+else {
     Write-Host "❌ Critical issues detected ($passPercent% success rate)" -ForegroundColor Red
     Write-Host ""
     Write-Host "Common fixes:" -ForegroundColor Yellow
