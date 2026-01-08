@@ -5,6 +5,35 @@ import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.
 const router = Router();
 
 router.get('/', async (_req, res) => {
+  const rawDatabaseUrl =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.COCKROACH_DATABASE_URL ||
+    process.env.COCKROACHDB_URL ||
+    '';
+  const trimmedDatabaseUrl = rawDatabaseUrl
+    ? String(rawDatabaseUrl)
+      .trim()
+      .replace(/^["']|["']$/g, '')
+    : '';
+
+  const databaseConfig = {
+    configured: Boolean(trimmedDatabaseUrl),
+    target: undefined,
+  };
+
+  try {
+    if (trimmedDatabaseUrl) {
+      const parsed = new URL(trimmedDatabaseUrl);
+      const host = parsed.hostname || 'unknown-host';
+      const port = parsed.port || '5432';
+      const dbName = (parsed.pathname || '').replace(/^\//, '') || 'unknown-db';
+      databaseConfig.target = `${host}:${port}/${dbName}`;
+    }
+  } catch {
+    // ignore parsing errors
+  }
+
   const rawRedisUrl = process.env.REDIS_URL || process.env.REDIS_URI || '';
   const sanitizedRedisUrl = rawRedisUrl
     ? String(rawRedisUrl)
@@ -21,6 +50,7 @@ router.get('/', async (_req, res) => {
       database: 'unknown',
       redis: 'unknown',
     },
+    databaseConfig,
     redisConfig: {
       configured: Boolean(rawRedisUrl),
       url: sanitizedRedisUrl || undefined,

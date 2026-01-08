@@ -35,13 +35,16 @@ function getDefaultRootCertPath() {
 }
 
 function getDatabaseUrl() {
-    return (
+    const raw =
         process.env.DATABASE_URL ||
         process.env.POSTGRES_URL ||
         process.env.COCKROACH_DATABASE_URL ||
         process.env.COCKROACHDB_URL ||
-        ''
-    );
+        '';
+
+    return String(raw)
+        .trim()
+        .replace(/^["']|["']$/g, '');
 }
 
 function getSslConfigFromEnv() {
