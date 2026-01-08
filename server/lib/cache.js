@@ -59,6 +59,12 @@ function initRedis() {
         redis = new Redis(redisUrl, {
             maxRetriesPerRequest: 3,
             retryStrategy: (times) => {
+                // Stop retrying after 3 attempts in production
+                if (times > 3) {
+                    console.warn('⚠️ Redis connection failed after 3 attempts, disabling cache');
+                    isRedisAvailable = false;
+                    return null; // Stop retrying
+                }
                 const delay = Math.min(times * 50, 2000);
                 return delay;
             },
@@ -70,6 +76,8 @@ function initRedis() {
                 }
                 return false;
             },
+            lazyConnect: true, // Don't connect immediately
+            enableOfflineQueue: false, // Don't queue commands when offline
         });
 
         redis.on('connect', () => {
@@ -78,8 +86,9 @@ function initRedis() {
         });
 
         redis.on('error', (err) => {
-            console.error('❌ Redis error:', err.message);
+            console.error('❌ Redis error:', err.message || err);
             isRedisAvailable = false;
+            // Don't let Redis errors crash the app
         });
 
         redis.on('close', () => {
@@ -87,9 +96,16 @@ function initRedis() {
             isRedisAvailable = false;
         });
 
+        // Try to connect once, but don't block if it fails
+        redis.connect().catch((err) => {
+            console.warn('⚠️ Redis initial connection failed, caching disabled:', err.message);
+            isRedisAvailable = false;
+        });
+
         return redis;
     } catch (err) {
-        console.error('Failed to initialize Redis:', err);
+        console.error('Failed to initialize Redis:', err.message || err);
+        isRedisAvailable = false;
         return null;
     }
 }
