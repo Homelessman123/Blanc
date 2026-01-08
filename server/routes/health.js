@@ -4,6 +4,18 @@ import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.
 
 const router = Router();
 
+// Debug endpoint - REMOVE AFTER TROUBLESHOOTING
+router.get('/debug-env', (_req, res) => {
+  res.json({
+    hasDATA BASE_URL: !!process.env.DATABASE_URL,
+    hasPOSTGRES_URL: !!process.env.POSTGRES_URL,
+    hasREDIS_URL: !!process.env.REDIS_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    databaseUrlLength: process.env.DATABASE_URL?.length || 0,
+    databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 20) || 'not_set',
+  });
+});
+
 router.get('/', async (_req, res) => {
   const rawDatabaseUrl =
     process.env.DATABASE_URL ||

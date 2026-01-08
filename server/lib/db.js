@@ -818,8 +818,21 @@ class Collection {
 
     async _loadAll() {
         await connectToDatabase();
-        const result = await pool.query('SELECT doc FROM documents WHERE collection = $1', [this.name]);
-        return result.rows.map((r) => r.doc);
+        const startTime = Date.now();
+        try {
+            const result = await pool.query('SELECT doc FROM documents WHERE collection = $1', [this.name]);
+            const duration = Date.now() - startTime;
+
+            if (duration > 1000) {
+                console.warn(`⚠️ SLOW QUERY [${this.name}._loadAll]: ${duration}ms (${result.rowCount} rows)`);
+            }
+
+            return result.rows.map((r) => r.doc);
+        } catch (err) {
+            const duration = Date.now() - startTime;
+            console.error(`❌ Query failed [${this.name}._loadAll]: ${duration}ms`, err.message);
+            throw err;
+        }
     }
 
     find(query = {}, options = {}) {
@@ -832,22 +845,49 @@ class Collection {
     }
 
     async countDocuments(query = {}) {
-        const docs = await this._loadAll();
-        return docs.filter((d) => matchesQuery(d, query)).length;
+        const startTime = Date.now();
+        try {
+            const docs = await this._loadAll();
+            const count = docs.filter((d) => matchesQuery(d, query)).length;
+            const duration = Date.now() - startTime;
+
+            if (duration > 1000) {
+                console.warn(`⚠️ SLOW QUERY [${this.name}.countDocuments]: ${duration}ms (query: ${JSON.stringify(query).substring(0, 100)})`);
+            }
+
+            return count;
+        } catch (err) {
+            const duration = Date.now() - startTime;
+            console.error(`❌ Query failed [${this.name}.countDocuments]: ${duration}ms`, err.message);
+            throw err;
+        }
     }
 
     async insertOne(doc) {
         await connectToDatabase();
-        const out = deepCloneJson(doc || {});
-        if (!out._id) out._id = new ObjectId().toString();
-        const id = normalizeId(out._id);
-        out._id = id;
+        const startTime = Date.now();
+        try {
+            const out = deepCloneJson(doc || {});
+            if (!out._id) out._id = new ObjectId().toString();
+            const id = normalizeId(out._id);
+            out._id = id;
 
-        await pool.query(
-            'INSERT INTO documents(collection, id, doc) VALUES ($1, $2, $3)',
-            [this.name, id, out]
-        );
-        return { insertedId: id, acknowledged: true };
+            await pool.query(
+                'INSERT INTO documents(collection, id, doc) VALUES ($1, $2, $3)',
+                [this.name, id, out]
+            );
+
+            const duration = Date.now() - startTime;
+            if (duration > 500) {
+                console.warn(`⚠️ SLOW INSERT [${this.name}.insertOne]: ${duration}ms`);
+            }
+
+            return { insertedId: id, acknowledged: true };
+        } catch (err) {
+            const duration = Date.now() - startTime;
+            console.error(`❌ Insert failed [${this.name}.insertOne]: ${duration}ms`, err.message);
+            throw err;
+        }
     }
 
     async insertMany(docs = []) {

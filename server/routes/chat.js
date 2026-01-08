@@ -144,6 +144,16 @@ async function fetchRelevantContests(userProfile, limit = 5) {
             deadline: { $gte: now.toISOString() }
         };
 
+        // Projection to fetch only required fields
+        const projection = {
+            title: 1,
+            organizer: 1,
+            deadline: 1,
+            tags: 1,
+            status: 1,
+            fee: 1
+        };
+
         // If user has contest interests, try to match tags
         const userInterests = userProfile?.contestPreferences?.contestInterests || [];
         const userSkills = userProfile?.matchingProfile?.skills || [];
@@ -165,6 +175,7 @@ async function fetchRelevantContests(userProfile, limit = 5) {
                         { description: { $in: interestTags } }
                     ]
                 })
+                .project(projection)
                 .sort({ deadline: 1 })
                 .limit(limit)
                 .toArray();
@@ -176,6 +187,7 @@ async function fetchRelevantContests(userProfile, limit = 5) {
                         ...query,
                         _id: { $nin: contests.map(c => c._id) }
                     })
+                    .project(projection)
                     .sort({ deadline: 1 })
                     .limit(limit - contests.length)
                     .toArray();
@@ -185,6 +197,7 @@ async function fetchRelevantContests(userProfile, limit = 5) {
             // No preferences, return upcoming contests
             contests = await contestsCollection
                 .find(query)
+                .project(projection)
                 .sort({ deadline: 1 })
                 .limit(limit)
                 .toArray();
@@ -295,10 +308,29 @@ async function fetchTeamPosts(userProfile, limit = 5, searchRole = null) {
             ]
         };
 
+        // If searching for specific role, add to query to filter at DB level
+        if (searchRole) {
+            const roleRegex = new RegExp(searchRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+            query.rolesNeeded = roleRegex;
+        }
+
+        // Projection to fetch only required fields
+        const projection = {
+            title: 1,
+            rolesNeeded: 1,
+            maxMembers: 1,
+            'members': 1,
+            contestId: 1,
+            description: 1,
+            expiresAt: 1,
+            createdAt: 1
+        };
+
         let posts = await teamsCollection
             .find(query)
+            .project(projection)
             .sort({ createdAt: -1 })
-            .limit(limit * 3)
+            .limit(Math.min(limit * 2, 20))
             .toArray();
 
         // Score and filter posts
