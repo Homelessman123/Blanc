@@ -160,7 +160,7 @@ export const contestService = {
      * Delete ALL contests (admin only)
      */
     deleteAll: async (): Promise<DeleteAllContestsResponse> => {
-        const response = await api.delete<DeleteAllContestsResponse>('/contests');
+        const response = await api.post<DeleteAllContestsResponse>('/contests/delete-all');
         return response.data;
     },
 

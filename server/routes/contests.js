@@ -110,6 +110,27 @@ async function getActiveRegistrationCountMap(contestIds) {
   return map;
 }
 
+async function deleteAllContestData() {
+  const contests = getCollection('contests');
+  const registrations = getCollection('registrations');
+  const teams = getCollection('teams');
+  const teamPosts = getCollection('team_posts');
+
+  const deletedRegistrations = await registrations.deleteMany({ contestId: { $exists: true, $ne: null } });
+  const deletedTeams = await teams.deleteMany({ contestId: { $exists: true, $ne: null } });
+  const deletedTeamPosts = await teamPosts.deleteMany({ contestId: { $exists: true, $ne: null } });
+  const deletedContests = await contests.deleteMany({});
+
+  await invalidate('contests:*');
+
+  return {
+    deletedContests: deletedContests.deletedCount || 0,
+    deletedRegistrations: deletedRegistrations.deletedCount || 0,
+    deletedTeams: deletedTeams.deletedCount || 0,
+    deletedTeamPosts: deletedTeamPosts.deletedCount || 0,
+  };
+}
+
 const contestFields = {
   projection: {
     title: 1,
@@ -247,25 +268,17 @@ router.get('/', async (req, res, next) => {
 router.delete('/', authGuard, requireRole('admin'), async (req, res, next) => {
   try {
     await connectToDatabase();
+    res.json(await deleteAllContestData());
+  } catch (error) {
+    next(error);
+  }
+});
 
-    const contests = getCollection('contests');
-    const registrations = getCollection('registrations');
-    const teams = getCollection('teams');
-    const teamPosts = getCollection('team_posts');
-
-    const deletedRegistrations = await registrations.deleteMany({ contestId: { $exists: true, $ne: null } });
-    const deletedTeams = await teams.deleteMany({ contestId: { $exists: true, $ne: null } });
-    const deletedTeamPosts = await teamPosts.deleteMany({ contestId: { $exists: true, $ne: null } });
-    const deletedContests = await contests.deleteMany({});
-
-    await invalidate('contests:*');
-
-    res.json({
-      deletedContests: deletedContests.deletedCount || 0,
-      deletedRegistrations: deletedRegistrations.deletedCount || 0,
-      deletedTeams: deletedTeams.deletedCount || 0,
-      deletedTeamPosts: deletedTeamPosts.deletedCount || 0,
-    });
+// Proxy-friendly bulk delete (admin only). Some deployments block DELETE methods.
+router.post('/delete-all', authGuard, requireRole('admin'), async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    res.json(await deleteAllContestData());
   } catch (error) {
     next(error);
   }
