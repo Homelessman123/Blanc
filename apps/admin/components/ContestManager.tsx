@@ -12,6 +12,8 @@ import { generateContestDescription } from '../services/geminiService';
 import { contestService, ContestFilters } from '../services/contestService';
 import { useDebounce } from '../hooks/useApi';
 import { Dropdown } from './ui/Dropdown';
+import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/api';
 
 // Category options for contests (grouped + expanded)
 const CONTEST_CATEGORIES = [
@@ -78,6 +80,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 };
 
 const ContestManager: React.FC = () => {
+  const { user } = useAuth();
+  const canManageContests = user?.role === 'admin' || user?.role === 'super_admin';
+
   // State
   const [contests, setContests] = useState<Contest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -291,12 +296,18 @@ const ContestManager: React.FC = () => {
     try {
       switch (action) {
         case 'delete':
+          if (!canManageContests) {
+            throw new ApiError('Admin access required', 403);
+          }
           if (window.confirm(`Are you sure you want to delete "${contest.title}"?`)) {
             await contestService.delete(contest.id);
             setContests(contests.filter(c => c.id !== contest.id));
           }
           break;
         case 'edit':
+          if (!canManageContests) {
+            throw new ApiError('Admin access required', 403);
+          }
           setEditingContest(contest);
           setNewTitle(contest.title);
           setNewTags(contest.tags.join(', '));
@@ -338,7 +349,12 @@ const ContestManager: React.FC = () => {
       }
     } catch (err) {
       console.error(`Failed to ${action} contest:`, err);
-      alert(`Failed to ${action} contest. Please try again.`);
+      const message = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : `Failed to ${action} contest. Please try again.`;
+      alert(message);
     }
   };
 
@@ -410,7 +426,8 @@ const ContestManager: React.FC = () => {
               resetForm();
               setIsModalOpen(true);
             }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
+            disabled={!canManageContests}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
           >
             <Plus size={18} />
             Create Contest
@@ -535,15 +552,19 @@ const ContestManager: React.FC = () => {
                               <Eye size={16} className="text-gray-400" />
                               <span>View Details</span>
                             </button>
-                            <button onClick={() => handleAction('edit', contest)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors">
-                              <Edit2 size={16} className="text-gray-400" />
-                              <span>Edit Contest</span>
-                            </button>
-                            <div className="border-t border-gray-50 my-1"></div>
-                            <button onClick={() => handleAction('delete', contest)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
-                              <Trash2 size={16} />
-                              <span>Delete Contest</span>
-                            </button>
+                            {canManageContests && (
+                              <>
+                                <button onClick={() => handleAction('edit', contest)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors">
+                                  <Edit2 size={16} className="text-gray-400" />
+                                  <span>Edit Contest</span>
+                                </button>
+                                <div className="border-t border-gray-50 my-1"></div>
+                                <button onClick={() => handleAction('delete', contest)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
+                                  <Trash2 size={16} />
+                                  <span>Delete Contest</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}

@@ -12,6 +12,8 @@ const apiBaseUrlRaw =
     (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api');
 const API_BASE_URL = apiBaseUrlRaw.replace(/\/+$/, '');
 
+const CSRF_COOKIE_NAME = import.meta.env.VITE_CSRF_COOKIE_NAME || 'csrf_token';
+
 // Token storage keys
 const ACCESS_TOKEN_KEY = 'admin_access_token';
 const REFRESH_TOKEN_KEY = 'admin_refresh_token';
@@ -164,7 +166,7 @@ async function apiRequest<T>(
     const method = String(fetchConfig.method || 'GET').toUpperCase();
     const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
     if (!isSafeMethod) {
-        const csrf = getCookieValue('csrf_token');
+        const csrf = getCookieValue(CSRF_COOKIE_NAME);
         if (csrf) {
             (headers as Record<string, string>)['X-CSRF-Token'] = csrf;
         }
@@ -208,8 +210,13 @@ async function apiRequest<T>(
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+            const message =
+                (data && typeof data === 'object' && 'message' in data && typeof (data as any).message === 'string' && (data as any).message) ||
+                (data && typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string' && (data as any).error) ||
+                `Request failed with status ${response.status}`;
+
             throw new ApiError(
-                data.message || `Request failed with status ${response.status}`,
+                message,
                 response.status,
                 data
             );
