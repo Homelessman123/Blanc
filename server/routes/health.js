@@ -103,4 +103,28 @@ router.get('/', async (_req, res) => {
   res.status(statusCode).json(health);
 });
 
+/**
+ * Readiness check endpoint
+ * Returns 200 only when service is fully ready to accept traffic
+ * Use this for Railway healthcheck
+ */
+router.get('/ready', async (_req, res) => {
+  try {
+    // Check if database is connected and working
+    await connectToDatabase();
+    const db = getDb();
+    await db.query('SELECT 1');
+    
+    // Service is ready
+    res.status(200).json({ ready: true });
+  } catch (err) {
+    // Service not ready yet
+    res.status(503).json({ 
+      ready: false, 
+      error: 'Database not ready',
+      message: err.message 
+    });
+  }
+});
+
 export default router;
