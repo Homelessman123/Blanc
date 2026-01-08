@@ -109,21 +109,55 @@ router.get('/', async (_req, res) => {
  * Use this for Railway healthcheck
  */
 router.get('/ready', async (_req, res) => {
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    ready: false,
+    checks: {},
+  };
+
   try {
-    // Check if database is connected and working
+    // Check 1: Database URL configured
+    const dbUrl = process.env.DATABASE_URL || 
+                  process.env.POSTGRES_URL || 
+                  process.env.COCKROACH_DATABASE_URL;
+    
+    if (!dbUrl || dbUrl.trim() === '') {
+      diagnostics.checks.database_url = 'MISSING';
+      diagnostics.error = 'DATABASE_URL not configured in Railway variables';
+      return res.status(503).json(diagnostics);
+    }
+    
+    // Check for placeholder that wasn't replaced
+    if (dbUrl.includes('${{') || dbUrl.includes('}}')) {
+      diagnostics.checks.database_url = 'PLACEHOLDER_NOT_REPLACED';
+      diagnostics.error = 'Railway plugin variable not expanded';
+      diagnostics.debug = { prefix: dbUrl.substring(0, 50) };
+      return res.status(503).json(diagnostics);
+    }
+    
+    diagnostics.checks.database_url = 'configured';
+
+    // Check 2: Database connection
     await connectToDatabase();
     const db = getDb();
-    await db.query('SELECT 1');
+    const result = await db.query('SELECT 1 as test');
+    
+    if (result.rows && result.rows[0]?.test === 1) {
+      diagnostics.checks.database_connection = 'healthy';
+    } else {
+      diagnostics.checks.database_connection = 'unhealthy';
+      return res.status(503).json(diagnostics);
+    }
 
-    // Service is ready
-    res.status(200).json({ ready: true });
+    // All checks passed
+    diagnostics.ready = true;
+    res.status(200).json(diagnostics);
+
   } catch (err) {
-    // Service not ready yet
-    res.status(503).json({
-      ready: false,
-      error: 'Database not ready',
-      message: err.message
-    });
+    diagnostics.checks.error = err.message;
+    diagnostics.error = `Service not ready: ${err.message}`;
+    diagnostics.ready = false;
+    res.status(503).json(diagnostics);
   }
 });
 
