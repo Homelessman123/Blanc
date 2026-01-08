@@ -26,6 +26,13 @@ let isRedisAvailable = false;
 function normalizeRedisUrl(value) {
     if (!value) return value;
     const trimmed = String(value).trim();
+
+    // Common template placeholders (GitHub Actions/Railway-like) that indicate the value
+    // was not expanded at runtime.
+    if (trimmed.includes('${{') || trimmed.includes('}}')) {
+        return '';
+    }
+
     if (
         (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
         (trimmed.startsWith("'") && trimmed.endsWith("'"))

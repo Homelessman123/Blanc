@@ -49,18 +49,24 @@ function getDatabaseUrl() {
 
 function getSslConfigFromEnv() {
     const url = getDatabaseUrl();
-    const wantsVerify = /[?&]sslmode=verify-full(?:&|$)/i.test(url);
+    const sslmodeMatch = url.match(/[?&]sslmode=([^&]+)(?:&|$)/i);
+    const sslmode = sslmodeMatch ? String(sslmodeMatch[1]).toLowerCase() : '';
 
-    // If sslmode=verify-full is used, we should provide a CA certificate.
+    const wantsVerifyFull = sslmode === 'verify-full';
+    const wantsVerifyCa = sslmode === 'verify-ca';
+    const wantsRequire = sslmode === 'require';
+    const wantsDisable = sslmode === 'disable';
+
+    // If sslmode=verify-full or verify-ca is used, we should provide a CA certificate.
     const rootCertPath =
         process.env.PGSSLROOTCERT ||
         process.env.SSL_CERT_FILE ||
         getDefaultRootCertPath();
 
-    if (wantsVerify) {
+    if (wantsVerifyFull || wantsVerifyCa) {
         if (!rootCertPath || !fs.existsSync(rootCertPath)) {
             throw createDatabaseUnavailableError(
-                `Database TLS verification is enabled (sslmode=verify-full) but the CA cert was not found. Set PGSSLROOTCERT to the CockroachDB root.crt path (tried: ${rootCertPath}).`
+                `Database TLS verification is enabled (sslmode=${wantsVerifyFull ? 'verify-full' : 'verify-ca'}) but the CA cert was not found. Set PGSSLROOTCERT to the CockroachDB root.crt path (tried: ${rootCertPath}).`
             );
         }
 
@@ -68,6 +74,19 @@ function getSslConfigFromEnv() {
             rejectUnauthorized: true,
             ca: fs.readFileSync(rootCertPath, 'utf8'),
         };
+    }
+
+    // sslmode=require means encryption without certificate verification.
+    // node-postgres does not automatically enable SSL from sslmode in the URL,
+    // so we explicitly turn it on here.
+    if (wantsRequire) {
+        return {
+            rejectUnauthorized: false,
+        };
+    }
+
+    if (wantsDisable) {
+        return false;
     }
 
     // Default: no custom SSL config. CockroachDB URLs commonly include sslmode.

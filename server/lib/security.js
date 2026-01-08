@@ -131,7 +131,14 @@ export function validateProductionSetup(options = {}) {
     }
 
     // Check Database URL
-    if (!process.env.DATABASE_URL) {
+    const hasDbUrl = Boolean(
+        (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) ||
+        (process.env.POSTGRES_URL && process.env.POSTGRES_URL.trim()) ||
+        (process.env.COCKROACH_DATABASE_URL && process.env.COCKROACH_DATABASE_URL.trim()) ||
+        (process.env.COCKROACHDB_URL && process.env.COCKROACHDB_URL.trim())
+    );
+
+    if (!hasDbUrl) {
         errors.push('DATABASE_URL is not configured');
     }
 
