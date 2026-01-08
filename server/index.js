@@ -4,17 +4,50 @@ import { connectToDatabase, disconnectFromDatabase } from './lib/db.js';
 import { disconnect as disconnectCache } from './lib/cache.js';
 import { startContestReminderScheduler } from './lib/scheduler.js';
 import { validateProductionSetup } from './lib/security.js';
+
 const port = process.env.PORT || 4000;
 let server;
 let schedulerStarted = false;
 
-// Validate production setup first
+// ============================================================================
+// STARTUP VALIDATION
+// ============================================================================
+console.log('🚀 Starting ContestHub Backend...');
+console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`   Railway: ${process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No'}`);
+
+// Critical environment variable check
+const criticalVars = ['DATABASE_URL', 'JWT_SECRET'];
+const missingVars = criticalVars.filter(v => !process.env[v] || !process.env[v].trim());
+
+if (missingVars.length > 0) {
+  console.error('\n❌ FATAL: Missing critical environment variables:');
+  missingVars.forEach(v => console.error(`   - ${v}`));
+  console.error('\nPlease set these variables and restart the server.');
+  process.exit(1);
+}
+
+// Check for placeholder values
+for (const varName of criticalVars) {
+  const value = process.env[varName];
+  if (value.includes('${{') || value.includes('}}') || value.includes('<') || value.includes('>')) {
+    console.error(`\n❌ FATAL: ${varName} contains placeholder values`);
+    console.error(`   Value starts with: ${value.substring(0, 50)}...`);
+    console.error('\nPlease set a valid value and restart the server.');
+    process.exit(1);
+  }
+}
+
+console.log('✅ Critical environment variables validated\n');
+
+// Validate production setup
 if (process.env.NODE_ENV === 'production') {
   const errors = validateProductionSetup();
   if (errors.length > 0) {
     process.exit(1);
   }
 }
+
 
 server = app.listen(port, () => {
   // eslint-disable-next-line no-console

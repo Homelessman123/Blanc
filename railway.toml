@@ -3,9 +3,16 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node server/scripts/validate-env.js && node server/index.js"
+# Run migrations first, then start server
+# Note: validate-env.js already runs via server/index.js startup validation
+startCommand = "node server/scripts/run-migrations.js && node server/index.js"
 healthcheckPath = "/api/health/ready"
 healthcheckTimeout = 300
 initialDelaySeconds = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# Railway-specific environment hints
+# (Set these in Railway Dashboard → Variables)
+# Required: DATABASE_URL, JWT_SECRET
+# Optional: REDIS_URL, PGPOOL_MAX=5, AUTH_COOKIE_DOMAIN (empty), TRUST_PROXY=1

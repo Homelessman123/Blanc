@@ -106,33 +106,45 @@ router.get('/', async (_req, res) => {
 /**
  * Readiness check endpoint
  * Returns 200 only when service is fully ready to accept traffic
- * Use this for Railway healthcheck
+ * Use this for Railway healthcheck with detailed diagnostics
  */
 router.get('/ready', async (_req, res) => {
   const diagnostics = {
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    railway: !!process.env.RAILWAY_ENVIRONMENT,
     ready: false,
     checks: {},
+    errors: [],
   };
 
   try {
-    // Check 1: Database URL configured
+    // Check 1: Database URL configured (most critical)
     const dbUrl = process.env.DATABASE_URL ||
       process.env.POSTGRES_URL ||
-      process.env.COCKROACH_DATABASE_URL;
+      process.env.COCKROACH_DATABASE_URL ||
+      process.env.COCKROACHDB_URL ||
+      '';
 
-    if (!dbUrl || dbUrl.trim() === '') {
-      diagnostics.checks.database_url = 'MISSING';
-      diagnostics.error = 'DATABASE_URL not configured in Railway variables';
-      return res.status(503).json(diagnostics);
+    if (!dbUrl || !dbUrl.trim()) {
+      diagnostics.checks.database_url = 'missing';
+      diagnostics.errors.push('DATABASE_URL is not set');
+      return res.status(503).json({
+        ...diagnostics,
+        error: 'Database not ready',
+        message: 'DATABASE_URL is not set. Check Railway environment variables.',
+      });
     }
 
-    // Check for placeholder that wasn't replaced
-    if (dbUrl.includes('${{') || dbUrl.includes('}}')) {
-      diagnostics.checks.database_url = 'PLACEHOLDER_NOT_REPLACED';
-      diagnostics.error = 'Railway plugin variable not expanded';
-      diagnostics.debug = { prefix: dbUrl.substring(0, 50) };
-      return res.status(503).json(diagnostics);
+    // Check for placeholder values
+    if (dbUrl.includes('${{') || dbUrl.includes('}}') || dbUrl.includes('<') || dbUrl.includes('>')) {
+      diagnostics.checks.database_url = 'placeholder';
+      diagnostics.errors.push('DATABASE_URL contains placeholder values');
+      return res.status(503).json({
+        ...diagnostics,
+        error: 'Database not ready',
+        message: 'DATABASE_URL has placeholder values that were not replaced',
+      });
     }
 
     diagnostics.checks.database_url = 'configured';
@@ -140,24 +152,43 @@ router.get('/ready', async (_req, res) => {
     // Check 2: Database connection
     await connectToDatabase();
     const db = getDb();
-    const result = await db.query('SELECT 1 as test');
+    await db.query('SELECT 1');
+    diagnostics.checks.database_connection = 'healthy';
 
-    if (result.rows && result.rows[0]?.test === 1) {
-      diagnostics.checks.database_connection = 'healthy';
+    // Check 3: Critical collections (verify schema)
+    const collections = await db.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      LIMIT 5
+    `);
+    diagnostics.checks.database_schema = collections.rows.length > 0 ? 'ready' : 'empty';
+
+    // Check 4: Redis (optional - warning only)
+    if (process.env.REDIS_URL) {
+      try {
+        const redisHealthy = await checkRedisHealth();
+        diagnostics.checks.redis = redisHealthy || isRedisAvailable() ? 'healthy' : 'unavailable';
+      } catch (err) {
+        diagnostics.checks.redis = 'error';
+        diagnostics.errors.push(`Redis: ${err.message}`);
+      }
     } else {
-      diagnostics.checks.database_connection = 'unhealthy';
-      return res.status(503).json(diagnostics);
+      diagnostics.checks.redis = 'not_configured';
     }
 
-    // All checks passed
+    // All critical checks passed
     diagnostics.ready = true;
-    res.status(200).json(diagnostics);
+    return res.status(200).json(diagnostics);
 
   } catch (err) {
-    diagnostics.checks.error = err.message;
-    diagnostics.error = `Service not ready: ${err.message}`;
-    diagnostics.ready = false;
-    res.status(503).json(diagnostics);
+    diagnostics.checks.database_connection = 'failed';
+    diagnostics.errors.push(`Database connection: ${err.message}`);
+    
+    return res.status(503).json({
+      ...diagnostics,
+      error: 'Database not ready',
+      message: err.message || 'Database connection failed',
+    });
   }
 });
 

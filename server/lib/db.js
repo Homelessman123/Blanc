@@ -140,13 +140,19 @@ export async function connectToDatabase() {
         const ssl = getSslConfigFromEnv();
         const target = formatDatabaseTarget(databaseUrl);
 
+        // Optimize pool settings for Railway
+        const isProduction = process.env.NODE_ENV === 'production';
+        const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+        const defaultMax = isRailway ? 5 : 10;  // Railway free tier: 512MB → max 5
+        const defaultIdle = isProduction ? 60_000 : 30_000;  // Longer in production
+
         const candidatePool = new Pool({
             connectionString: databaseUrl,
             ssl,
-            max: Number(process.env.PGPOOL_MAX || 10),
-            idleTimeoutMillis: Number(process.env.PGPOOL_IDLE_MS || 30_000),
+            max: Number(process.env.PGPOOL_MAX || defaultMax),
+            idleTimeoutMillis: Number(process.env.PGPOOL_IDLE_MS || defaultIdle),
             connectionTimeoutMillis: Number(process.env.PGPOOL_CONNECT_TIMEOUT_MS || 30_000),
-            allowExitOnIdle: process.env.NODE_ENV !== 'production',
+            allowExitOnIdle: !isProduction,
         });
 
         try {
@@ -158,6 +164,7 @@ export async function connectToDatabase() {
             if (process.env.NODE_ENV !== 'production') {
                 // eslint-disable-next-line no-console
                 console.log(`✅ Connected to PostgreSQL/CockroachDB (${target})`);
+                console.log(`📊 Pool: max=${candidatePool.options.max}, idle=${candidatePool.options.idleTimeoutMillis}ms`);
             }
 
             return pool;

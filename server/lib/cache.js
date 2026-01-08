@@ -43,10 +43,13 @@ function normalizeRedisUrl(value) {
 }
 
 /**
- * Initialize Redis connection
+ * Initialize Redis connection with Railway-optimized settings
  */
 function initRedis() {
     if (redis) return redis;
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
 
     const redisUrl = normalizeRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
 
@@ -58,10 +61,14 @@ function initRedis() {
     try {
         redis = new Redis(redisUrl, {
             maxRetriesPerRequest: 3,
+            connectTimeout: isProduction ? 10000 : 5000, // 10s for prod, 5s for dev
+            commandTimeout: isProduction ? 5000 : 3000,  // 5s for prod, 3s for dev
             retryStrategy: (times) => {
-                // Stop retrying after 3 attempts in production
+                // Stop retrying after 3 attempts
                 if (times > 3) {
-                    console.warn('⚠️ Redis connection failed after 3 attempts, disabling cache');
+                    if (!isProduction) {
+                        console.warn('⚠️ Redis connection failed after 3 attempts, disabling cache');
+                    }
                     isRedisAvailable = false;
                     return null; // Stop retrying
                 }
@@ -71,13 +78,15 @@ function initRedis() {
             reconnectOnError: (err) => {
                 const targetError = 'READONLY';
                 if (err.message.includes(targetError)) {
-                    // Reconnect on READONLY error
-                    return true;
+                    return true; // Reconnect on READONLY error
                 }
                 return false;
             },
             lazyConnect: true, // Don't connect immediately
             enableOfflineQueue: false, // Don't queue commands when offline
+            enableReadyCheck: true,
+            keepAlive: isProduction ? 30000 : 0, // Keep-alive for production
+            family: 4, // Force IPv4 (Railway compatibility)
         });
 
         redis.on('connect', () => {

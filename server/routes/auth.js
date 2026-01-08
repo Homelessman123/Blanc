@@ -35,7 +35,15 @@ function getCookieBaseOptions() {
 
   // SameSite=None requires Secure in modern browsers
   const secureFinal = sameSite === 'none' ? true : secure;
-  const domain = process.env.AUTH_COOKIE_DOMAIN || undefined;
+  
+  // ⚠️ AUTH_COOKIE_DOMAIN should be EMPTY for Railway auto-domain handling
+  // Only set if using custom parent domain (e.g., .yourdomain.com)
+  const domain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
+  
+  // Warn if domain is set incorrectly
+  if (domain && process.env.RAILWAY_ENVIRONMENT && domain.includes('railway.app')) {
+    console.warn('⚠️  AUTH_COOKIE_DOMAIN should be empty for Railway auto-generated domains');
+  }
 
   return {
     path: '/',
