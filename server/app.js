@@ -2,6 +2,7 @@ import 'dotenv/config';
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
+import { existsSync } from 'fs';
 import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -146,20 +147,25 @@ app.use('/api/membership', membershipRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/mentors', mentorsRouter);
 
-// Serve the built user frontend from /dist when running full-stack on Railway.
-// This keeps API under /api and supports SPA client-side routing.
-if (process.env.NODE_ENV === 'production') {
-  const distDir = path.resolve(__dirname, '..', 'dist');
+// Serve the built user frontend from /dist when available.
+// Some deployments (reverse proxies / homelab) may not set NODE_ENV=production,
+// so we enable SPA serving whenever dist/index.html exists.
+const distDir = path.resolve(__dirname, '..', 'dist');
+const distIndexHtml = path.join(distDir, 'index.html');
+const hasBuiltFrontend = existsSync(distIndexHtml);
+
+if (hasBuiltFrontend) {
+  const isProd = process.env.NODE_ENV === 'production';
   app.use(
     express.static(distDir, {
-      maxAge: '1y',
-      immutable: true,
+      maxAge: isProd ? '1y' : 0,
+      immutable: isProd,
     })
   );
 
   app.get('*', (req, res, next) => {
     if (req.path?.startsWith('/api')) return next();
-    return res.sendFile(path.join(distDir, 'index.html'));
+    return res.sendFile(distIndexHtml);
   });
 }
 
