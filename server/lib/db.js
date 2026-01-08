@@ -9,6 +9,12 @@ let connecting;
 
 const collectionCache = new Map();
 
+function createDatabaseUnavailableError(message, cause) {
+    const err = new Error(message, cause ? { cause } : undefined);
+    err.status = 503;
+    return err;
+}
+
 function formatDatabaseTarget(databaseUrl) {
     try {
         const parsed = new URL(databaseUrl);
@@ -50,8 +56,8 @@ function getSslConfigFromEnv() {
 
     if (wantsVerify) {
         if (!rootCertPath || !fs.existsSync(rootCertPath)) {
-            throw new Error(
-                `sslmode=verify-full requested but CA cert not found. Set PGSSLROOTCERT to the CockroachDB root.crt path (tried: ${rootCertPath}).`
+            throw createDatabaseUnavailableError(
+                `Database TLS verification is enabled (sslmode=verify-full) but the CA cert was not found. Set PGSSLROOTCERT to the CockroachDB root.crt path (tried: ${rootCertPath}).`
             );
         }
 
@@ -103,7 +109,7 @@ export async function connectToDatabase() {
 
     const databaseUrl = getDatabaseUrl();
     if (!databaseUrl) {
-        throw new Error(
+        throw createDatabaseUnavailableError(
             'DATABASE_URL is not set. Please set DATABASE_URL to your PostgreSQL/CockroachDB connection string.'
         );
     }
@@ -145,15 +151,15 @@ export async function connectToDatabase() {
 
             const code = err?.code;
             if (code === 'ETIMEDOUT') {
-                throw new Error(
+                throw createDatabaseUnavailableError(
                     `Database connect timed out to ${target}. If using CockroachDB Cloud, check the cluster is running and your public IP is allowed (Allowed IP Ranges). Also verify outbound access to port 26257 isn't blocked by firewall/VPN.`,
-                    { cause: err }
+                    err
                 );
             }
             if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'EHOSTUNREACH') {
-                throw new Error(
+                throw createDatabaseUnavailableError(
                     `Database connection failed to ${target} (${code}). Verify hostname/port, network access, and that the database is reachable.`,
-                    { cause: err }
+                    err
                 );
             }
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDb } from '../lib/db.js';
+import { connectToDatabase, getDb } from '../lib/db.js';
 import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.js';
 
 const router = Router();
@@ -34,6 +34,7 @@ router.get('/', async (_req, res) => {
 
   // Check database connectivity
   try {
+    await connectToDatabase();
     const db = getDb();
     await db.query('SELECT 1');
     health.services.database = 'healthy';
