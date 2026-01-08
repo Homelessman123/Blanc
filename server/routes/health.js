@@ -114,15 +114,15 @@ router.get('/ready', async (_req, res) => {
     await connectToDatabase();
     const db = getDb();
     await db.query('SELECT 1');
-    
+
     // Service is ready
     res.status(200).json({ ready: true });
   } catch (err) {
     // Service not ready yet
-    res.status(503).json({ 
-      ready: false, 
+    res.status(503).json({
+      ready: false,
       error: 'Database not ready',
-      message: err.message 
+      message: err.message
     });
   }
 });
