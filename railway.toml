@@ -3,8 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile.backend"
 
 [deploy]
-# Run migrations before starting server, continue even if migrations fail
-startCommand = "node server/scripts/run-migrations.js || true && node server/index.js"
+# Migrations disabled - database already has schema
+startCommand = "node server/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 initialDelaySeconds = 30
