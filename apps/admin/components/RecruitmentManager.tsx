@@ -5,6 +5,7 @@ import { recruitmentService } from '../services/recruitmentService';
 import { useDebounce } from '../hooks/useApi';
 import { Dropdown } from './ui/Dropdown';
 import { Modal } from './ui/Modal';
+import { ConfirmActionModal } from './ui/UserModals';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All', color: 'bg-gray-400' },
@@ -96,6 +97,9 @@ const RecruitmentManager: React.FC = () => {
   const [form, setForm] = useState<FormState>(() => initialFormState());
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [pendingDelete, setPendingDelete] = useState<RecruitmentPost | null>(null);
+  const [isDeleteConfirmLoading, setIsDeleteConfirmLoading] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
@@ -196,18 +200,7 @@ const RecruitmentManager: React.FC = () => {
   };
 
   const handleDelete = async (item: RecruitmentPost) => {
-    if (!window.confirm(`Delete recruitment post "${item.title}"?`)) return;
-    setIsSaving(true);
-    setError(null);
-    try {
-      await recruitmentService.remove(item.id);
-      await fetchPosts();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Delete failed';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+    setPendingDelete(item);
   };
 
   const handleSave = async () => {
@@ -276,6 +269,33 @@ const RecruitmentManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmActionModal
+        isOpen={Boolean(pendingDelete)}
+        onClose={() => {
+          if (!isDeleteConfirmLoading) setPendingDelete(null);
+        }}
+        title="Delete recruitment post"
+        message={pendingDelete ? `Delete recruitment post "${pendingDelete.title}"?` : ''}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          setIsDeleteConfirmLoading(true);
+          setError(null);
+          Promise.resolve()
+            .then(() => recruitmentService.remove(pendingDelete.id))
+            .then(() => fetchPosts())
+            .catch((e) => {
+              const message = e instanceof Error ? e.message : 'Delete failed';
+              setError(message);
+            })
+            .finally(() => {
+              setIsDeleteConfirmLoading(false);
+              setPendingDelete(null);
+            });
+        }}
+        isLoading={isDeleteConfirmLoading}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Recruitments</h2>

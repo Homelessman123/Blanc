@@ -14,6 +14,8 @@ import { useDebounce } from '../hooks/useApi';
 import { Dropdown } from './ui/Dropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
+import { ConfirmActionModal } from './ui/UserModals';
+import toast from 'react-hot-toast';
 
 const safeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -108,6 +110,15 @@ const ContestManager: React.FC = () => {
   const [editingContest, setEditingContest] = useState<Contest | null>(null);
   const [viewingContest, setViewingContest] = useState<Contest | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+  const [confirmModal, setConfirmModal] = useState<null | {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    variant?: 'danger' | 'warning' | 'success' | 'info';
+    onConfirm: () => Promise<void>;
+  }>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -279,43 +290,52 @@ const ContestManager: React.FC = () => {
 
   const handleDeleteAllContests = async () => {
     if (!canManageContests) {
-      alert('Admin access required');
+      toast.error('Admin access required');
       return;
     }
 
-    const confirmed = window.confirm('Are you sure you want to delete ALL contests? This action cannot be undone.');
-    if (!confirmed) return;
+    setConfirmModal({
+      title: 'Delete all contests',
+      message: 'Are you sure you want to delete ALL contests? This action cannot be undone.',
+      confirmLabel: 'Delete all',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        setIsBulkDeleting(true);
+        setError(null);
+        try {
+          await contestService.deleteAll();
 
-    setIsBulkDeleting(true);
-    setError(null);
-    try {
-      await contestService.deleteAll();
-
-      const filters: ContestFilters = {
-        search: debouncedSearch || undefined,
-        status: filterStatus !== 'all' ? filterStatus : undefined,
-        page: 1,
-        limit: pagination.limit,
-      };
-      const response = await contestService.getAll(filters);
-      setContests(response.items);
-      setPagination((prev) => ({
-        ...prev,
-        page: 1,
-        total: response.total,
-        totalPages: response.totalPages,
-      }));
-    } catch (err) {
-      console.error('Failed to delete all contests:', err);
-      const message = err instanceof ApiError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : 'Failed to delete all contests. Please try again.';
-      alert(message);
-    } finally {
-      setIsBulkDeleting(false);
-    }
+          const filters: ContestFilters = {
+            search: debouncedSearch || undefined,
+            status: filterStatus !== 'all' ? filterStatus : undefined,
+            page: 1,
+            limit: pagination.limit,
+          };
+          const response = await contestService.getAll(filters);
+          setContests(response.items);
+          setPagination((prev) => ({
+            ...prev,
+            page: 1,
+            total: response.total,
+            totalPages: response.totalPages,
+          }));
+          toast.success('Deleted all contests');
+          setConfirmModal(null);
+        } catch (err) {
+          console.error('Failed to delete all contests:', err);
+          const message = err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Failed to delete all contests. Please try again.';
+          toast.error(message);
+        } finally {
+          setIsBulkDeleting(false);
+          setConfirmLoading(false);
+        }
+      }
+    });
   };
 
   const resetForm = () => {
@@ -401,7 +421,7 @@ const ContestManager: React.FC = () => {
       resetForm();
     } catch (err) {
       console.error('Failed to save contest:', err);
-      alert('Failed to save contest. Please try again.');
+      toast.error('Failed to save contest. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -426,10 +446,31 @@ const ContestManager: React.FC = () => {
           if (!canManageContests) {
             throw new ApiError('Admin access required', 403);
           }
-          if (window.confirm(`Are you sure you want to delete "${contest.title}"?`)) {
-            await contestService.delete(contest.id);
-            setContests(contests.filter(c => c.id !== contest.id));
-          }
+          setConfirmModal({
+            title: 'Delete contest',
+            message: `Are you sure you want to delete "${contest.title}"? This action cannot be undone.`,
+            confirmLabel: 'Delete',
+            variant: 'danger',
+            onConfirm: async () => {
+              setConfirmLoading(true);
+              try {
+                await contestService.delete(contest.id);
+                setContests(contests.filter(c => c.id !== contest.id));
+                toast.success('Contest deleted');
+                setConfirmModal(null);
+              } catch (err) {
+                console.error('Failed to delete contest:', err);
+                const message = err instanceof ApiError
+                  ? err.message
+                  : err instanceof Error
+                    ? err.message
+                    : 'Failed to delete contest. Please try again.';
+                toast.error(message);
+              } finally {
+                setConfirmLoading(false);
+              }
+            }
+          });
           break;
         case 'edit':
           if (!canManageContests) {
@@ -481,7 +522,7 @@ const ContestManager: React.FC = () => {
         : err instanceof Error
           ? err.message
           : `Failed to ${action} contest. Please try again.`;
-      alert(message);
+      toast.error(message);
     }
   };
 
@@ -1590,6 +1631,21 @@ const ContestManager: React.FC = () => {
         </div>,
         document.body
       )}
+
+      <ConfirmActionModal
+        isOpen={!!confirmModal}
+        onClose={() => {
+          if (!confirmLoading) setConfirmModal(null);
+        }}
+        title={confirmModal?.title || ''}
+        message={confirmModal?.message || ''}
+        confirmLabel={confirmModal?.confirmLabel || 'Confirm'}
+        variant={confirmModal?.variant || 'danger'}
+        onConfirm={() => {
+          void confirmModal?.onConfirm();
+        }}
+        isLoading={confirmLoading}
+      />
     </div>
   );
 };

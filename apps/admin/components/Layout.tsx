@@ -30,6 +30,7 @@ import {
   AdminNotification,
   formatRelativeTime
 } from '../services/notificationService';
+import { ConfirmActionModal } from './ui/UserModals';
 
 interface LayoutProps {
   children: ReactNode;
@@ -55,6 +56,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const { user, logout } = useAuth();
   const isMentor = user?.role === 'mentor';
+
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Notification state
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -136,9 +140,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogout = async () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      await logout();
-    }
+    setIsLogoutConfirmOpen(true);
   };
 
   const getNotificationIcon = (type: string) => {
@@ -353,6 +355,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {children}
         </main>
       </div>
+
+      <ConfirmActionModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => {
+          if (!isLoggingOut) setIsLogoutConfirmOpen(false);
+        }}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        variant="warning"
+        onConfirm={() => {
+          setIsLoggingOut(true);
+          Promise.resolve()
+            .then(() => logout())
+            .finally(() => {
+              setIsLoggingOut(false);
+              setIsLogoutConfirmOpen(false);
+            });
+        }}
+        isLoading={isLoggingOut}
+      />
     </div>
   );
 };

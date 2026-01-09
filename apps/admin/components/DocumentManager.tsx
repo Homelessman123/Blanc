@@ -11,6 +11,7 @@ import { generateCourseSyllabus } from '../services/geminiService';
 import { documentService, validateAndSanitizeUrl } from '../services/documentService';
 import { courseService } from '../services/courseService';
 import { Dropdown } from './ui/Dropdown';
+import { ConfirmActionModal } from './ui/UserModals';
 
 type TabType = 'courses' | 'documents';
 type ModalType = 'course' | 'document' | 'view-course' | 'view-document' | null;
@@ -227,6 +228,15 @@ const DocumentManager: React.FC = () => {
 
     // Toast state
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+
+    const [pendingConfirm, setPendingConfirm] = useState<null | {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        variant?: 'danger' | 'warning' | 'success' | 'info';
+        onConfirm: () => Promise<void>;
+    }>(null);
+    const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
     // Abort controller for cancelling requests
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -628,23 +638,27 @@ const DocumentManager: React.FC = () => {
         } else if (action === 'edit') {
             openCourseModal(course);
         } else if (action === 'delete') {
-            if (!window.confirm(`Are you sure you want to delete "${course.title}"?`)) {
-                setOpenActionId(null);
-                return;
-            }
-
-            try {
-                setIsDeleting(course.id);
-                await courseService.delete(course.id);
-                // Update state locally instead of fetching all courses again
-                setCourses(prev => prev.filter(c => c.id !== course.id));
-                showToast('Course deleted successfully', 'success');
-            } catch (error) {
-                console.error('Failed to delete course:', error);
-                showToast('Failed to delete course. Please try again.', 'error');
-            } finally {
-                setIsDeleting(null);
-            }
+            setOpenActionId(null);
+            setPendingConfirm({
+                title: 'Delete course',
+                message: `Are you sure you want to delete "${course.title}"?`,
+                confirmLabel: 'Delete',
+                variant: 'danger',
+                onConfirm: async () => {
+                    try {
+                        setIsDeleting(course.id);
+                        await courseService.delete(course.id);
+                        setCourses(prev => prev.filter(c => c.id !== course.id));
+                        showToast('Course deleted successfully', 'success');
+                    } catch (error) {
+                        console.error('Failed to delete course:', error);
+                        showToast('Failed to delete course. Please try again.', 'error');
+                    } finally {
+                        setIsDeleting(null);
+                    }
+                },
+            });
+            return;
         } else if (action === 'toggle-visibility') {
             try {
                 const newVisibility = !(course.isPublic ?? true);
@@ -700,23 +714,27 @@ const DocumentManager: React.FC = () => {
         } else if (action === 'edit') {
             openDocumentModal(document);
         } else if (action === 'delete') {
-            if (!window.confirm(`Are you sure you want to delete "${document.title}"?`)) {
-                setOpenActionId(null);
-                return;
-            }
-
-            try {
-                setIsDeleting(document.id);
-                await documentService.delete(document.id);
-                // Update state locally instead of fetching all documents again
-                setDocuments(prev => prev.filter(d => d.id !== document.id));
-                showToast('Document deleted successfully', 'success');
-            } catch (error) {
-                console.error('Failed to delete document:', error);
-                showToast('Failed to delete document. Please try again.', 'error');
-            } finally {
-                setIsDeleting(null);
-            }
+            setOpenActionId(null);
+            setPendingConfirm({
+                title: 'Delete document',
+                message: `Are you sure you want to delete "${document.title}"?`,
+                confirmLabel: 'Delete',
+                variant: 'danger',
+                onConfirm: async () => {
+                    try {
+                        setIsDeleting(document.id);
+                        await documentService.delete(document.id);
+                        setDocuments(prev => prev.filter(d => d.id !== document.id));
+                        showToast('Document deleted successfully', 'success');
+                    } catch (error) {
+                        console.error('Failed to delete document:', error);
+                        showToast('Failed to delete document. Please try again.', 'error');
+                    } finally {
+                        setIsDeleting(null);
+                    }
+                },
+            });
+            return;
         } else if (action === 'toggle-visibility') {
             try {
                 const newVisibility = !document.isPublic;
@@ -761,6 +779,27 @@ const DocumentManager: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <ConfirmActionModal
+                isOpen={Boolean(pendingConfirm)}
+                onClose={() => {
+                    if (!isConfirmLoading) setPendingConfirm(null);
+                }}
+                title={pendingConfirm?.title || ''}
+                message={pendingConfirm?.message || ''}
+                confirmLabel={pendingConfirm?.confirmLabel || 'Confirm'}
+                variant={pendingConfirm?.variant || 'danger'}
+                onConfirm={() => {
+                    if (!pendingConfirm) return;
+                    setIsConfirmLoading(true);
+                    pendingConfirm
+                        .onConfirm()
+                        .finally(() => {
+                            setIsConfirmLoading(false);
+                            setPendingConfirm(null);
+                        });
+                }}
+                isLoading={isConfirmLoading}
+            />
             {/* Toast Notification */}
             {toast && (
                 <Toast

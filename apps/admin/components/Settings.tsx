@@ -16,9 +16,11 @@ import {
   Users,
   AlertCircle
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { generateSystemAnnouncement } from '../services/geminiService';
 import { settingsService } from '../services/settingsService';
 import { Dropdown } from './ui/Dropdown';
+import { ConfirmActionModal } from './ui/UserModals';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'security' | 'announcements'>('general');
@@ -54,6 +56,17 @@ const Settings: React.FC = () => {
     twoFactor: true,
     sessionTimeout: '30'
   });
+
+  type PendingConfirm = {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    variant?: 'danger' | 'warning' | 'success' | 'info';
+    onConfirm: () => Promise<void>;
+  };
+
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
   // Load settings on mount
   useEffect(() => {
@@ -102,7 +115,7 @@ const Settings: React.FC = () => {
       setTimeout(() => setIsSaved(false), 2000);
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Không thể lưu cài đặt. Vui lòng thử lại.');
+      toast.error('Không thể lưu cài đặt. Vui lòng thử lại.');
     } finally {
       setIsSaving(false);
     }
@@ -113,19 +126,24 @@ const Settings: React.FC = () => {
   };
 
   const handleResetSessions = async () => {
-    if (!window.confirm('Bạn có chắc muốn đăng xuất tất cả các phiên làm việc? Tất cả người dùng sẽ phải đăng nhập lại.')) {
-      return;
-    }
-    setIsResetting(true);
-    try {
-      const result = await settingsService.resetAllSessions();
-      alert(`Đã đăng xuất ${result.sessionsCleared} phiên làm việc thành công.`);
-    } catch (error) {
-      console.error('Failed to reset sessions:', error);
-      alert('Không thể reset sessions. Vui lòng thử lại.');
-    } finally {
-      setIsResetting(false);
-    }
+    setPendingConfirm({
+      title: 'Reset sessions',
+      message: 'Bạn có chắc muốn đăng xuất tất cả các phiên làm việc? Tất cả người dùng sẽ phải đăng nhập lại.',
+      confirmLabel: 'Reset',
+      variant: 'warning',
+      onConfirm: async () => {
+        setIsResetting(true);
+        try {
+          const result = await settingsService.resetAllSessions();
+          toast.success(`Đã đăng xuất ${result.sessionsCleared} phiên làm việc thành công.`);
+        } catch (error) {
+          console.error('Failed to reset sessions:', error);
+          toast.error('Không thể reset sessions. Vui lòng thử lại.');
+        } finally {
+          setIsResetting(false);
+        }
+      },
+    });
   };
 
   const handleGenerateAI = async () => {
@@ -159,29 +177,37 @@ const Settings: React.FC = () => {
 
   const handleBroadcast = async () => {
     if (!broadcastSubject || !broadcastContent) {
-      alert('Vui lòng nhập tiêu đề và nội dung');
+      toast.error('Vui lòng nhập tiêu đề và nội dung');
       return;
     }
-    if (!window.confirm('Bạn có chắc muốn gửi email này tới tất cả người dùng?')) {
-      return;
-    }
-    setIsBroadcasting(true);
-    setEmailResult(null);
-    try {
-      const result = await settingsService.broadcastEmail({
-        subject: broadcastSubject,
-        content: broadcastContent,
-        audience: broadcastAudience,
-      });
-      setEmailResult({ success: true, message: result.message });
-      setBroadcastSubject('');
-      setBroadcastContent('');
-    } catch (error: any) {
-      const message = error.response?.data?.error || error.message || 'Không thể gửi broadcast';
-      setEmailResult({ success: false, message });
-    } finally {
-      setIsBroadcasting(false);
-    }
+
+    setPendingConfirm({
+      title: 'Broadcast email',
+      message: 'Bạn có chắc muốn gửi email này tới tất cả người dùng?',
+      confirmLabel: 'Send',
+      variant: 'warning',
+      onConfirm: async () => {
+        setIsBroadcasting(true);
+        setEmailResult(null);
+        try {
+          const result = await settingsService.broadcastEmail({
+            subject: broadcastSubject,
+            content: broadcastContent,
+            audience: broadcastAudience,
+          });
+          setEmailResult({ success: true, message: result.message });
+          setBroadcastSubject('');
+          setBroadcastContent('');
+          toast.success('Broadcast sent');
+        } catch (error: any) {
+          const message = error.response?.data?.error || error.message || 'Không thể gửi broadcast';
+          setEmailResult({ success: false, message });
+          toast.error(message);
+        } finally {
+          setIsBroadcasting(false);
+        }
+      },
+    });
   };
 
   const handleUseAnnouncement = () => {
@@ -209,6 +235,27 @@ const Settings: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmActionModal
+        isOpen={Boolean(pendingConfirm)}
+        onClose={() => {
+          if (!isConfirmLoading) setPendingConfirm(null);
+        }}
+        title={pendingConfirm?.title || ''}
+        message={pendingConfirm?.message || ''}
+        confirmLabel={pendingConfirm?.confirmLabel || 'Confirm'}
+        variant={pendingConfirm?.variant || 'warning'}
+        onConfirm={() => {
+          if (!pendingConfirm) return;
+          setIsConfirmLoading(true);
+          pendingConfirm
+            .onConfirm()
+            .finally(() => {
+              setIsConfirmLoading(false);
+              setPendingConfirm(null);
+            });
+        }}
+        isLoading={isConfirmLoading}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Settings</h2>

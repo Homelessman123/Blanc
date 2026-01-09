@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -207,6 +208,7 @@ const App: FC = () => {
   return (
     <HashRouter>
       <AuthProvider>
+        <Toaster position="top-right" />
         <AppRoutes />
       </AuthProvider>
     </HashRouter>

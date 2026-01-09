@@ -5,6 +5,7 @@ import { TeamPost } from '../types';
 import { communityService } from '../services/communityService';
 import { useDebounce } from '../hooks/useApi';
 import { Dropdown } from './ui/Dropdown';
+import { ConfirmActionModal } from './ui/UserModals';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All', color: 'bg-gray-400' },
@@ -31,6 +32,9 @@ const CommunityManager: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<TeamPost | null>(null);
   const [isMutating, setIsMutating] = useState(false);
+
+  const [pendingAction, setPendingAction] = useState<null | { type: 'delete' | 'restore'; item: TeamPost }>(null);
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
@@ -73,34 +77,11 @@ const CommunityManager: React.FC = () => {
   };
 
   const handleDelete = async (item: TeamPost) => {
-    if (!window.confirm(`Soft delete community post "${item.title}"?`)) return;
-    const reason = window.prompt('Reason (optional):', '') || undefined;
-    setIsMutating(true);
-    setError(null);
-    try {
-      await communityService.deleteTeamPost(item.id, reason?.trim() || undefined);
-      await fetchPosts();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Delete failed';
-      setError(message);
-    } finally {
-      setIsMutating(false);
-    }
+    setPendingAction({ type: 'delete', item });
   };
 
   const handleRestore = async (item: TeamPost) => {
-    if (!window.confirm(`Restore community post "${item.title}"?`)) return;
-    setIsMutating(true);
-    setError(null);
-    try {
-      await communityService.restoreTeamPost(item.id);
-      await fetchPosts();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Restore failed';
-      setError(message);
-    } finally {
-      setIsMutating(false);
-    }
+    setPendingAction({ type: 'restore', item });
   };
 
   const ViewModal = useMemo(() => {
@@ -223,6 +204,47 @@ const CommunityManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmActionModal
+        isOpen={Boolean(pendingAction)}
+        onClose={() => {
+          if (!isConfirmLoading) setPendingAction(null);
+        }}
+        title={pendingAction?.type === 'restore' ? 'Restore post' : 'Delete post'}
+        message={pendingAction
+          ? pendingAction.type === 'restore'
+            ? `Restore community post "${pendingAction.item.title}"?`
+            : `Soft delete community post "${pendingAction.item.title}"?`
+          : ''}
+        confirmLabel={pendingAction?.type === 'restore' ? 'Restore' : 'Delete'}
+        variant={pendingAction?.type === 'restore' ? 'success' : 'danger'}
+        showReasonInput={pendingAction?.type === 'delete'}
+        reasonRequired={false}
+        onConfirm={(reason) => {
+          if (!pendingAction) return;
+          setIsConfirmLoading(true);
+          setIsMutating(true);
+          setError(null);
+          const action = pendingAction;
+          Promise.resolve()
+            .then(() => {
+              if (action.type === 'restore') {
+                return communityService.restoreTeamPost(action.item.id);
+              }
+              return communityService.deleteTeamPost(action.item.id, reason?.trim() || undefined);
+            })
+            .then(() => fetchPosts())
+            .catch((e) => {
+              const message = e instanceof Error ? e.message : action.type === 'restore' ? 'Restore failed' : 'Delete failed';
+              setError(message);
+            })
+            .finally(() => {
+              setIsMutating(false);
+              setIsConfirmLoading(false);
+              setPendingAction(null);
+            });
+        }}
+        isLoading={isConfirmLoading}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Community</h2>

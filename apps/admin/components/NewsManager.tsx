@@ -19,6 +19,7 @@ import { NewsArticle, NewsType } from '../types';
 import { newsService } from '../services/newsService';
 import { useDebounce } from '../hooks/useApi';
 import { Dropdown } from './ui/Dropdown';
+import { ConfirmActionModal } from './ui/UserModals';
 
 const NEWS_TYPE_OPTIONS: Array<{ value: NewsType; label: string; color: string }> = [
   { value: 'announcement', label: 'Announcement', color: 'bg-indigo-500' },
@@ -73,6 +74,9 @@ const NewsManager: React.FC = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [activeItem, setActiveItem] = useState<NewsArticle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [pendingDelete, setPendingDelete] = useState<NewsArticle | null>(null);
+  const [isDeleteConfirmLoading, setIsDeleteConfirmLoading] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -190,18 +194,7 @@ const NewsManager: React.FC = () => {
   const handleDelete = async (item: NewsArticle) => {
     const id = item.id || item.slug;
     if (!id) return;
-    if (!window.confirm(`Delete news "${item.title}"?`)) return;
-    setIsSaving(true);
-    setError(null);
-    try {
-      await newsService.remove(id);
-      await fetchNews();
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Delete failed';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+    setPendingDelete(item);
   };
 
   const handleToggleStatus = async (item: NewsArticle) => {
@@ -528,6 +521,35 @@ const NewsManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmActionModal
+        isOpen={Boolean(pendingDelete)}
+        onClose={() => {
+          if (!isDeleteConfirmLoading) setPendingDelete(null);
+        }}
+        title="Delete news"
+        message={pendingDelete ? `Delete news "${pendingDelete.title}"?` : ''}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          const id = pendingDelete.id || pendingDelete.slug;
+          if (!id) return;
+          setIsDeleteConfirmLoading(true);
+          setError(null);
+          Promise.resolve()
+            .then(() => newsService.remove(id))
+            .then(() => fetchNews())
+            .catch((e) => {
+              const message = e instanceof Error ? e.message : 'Delete failed';
+              setError(message);
+            })
+            .finally(() => {
+              setIsDeleteConfirmLoading(false);
+              setPendingDelete(null);
+            });
+        }}
+        isLoading={isDeleteConfirmLoading}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">News & Tips</h2>
