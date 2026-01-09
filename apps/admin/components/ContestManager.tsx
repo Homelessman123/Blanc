@@ -550,7 +550,8 @@ const ContestManager: React.FC = () => {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="overflow-x-auto">
+        {/* Allow dropdown menus to overflow outside the table area */}
+        <div className="overflow-x-auto overflow-visible relative">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 border-b border-gray-100 text-gray-900 uppercase font-semibold text-xs">
               <tr>
