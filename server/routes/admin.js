@@ -166,6 +166,23 @@ router.get('/status', async (_req, res, next) => {
             sessionTimeout,
         });
     } catch (error) {
+        const message = String(error?.message || '');
+        const status = Number(error?.status || 0);
+
+        // This endpoint is intentionally public and should not block frontend boot.
+        // If the DB is not configured or temporarily unavailable, return safe defaults.
+        if (
+            status === 503 ||
+            message.includes('DATABASE_URL is not set') ||
+            message.includes('Database has not been initialized')
+        ) {
+            return res.json({
+                maintenanceMode: false,
+                siteName: 'Blanc',
+                sessionTimeout: 30,
+            });
+        }
+
         next(error);
     }
 });

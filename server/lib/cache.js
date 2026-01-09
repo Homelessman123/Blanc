@@ -46,12 +46,18 @@ function coerceRedisUrl(value) {
     const normalized = normalizeRedisUrl(value);
     if (!normalized) return '';
 
-    // ioredis supports redis://, rediss:// and unix://. If the scheme is missing,
-    // assume a TCP redis:// URL (common for Railway variable copy/paste).
+    // ioredis supports redis://, rediss:// and unix://
     if (/^(redis|rediss|unix):\/\//i.test(normalized)) {
         return normalized;
     }
-    return `redis://${normalized}`;
+    
+    // If it looks like host:port or user:pass@host:port, add redis:// prefix
+    // Railway format: redis://default:xxx@redis.railway.internal:6379
+    if (/^[a-zA-Z0-9_-]+:[^/]/.test(normalized)) {
+        return `redis://${normalized}`;
+    }
+    
+    return normalized;
 }
 
 function parseBoolean(value) {
@@ -85,6 +91,10 @@ function initRedis() {
         return null;
     }
 
+    // Log sanitized URL for debugging (hide password)
+    const sanitizedUrl = redisUrl.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@');
+    console.log(`🔗 Initializing Redis: ${sanitizedUrl}`);
+
     try {
         const parsedUrl = safeParseUrl(redisUrl);
         const isTlsFromScheme = parsedUrl?.protocol === 'rediss:';
@@ -97,7 +107,7 @@ function initRedis() {
         const maxConnectAttemptsEnv = Number(process.env.REDIS_MAX_CONNECT_ATTEMPTS || '');
         const maxConnectAttempts = Number.isFinite(maxConnectAttemptsEnv) && maxConnectAttemptsEnv >= 0
             ? maxConnectAttemptsEnv
-            : (isProduction ? 0 : 3); // 0 = unlimited (recommended for Railway)
+            : (isProduction ? 10 : 3); // Limit to 10 in prod to avoid infinite loops
 
         const retryBaseDelayMs = Number(process.env.REDIS_RETRY_BASE_DELAY_MS || (isProduction ? 250 : 50));
         const retryMaxDelayMs = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || (isProduction ? 30_000 : 2_000));
@@ -113,18 +123,19 @@ function initRedis() {
             connectTimeout: isProduction ? 10000 : 5000, // 10s for prod, 5s for dev
             commandTimeout: isProduction ? 5000 : 3000,  // 5s for prod, 3s for dev
             retryStrategy: (times) => {
-                // In production (Railway), prefer staying alive and recovering automatically.
-                // In development, default to a few attempts to avoid noisy logs.
+                // Limit retry attempts to avoid infinite loops on persistent failures
                 if (maxConnectAttempts > 0 && times > maxConnectAttempts) {
-                    if (!isProduction) {
-                        console.warn(`⚠️ Redis connection failed after ${maxConnectAttempts} attempts, disabling cache`);
-                    }
+                    console.warn(`⚠️ Redis connection failed after ${maxConnectAttempts} attempts, disabling cache`);
                     isRedisAvailable = false;
                     return null; // Stop retrying
                 }
 
                 const expDelay = Math.round(retryBaseDelayMs * Math.pow(1.7, Math.max(0, times - 1)));
-                return Math.min(retryMaxDelayMs, Math.max(50, expDelay));
+                const delay = Math.min(retryMaxDelayMs, Math.max(50, expDelay));
+                if (times <= 3 || times % 5 === 0) {
+                    console.log(`🔄 Redis retry ${times}/${maxConnectAttempts || '∞'} in ${delay}ms...`);
+                }
+                return delay;
             },
             reconnectOnError: (err) => {
                 const targetError = 'READONLY';
