@@ -50,13 +50,13 @@ function coerceRedisUrl(value) {
     if (/^(redis|rediss|unix):\/\//i.test(normalized)) {
         return normalized;
     }
-    
+
     // If it looks like host:port or user:pass@host:port, add redis:// prefix
     // Railway format: redis://default:xxx@redis.railway.internal:6379
     if (/^[a-zA-Z0-9_-]+:[^/]/.test(normalized)) {
         return `redis://${normalized}`;
     }
-    
+
     return normalized;
 }
 
