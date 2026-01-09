@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Search, Filter, MoreHorizontal, Mail, Shield, ShieldAlert, GraduationCap, Eye, Edit2, Trash2, Ban, CheckCircle, RefreshCw, AlertCircle, Users, Sparkles, Download as DownloadIcon } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Mail, Shield, ShieldAlert, GraduationCap, Eye, Edit2, Trash2, Ban, CheckCircle, RefreshCw, AlertCircle, Users, Sparkles, Download as DownloadIcon, Plus } from 'lucide-react';
 import { Dropdown } from './ui/Dropdown';
-import { ViewProfileModal, EditUserModal, ConfirmActionModal } from './ui/UserModals';
+import { ViewProfileModal, EditUserModal, ConfirmActionModal, CreateUserModal, CreateUserPayload } from './ui/UserModals';
 import { User, UserProfile, UpdateUserPayload } from '../types';
 import { userService, UserFilters } from '../services/userService';
 import { useDebounce } from '../hooks/useApi';
@@ -39,9 +39,11 @@ const UserManager: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<'active' | 'inactive' | 'banned'>('active');
 
@@ -146,6 +148,13 @@ const UserManager: React.FC = () => {
   // Protected accounts that cannot be deleted or banned
   const PROTECTED_EMAILS = ['dangthhfct31147@gmail.com'];
 
+  const canCreateUsers = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+  const allowedCreateRoles = useMemo<CreateUserPayload['role'][]>(() => {
+    if (currentUser?.role === 'super_admin') return ['student', 'mentor', 'admin', 'super_admin'];
+    if (currentUser?.role === 'admin') return ['student', 'mentor'];
+    return [];
+  }, [currentUser?.role]);
+
   // Check if user is self (cannot ban/delete self)
   const isSelf = (userId: string) => currentUser?.id === userId;
 
@@ -169,6 +178,33 @@ const UserManager: React.FC = () => {
       }
       return new Set();
     });
+  };
+
+  const handleCreateUser = async (payload: CreateUserPayload) => {
+    if (!canCreateUsers) {
+      toast.error('You do not have permission to create users');
+      return;
+    }
+
+    if (!allowedCreateRoles.includes(payload.role)) {
+      toast.error('You are not allowed to assign that role');
+      return;
+    }
+
+    try {
+      setCreateLoading(true);
+      await userService.create(payload);
+      toast.success('User created successfully');
+      setShowCreateModal(false);
+      await fetchUsers(true);
+      const s = await userService.getStats();
+      setStats(s);
+    } catch (err: any) {
+      console.error('Failed to create user:', err);
+      toast.error(err?.message || 'Failed to create user');
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   // Handle View Profile action
@@ -475,6 +511,19 @@ const UserManager: React.FC = () => {
           <p className="text-gray-500 mt-1">Manage user roles and permissions</p>
         </div>
         <div className="flex flex-wrap items-end justify-end gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            disabled={!canCreateUsers || createLoading}
+            className={
+              canCreateUsers
+                ? 'inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50'
+                : 'inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+            }
+            title={canCreateUsers ? 'Add user' : 'Only admin/super admin can create users'}
+          >
+            <Plus size={18} />
+            Add User
+          </button>
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
@@ -733,6 +782,15 @@ const UserManager: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateUser}
+        isLoading={createLoading}
+        allowedRoles={allowedCreateRoles}
+      />
 
       {/* View Profile Modal */}
       <ViewProfileModal

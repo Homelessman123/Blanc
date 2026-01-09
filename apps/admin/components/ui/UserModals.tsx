@@ -431,6 +431,179 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
     );
 };
 
+// ==========================================
+// CREATE USER MODAL
+// ==========================================
+
+export interface CreateUserPayload {
+    name: string;
+    email: string;
+    password: string;
+    role: 'student' | 'mentor' | 'admin' | 'super_admin';
+}
+
+interface CreateUserModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onCreate: (data: CreateUserPayload) => Promise<void>;
+    isLoading: boolean;
+    allowedRoles: Array<CreateUserPayload['role']>;
+}
+
+export const CreateUserModal: React.FC<CreateUserModalProps> = ({
+    isOpen,
+    onClose,
+    onCreate,
+    isLoading,
+    allowedRoles,
+}) => {
+    const [formData, setFormData] = useState<CreateUserPayload>({
+        name: '',
+        email: '',
+        password: '',
+        role: 'student',
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (!isOpen) {
+            setFormData({ name: '', email: '', password: '', role: 'student' });
+            setErrors({});
+            return;
+        }
+
+        // Default role to first allowed role (least privilege) when opening.
+        const nextRole = allowedRoles.includes('student') ? 'student' : allowedRoles[0] || 'student';
+        setFormData({ name: '', email: '', password: '', role: nextRole });
+        setErrors({});
+    }, [isOpen, allowedRoles]);
+
+    const validateForm = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (!formData.name.trim() || formData.name.trim().length < 2) {
+            newErrors.name = 'Name must be at least 2 characters';
+        }
+
+        if (!formData.email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+            newErrors.email = 'Invalid email format';
+        }
+
+        // Enforce stronger default than backend minimum.
+        if (!formData.password || formData.password.length < 8) {
+            newErrors.password = 'Password must be at least 8 characters';
+        }
+
+        if (!allowedRoles.includes(formData.role)) {
+            newErrors.role = 'You do not have permission to create this role';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+
+        await onCreate({
+            name: formData.name.trim(),
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+            role: formData.role,
+        });
+    };
+
+    const roleOptions = [
+        allowedRoles.includes('student') ? { value: 'student', label: 'Student', color: 'bg-gray-400' } : null,
+        allowedRoles.includes('mentor') ? { value: 'mentor', label: 'Mentor', color: 'bg-emerald-500' } : null,
+        allowedRoles.includes('admin') ? { value: 'admin', label: 'Admin', color: 'bg-purple-500' } : null,
+        allowedRoles.includes('super_admin') ? { value: 'super_admin', label: 'Super Admin', color: 'bg-red-500' } : null,
+    ].filter(Boolean) as Array<{ value: CreateUserPayload['role']; label: string; color?: string }>;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Create User">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="Full name"
+                            autoComplete="name"
+                            disabled={isLoading}
+                        />
+                        {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+                    </div>
+
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="user@example.com"
+                            autoComplete="email"
+                            disabled={isLoading}
+                        />
+                        {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                    </div>
+
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                        <input
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="Minimum 8 characters"
+                            autoComplete="new-password"
+                            disabled={isLoading}
+                        />
+                        {errors.password && <p className="text-xs text-red-600 mt-1">{errors.password}</p>}
+                    </div>
+
+                    <div className="col-span-2">
+                        <Dropdown
+                            label="Role"
+                            options={roleOptions}
+                            value={formData.role}
+                            onChange={(val) => setFormData((prev) => ({ ...prev, role: val as CreateUserPayload['role'] }))}
+                            placeholder="Select role"
+                            headerText="User Role"
+                        />
+                        {errors.role && <p className="text-xs text-red-600 mt-1">{errors.role}</p>}
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        disabled={isLoading || roleOptions.length === 0}
+                    >
+                        {isLoading ? 'Creating...' : 'Create User'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
 
 // ==========================================
 // CONFIRM ACTION MODAL
