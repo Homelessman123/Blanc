@@ -3,9 +3,9 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile.backend"
 
 [deploy]
-# Run migrations first, then start server
-# Note: validate-env.js already runs via server/index.js startup validation
-startCommand = "node server/scripts/run-migrations.js && node server/index.js"
+# Temporarily skip migrations to debug healthcheck failure
+# TODO: Re-enable after fixing the issue: node server/scripts/run-migrations.js &&
+startCommand = "node server/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 initialDelaySeconds = 30
