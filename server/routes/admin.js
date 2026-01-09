@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { isIP } from 'net';
 import { GoogleGenAI } from '@google/genai';
+import bcrypt from 'bcryptjs';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, requireAdmin as requireAdminFactory } from '../middleware/auth.js';
 import { getClientIp } from '../lib/security.js';
@@ -309,6 +310,93 @@ router.get('/users', authGuard, requireAdmin, async (req, res, next) => {
                 banned: userStats.bannedUsers
             }
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/admin/users
+ * Create a new user (admin only)
+ * - admin can create: student, mentor
+ * - super_admin can create: student, mentor, admin, super_admin
+ */
+router.post('/users', authGuard, requireAdmin, async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        const users = getCollection('users');
+
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+        const emailRaw = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+        const password = typeof req.body?.password === 'string' ? req.body.password : '';
+        const roleRaw = typeof req.body?.role === 'string' ? req.body.role : 'student';
+
+        if (!name || name.length < 2 || name.length > 120) {
+            return res.status(400).json({ error: 'Name must be between 2 and 120 characters' });
+        }
+
+        const normalizedEmail = emailRaw.toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!normalizedEmail || normalizedEmail.length > 254 || !emailRegex.test(normalizedEmail)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // Keep admin-created credentials reasonably strong.
+        if (!password || password.length < 8 || password.length > 200) {
+            return res.status(400).json({ error: 'Password must be between 8 and 200 characters' });
+        }
+
+        const role = String(roleRaw || '').toLowerCase().trim();
+        const allowedRoles = new Set(['student', 'mentor', 'admin', 'super_admin']);
+        if (!allowedRoles.has(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        // Role-based authorization
+        if (req.user?.role !== 'super_admin' && (role === 'admin' || role === 'super_admin')) {
+            return res.status(403).json({ error: 'Only super_admin can create admin accounts' });
+        }
+
+        // Prevent duplicates
+        const existing = await users.findOne({ email: normalizedEmail }, { projection: { _id: 1 } });
+        if (existing) {
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        const now = new Date();
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const newUser = {
+            name,
+            email: normalizedEmail,
+            password: hashedPassword,
+            role,
+            status: 'active',
+            avatar: '',
+            points: 0,
+            balance: 0,
+            emailVerified: true,
+            emailVerifiedAt: now,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        const insertResult = await users.insertOne(newUser);
+        const createdUser = { ...newUser, _id: insertResult.insertedId };
+
+        logAuditEvent({
+            action: 'USER_CREATE',
+            userId: req.user.id,
+            userEmail: req.user.email,
+            userName: req.user.name,
+            target: createdUser.email,
+            targetId: createdUser._id?.toString?.(),
+            status: 'Success',
+            details: `Created user with role: ${role}`,
+            ip: getClientIp(req),
+        });
+
+        return res.status(201).json(sanitizeUser(createdUser));
     } catch (error) {
         next(error);
     }
