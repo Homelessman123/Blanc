@@ -23,7 +23,7 @@ import Redis from 'ioredis';
 let redis = null;
 let isRedisAvailable = false;
 
-function normalizeRedisUrl(value) {
+export function normalizeRedisUrl(value) {
     if (!value) return value;
     const trimmed = String(value).trim();
 
@@ -42,6 +42,34 @@ function normalizeRedisUrl(value) {
     return trimmed;
 }
 
+function coerceRedisUrl(value) {
+    const normalized = normalizeRedisUrl(value);
+    if (!normalized) return '';
+
+    // ioredis supports redis://, rediss:// and unix://. If the scheme is missing,
+    // assume a TCP redis:// URL (common for Railway variable copy/paste).
+    if (/^(redis|rediss|unix):\/\//i.test(normalized)) {
+        return normalized;
+    }
+    return `redis://${normalized}`;
+}
+
+function parseBoolean(value) {
+    if (value === undefined || value === null) return undefined;
+    const v = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
+    if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
+    return undefined;
+}
+
+function safeParseUrl(urlString) {
+    try {
+        return new URL(urlString);
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Initialize Redis connection with Railway-optimized settings
  */
@@ -49,9 +77,8 @@ function initRedis() {
     if (redis) return redis;
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
 
-    const redisUrl = normalizeRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
+    const redisUrl = coerceRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
 
     if (!redisUrl) {
         console.warn('⚠️ Redis URL not configured, caching will be disabled');
@@ -59,21 +86,45 @@ function initRedis() {
     }
 
     try {
+        const parsedUrl = safeParseUrl(redisUrl);
+        const isTlsFromScheme = parsedUrl?.protocol === 'rediss:';
+        const forceTls = parseBoolean(process.env.REDIS_TLS);
+        const useTls = forceTls ?? isTlsFromScheme;
+
+        const enableReadyCheckEnv = parseBoolean(process.env.REDIS_ENABLE_READY_CHECK);
+        const enableReadyCheck = enableReadyCheckEnv ?? true;
+
+        const maxConnectAttemptsEnv = Number(process.env.REDIS_MAX_CONNECT_ATTEMPTS || '');
+        const maxConnectAttempts = Number.isFinite(maxConnectAttemptsEnv) && maxConnectAttemptsEnv >= 0
+            ? maxConnectAttemptsEnv
+            : (isProduction ? 0 : 3); // 0 = unlimited (recommended for Railway)
+
+        const retryBaseDelayMs = Number(process.env.REDIS_RETRY_BASE_DELAY_MS || (isProduction ? 250 : 50));
+        const retryMaxDelayMs = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || (isProduction ? 30_000 : 2_000));
+
+        const urlHasUsername = Boolean(parsedUrl?.username);
+        const urlHasPassword = Boolean(parsedUrl?.password);
+
+        const usernameOverride = !urlHasUsername ? normalizeRedisUrl(process.env.REDIS_USERNAME) : '';
+        const passwordOverride = !urlHasPassword ? normalizeRedisUrl(process.env.REDIS_PASSWORD) : '';
+
         redis = new Redis(redisUrl, {
-            maxRetriesPerRequest: 3,
+            maxRetriesPerRequest: Number(process.env.REDIS_MAX_RETRIES_PER_REQUEST || 3),
             connectTimeout: isProduction ? 10000 : 5000, // 10s for prod, 5s for dev
             commandTimeout: isProduction ? 5000 : 3000,  // 5s for prod, 3s for dev
             retryStrategy: (times) => {
-                // Stop retrying after 3 attempts
-                if (times > 3) {
+                // In production (Railway), prefer staying alive and recovering automatically.
+                // In development, default to a few attempts to avoid noisy logs.
+                if (maxConnectAttempts > 0 && times > maxConnectAttempts) {
                     if (!isProduction) {
-                        console.warn('⚠️ Redis connection failed after 3 attempts, disabling cache');
+                        console.warn(`⚠️ Redis connection failed after ${maxConnectAttempts} attempts, disabling cache`);
                     }
                     isRedisAvailable = false;
                     return null; // Stop retrying
                 }
-                const delay = Math.min(times * 50, 2000);
-                return delay;
+
+                const expDelay = Math.round(retryBaseDelayMs * Math.pow(1.7, Math.max(0, times - 1)));
+                return Math.min(retryMaxDelayMs, Math.max(50, expDelay));
             },
             reconnectOnError: (err) => {
                 const targetError = 'READONLY';
@@ -84,9 +135,12 @@ function initRedis() {
             },
             lazyConnect: true, // Don't connect immediately
             enableOfflineQueue: false, // Don't queue commands when offline
-            enableReadyCheck: true,
+            enableReadyCheck,
             keepAlive: isProduction ? 30000 : 0, // Keep-alive for production
             family: 4, // Force IPv4 (Railway compatibility)
+            ...(useTls ? { tls: { servername: parsedUrl?.hostname } } : {}),
+            ...(usernameOverride ? { username: usernameOverride } : {}),
+            ...(passwordOverride ? { password: passwordOverride } : {}),
         });
 
         redis.on('connect', () => {
