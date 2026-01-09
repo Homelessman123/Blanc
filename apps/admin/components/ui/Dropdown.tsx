@@ -11,6 +11,8 @@ export interface DropdownOption {
     label: string;
     icon?: React.ReactNode;
     color?: string;
+    disabled?: boolean;
+    disabledReason?: string;
 }
 
 interface DropdownProps {
@@ -108,29 +110,35 @@ export const Dropdown: React.FC<DropdownProps> = ({
                         <div className="max-h-[280px] overflow-y-auto p-1.5 bg-white">
                             {options.map(option => {
                                 const isSelected = value === option.value;
+                                const isDisabled = !!option.disabled;
                                 return (
                                     <button
                                         key={option.value}
                                         type="button"
+                                        disabled={isDisabled}
+                                        title={isDisabled ? (option.disabledReason || 'Not available') : undefined}
                                         onClick={() => {
+                                            if (isDisabled) return;
                                             onChange(option.value);
                                             setIsOpen(false);
                                         }}
                                         className={cn(
                                             "w-full px-3 py-2.5 rounded-lg text-sm text-left transition-all flex items-center justify-between group",
-                                            isSelected
-                                                ? "bg-emerald-50 text-emerald-700 font-medium"
-                                                : "text-gray-600 hover:bg-gray-50"
+                                            isDisabled
+                                                ? "text-gray-400 bg-white opacity-70 cursor-not-allowed"
+                                                : isSelected
+                                                    ? "bg-emerald-50 text-emerald-700 font-medium"
+                                                    : "text-gray-600 hover:bg-gray-50"
                                         )}
                                     >
                                         <div className="flex items-center gap-2.5">
                                             {option.color && (
-                                                <span className={cn("w-2 h-2 rounded-full shrink-0", option.color)} />
+                                                <span className={cn("w-2 h-2 rounded-full shrink-0", option.color, isDisabled && 'opacity-60')} />
                                             )}
                                             {option.icon}
                                             <span>{option.label}</span>
                                         </div>
-                                        {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                                        {isSelected && !isDisabled && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                                     </button>
                                 );
                             })}

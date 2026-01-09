@@ -69,24 +69,22 @@ export const ViewProfileModal: React.FC<ViewProfileModalProps> = ({
                                     {profile.email}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        profile.role === 'super_admin'
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${profile.role === 'super_admin'
                                             ? 'bg-red-100 text-red-800'
                                             : profile.role === 'admin'
                                                 ? 'bg-purple-100 text-purple-800'
                                                 : profile.role === 'mentor'
                                                     ? 'bg-emerald-100 text-emerald-800'
                                                     : 'bg-gray-100 text-gray-800'
-                                    }`}>
+                                        }`}>
                                         {profile.role}
                                     </span>
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                        profile.status === 'active' 
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === 'active'
                                             ? 'bg-green-100 text-green-800'
                                             : profile.status === 'banned'
-                                            ? 'bg-red-100 text-red-800'
-                                            : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
+                                                ? 'bg-red-100 text-red-800'
+                                                : 'bg-yellow-100 text-yellow-800'
+                                        }`}>
                                         {profile.status}
                                     </span>
                                 </div>
@@ -264,7 +262,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!validateForm()) return;
 
         // Only send changed fields
@@ -291,9 +289,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${
-                            errors.name ? 'border-red-300' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${errors.name ? 'border-red-300' : 'border-gray-300'
+                            }`}
                         placeholder="Enter full name"
                     />
                     {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
@@ -308,9 +305,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${
-                            errors.email ? 'border-red-300' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${errors.email ? 'border-red-300' : 'border-gray-300'
+                            }`}
                         placeholder="Enter email address"
                     />
                     {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
@@ -325,9 +321,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                         type="tel"
                         value={formData.phoneNumber}
                         onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${
-                            errors.phoneNumber ? 'border-red-300' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${errors.phoneNumber ? 'border-red-300' : 'border-gray-300'
+                            }`}
                         placeholder="Enter phone number"
                     />
                     {errors.phoneNumber && <p className="mt-1 text-xs text-red-500">{errors.phoneNumber}</p>}
@@ -368,27 +363,27 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                     </label>
                     <Dropdown
                         options={[
-                            { 
-                                value: 'student', 
-                                label: 'Student', 
+                            {
+                                value: 'student',
+                                label: 'Student',
                                 color: 'bg-blue-500',
                                 icon: <Shield size={16} className="text-gray-400" />
                             },
-                            { 
-                                value: 'mentor', 
-                                label: 'Mentor', 
+                            {
+                                value: 'mentor',
+                                label: 'Mentor',
                                 color: 'bg-emerald-500',
                                 icon: <GraduationCap size={16} className="text-emerald-600" />
                             },
-                            { 
-                                value: 'admin', 
-                                label: 'Admin', 
+                            {
+                                value: 'admin',
+                                label: 'Admin',
                                 color: 'bg-purple-500',
                                 icon: <ShieldAlert size={16} className="text-purple-500" />
                             },
-                            { 
-                                value: 'super_admin', 
-                                label: 'Super Admin', 
+                            {
+                                value: 'super_admin',
+                                label: 'Super Admin',
                                 color: 'bg-red-500',
                                 icon: <ShieldAlert size={16} className="text-red-600" />
                             },
@@ -517,11 +512,35 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     };
 
     const roleOptions = [
-        allowedRoles.includes('student') ? { value: 'student', label: 'Student', color: 'bg-gray-400' } : null,
-        allowedRoles.includes('mentor') ? { value: 'mentor', label: 'Mentor', color: 'bg-emerald-500' } : null,
-        allowedRoles.includes('admin') ? { value: 'admin', label: 'Admin', color: 'bg-purple-500' } : null,
-        allowedRoles.includes('super_admin') ? { value: 'super_admin', label: 'Super Admin', color: 'bg-red-500' } : null,
-    ].filter(Boolean) as Array<{ value: CreateUserPayload['role']; label: string; color?: string }>;
+        {
+            value: 'student',
+            label: 'Student',
+            color: 'bg-gray-400',
+            disabled: !allowedRoles.includes('student'),
+            disabledReason: 'Only admins can create users',
+        },
+        {
+            value: 'mentor',
+            label: 'Mentor',
+            color: 'bg-emerald-500',
+            disabled: !allowedRoles.includes('mentor'),
+            disabledReason: 'Only admins can create users',
+        },
+        {
+            value: 'admin',
+            label: 'Admin',
+            color: 'bg-purple-500',
+            disabled: !allowedRoles.includes('admin'),
+            disabledReason: 'Only super admins can create admins',
+        },
+        {
+            value: 'super_admin',
+            label: 'Super Admin',
+            color: 'bg-red-500',
+            disabled: !allowedRoles.includes('super_admin'),
+            disabledReason: 'Only super admins can create super admins',
+        },
+    ];
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Create User">
@@ -709,9 +728,8 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                                 setError('');
                             }}
                             rows={3}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none ${
-                                error ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none ${error ? 'border-red-300' : 'border-gray-300'
+                                }`}
                             placeholder="Enter reason for this action..."
                         />
                         {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
