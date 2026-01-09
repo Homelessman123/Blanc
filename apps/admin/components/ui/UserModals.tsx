@@ -70,20 +70,20 @@ export const ViewProfileModal: React.FC<ViewProfileModalProps> = ({
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${profile.role === 'super_admin'
-                                            ? 'bg-red-100 text-red-800'
-                                            : profile.role === 'admin'
-                                                ? 'bg-purple-100 text-purple-800'
-                                                : profile.role === 'mentor'
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : 'bg-gray-100 text-gray-800'
+                                        ? 'bg-red-100 text-red-800'
+                                        : profile.role === 'admin'
+                                            ? 'bg-purple-100 text-purple-800'
+                                            : profile.role === 'mentor'
+                                                ? 'bg-emerald-100 text-emerald-800'
+                                                : 'bg-gray-100 text-gray-800'
                                         }`}>
                                         {profile.role}
                                     </span>
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${profile.status === 'active'
-                                            ? 'bg-green-100 text-green-800'
-                                            : profile.status === 'banned'
-                                                ? 'bg-red-100 text-red-800'
-                                                : 'bg-yellow-100 text-yellow-800'
+                                        ? 'bg-green-100 text-green-800'
+                                        : profile.status === 'banned'
+                                            ? 'bg-red-100 text-red-800'
+                                            : 'bg-yellow-100 text-yellow-800'
                                         }`}>
                                         {profile.status}
                                     </span>
