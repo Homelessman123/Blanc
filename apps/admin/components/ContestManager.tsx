@@ -205,10 +205,60 @@ const ContestManager: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if ((event.target as HTMLElement).closest('.action-dropdown')) return;
       setOpenActionId(null);
+      setActionMenuPos(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [actionMenuPos, setActionMenuPos] = useState<{ right: number; top?: number; bottom?: number } | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (!actionMenuPos) {
+      root.style.removeProperty('--admin-action-menu-right');
+      root.style.removeProperty('--admin-action-menu-top');
+      root.style.removeProperty('--admin-action-menu-bottom');
+      return;
+    }
+
+    root.style.setProperty('--admin-action-menu-right', `${actionMenuPos.right}px`);
+    root.style.setProperty('--admin-action-menu-top', actionMenuPos.top != null ? `${actionMenuPos.top}px` : 'auto');
+    root.style.setProperty('--admin-action-menu-bottom', actionMenuPos.bottom != null ? `${actionMenuPos.bottom}px` : 'auto');
+  }, [actionMenuPos]);
+
+  const openActionMenu = (contestId: string | number) => {
+    const key = String(contestId);
+    const buttonEl = actionButtonRefs.current[key];
+
+    if (openActionId === contestId) {
+      setOpenActionId(null);
+      setActionMenuPos(null);
+      return;
+    }
+
+    setOpenActionId(contestId);
+
+    if (!buttonEl) {
+      setActionMenuPos(null);
+      return;
+    }
+
+    const rect = buttonEl.getBoundingClientRect();
+    const right = Math.max(8, window.innerWidth - rect.right);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    // Heuristic: if we likely can't fit below, open upwards.
+    const shouldOpenUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    if (shouldOpenUp) {
+      setActionMenuPos({ right, bottom: Math.max(8, window.innerHeight - rect.top + 8) });
+    } else {
+      setActionMenuPos({ right, top: Math.max(8, rect.bottom + 8) });
+    }
+  };
 
   const handleGenerateAI = async () => {
     if (!newTitle) return;
@@ -368,6 +418,7 @@ const ContestManager: React.FC = () => {
 
   const handleAction = async (action: string, contest: Contest) => {
     setOpenActionId(null);
+    setActionMenuPos(null);
 
     try {
       switch (action) {
@@ -621,7 +672,10 @@ const ContestManager: React.FC = () => {
                   <td className="px-6 py-4 text-right">
                     <div className="relative action-dropdown inline-block text-left">
                       <button
-                        onClick={() => setOpenActionId(openActionId === contest.id ? null : contest.id)}
+                        ref={(el) => {
+                          actionButtonRefs.current[String(contest.id)] = el;
+                        }}
+                        onClick={() => openActionMenu(contest.id)}
                         title="Contest actions"
                         className={`p-2 rounded-lg border transition-all duration-200 ${openActionId === contest.id
                           ? 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-sm'
@@ -630,30 +684,6 @@ const ContestManager: React.FC = () => {
                       >
                         <MoreHorizontal size={18} />
                       </button>
-
-                      {openActionId === contest.id && (
-                        <div className={`absolute right-0 w-52 bg-white rounded-xl shadow-2xl border border-gray-200 z-[100] animate-fade-in-up ${index < 2 ? 'top-full mt-2 origin-top-right' : 'bottom-full mb-2 origin-bottom-right'}`}>
-                          <div className="py-1">
-                            <button onClick={() => handleAction('view', contest)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors">
-                              <Eye size={16} className="text-gray-400" />
-                              <span>View Details</span>
-                            </button>
-                            {canManageContests && (
-                              <>
-                                <button onClick={() => handleAction('edit', contest)} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors">
-                                  <Edit2 size={16} className="text-gray-400" />
-                                  <span>Edit Contest</span>
-                                </button>
-                                <div className="border-t border-gray-50 my-1"></div>
-                                <button onClick={() => handleAction('delete', contest)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors">
-                                  <Trash2 size={16} />
-                                  <span>Delete Contest</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -689,6 +719,49 @@ const ContestManager: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Action dropdown menu rendered in a portal to avoid being clipped by scroll/overflow containers */}
+      {openActionId != null && actionMenuPos && (() => {
+        const openContest = contests.find((c) => c.id === openActionId);
+        if (!openContest) return null;
+
+        return createPortal(
+          <div
+            className="action-menu-portal w-52 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 animate-fade-in-up"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="py-1">
+              <button
+                onClick={() => handleAction('view', openContest)}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
+                <Eye size={16} className="text-gray-400" />
+                <span>View Details</span>
+              </button>
+              {canManageContests && (
+                <>
+                  <button
+                    onClick={() => handleAction('edit', openContest)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                  >
+                    <Edit2 size={16} className="text-gray-400" />
+                    <span>Edit Contest</span>
+                  </button>
+                  <div className="border-t border-gray-50 my-1"></div>
+                  <button
+                    onClick={() => handleAction('delete', openContest)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 size={16} />
+                    <span>Delete Contest</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
 
       {/* Create/Edit Modal */}
       {isModalOpen && createPortal(

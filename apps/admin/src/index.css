@@ -23,6 +23,13 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
+.action-menu-portal {
+    position: fixed;
+    right: var(--admin-action-menu-right, 0px);
+    top: var(--admin-action-menu-top, auto);
+    bottom: var(--admin-action-menu-bottom, auto);
+}
+
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
     width: 6px;

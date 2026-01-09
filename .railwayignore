@@ -1,0 +1,3 @@
+# Railway ignore for frontend service
+# This file tells Railway to ignore railway.toml (which is for backend)
+railway.toml
