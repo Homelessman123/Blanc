@@ -183,7 +183,7 @@ router.get('/ready', async (_req, res) => {
   } catch (err) {
     diagnostics.checks.database_connection = 'failed';
     diagnostics.errors.push(`Database connection: ${err.message}`);
-    
+
     return res.status(503).json({
       ...diagnostics,
       error: 'Database not ready',

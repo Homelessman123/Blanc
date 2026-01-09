@@ -21,50 +21,50 @@ Write-Host "=" * 70
 # Variables to check
 $requiredVars = @{
     "DATABASE_URL" = @{
-        Required = $true
-        Pattern = "^postgresql://"
+        Required    = $true
+        Pattern     = "^postgresql://"
         Description = "PostgreSQL/CockroachDB connection string"
     }
-    "JWT_SECRET" = @{
-        Required = $true
-        MinLength = 32
+    "JWT_SECRET"   = @{
+        Required    = $true
+        MinLength   = 32
         Description = "JWT signing secret (min 32 characters)"
     }
-    "NODE_ENV" = @{
-        Required = $true
+    "NODE_ENV"     = @{
+        Required      = $true
         ExpectedValue = "production"
-        Description = "Node environment"
+        Description   = "Node environment"
     }
 }
 
 $optimalVars = @{
-    "AUTH_COOKIE_DOMAIN" = @{
+    "AUTH_COOKIE_DOMAIN"   = @{
         ExpectedValue = ""
-        Description = "Should be EMPTY for Railway auto-domain handling"
-        Action = "delete"
+        Description   = "Should be EMPTY for Railway auto-domain handling"
+        Action        = "delete"
     }
     "AUTH_COOKIE_SAMESITE" = @{
         ExpectedValue = "lax"
-        Description = "Must be 'lax' for cross-domain cookies"
+        Description   = "Must be 'lax' for cross-domain cookies"
     }
-    "AUTH_COOKIE_SECURE" = @{
+    "AUTH_COOKIE_SECURE"   = @{
         ExpectedValue = "true"
-        Description = "Must be true for HTTPS"
+        Description   = "Must be true for HTTPS"
     }
-    "TRUST_PROXY" = @{
+    "TRUST_PROXY"          = @{
         ExpectedValue = "1"
-        Description = "Trust Railway load balancer"
+        Description   = "Trust Railway load balancer"
     }
-    "PGPOOL_MAX" = @{
+    "PGPOOL_MAX"           = @{
         ExpectedValue = "5"
-        Description = "Connection pool size (Railway free tier optimized)"
+        Description   = "Connection pool size (Railway free tier optimized)"
     }
-    "PGPOOL_IDLE_MS" = @{
+    "PGPOOL_IDLE_MS"       = @{
         ExpectedValue = "60000"
-        Description = "Idle timeout (60 seconds)"
+        Description   = "Idle timeout (60 seconds)"
     }
-    "FRONTEND_ORIGIN" = @{
-        Pattern = "^https://"
+    "FRONTEND_ORIGIN"      = @{
+        Pattern     = "^https://"
         Description = "Comma-separated frontend/admin URLs"
     }
 }
@@ -87,7 +87,8 @@ try {
         Write-Host "   Run: railway login" -ForegroundColor Yellow
         exit 1
     }
-} catch {
+}
+catch {
     Write-Host "❌ Railway CLI error" -ForegroundColor Red
     exit 1
 }
@@ -106,16 +107,20 @@ foreach ($varName in $requiredVars.Keys) {
         if ($config.Pattern -and $value -notmatch $config.Pattern) {
             Write-Host "⚠️  $varName - Invalid format" -ForegroundColor Red
             $issues += "$varName has invalid format"
-        } elseif ($config.MinLength -and $value.Length -lt $config.MinLength) {
+        }
+        elseif ($config.MinLength -and $value.Length -lt $config.MinLength) {
             Write-Host "⚠️  $varName - Too short (length: $($value.Length))" -ForegroundColor Red
             $issues += "$varName is too short"
-        } elseif ($config.ExpectedValue -and $value -ne $config.ExpectedValue) {
+        }
+        elseif ($config.ExpectedValue -and $value -ne $config.ExpectedValue) {
             Write-Host "⚠️  $varName = $value (expected: $($config.ExpectedValue))" -ForegroundColor Yellow
             $fixes += "railway variables set ${varName}=`"$($config.ExpectedValue)`""
-        } else {
+        }
+        else {
             Write-Host "✅ $varName - OK" -ForegroundColor Green
         }
-    } else {
+    }
+    else {
         Write-Host "❌ $varName - MISSING" -ForegroundColor Red
         $issues += "$varName is not set"
         Write-Host "   $($config.Description)" -ForegroundColor Gray
@@ -135,16 +140,20 @@ foreach ($varName in $optimalVars.Keys) {
             Write-Host "   Current value: $value" -ForegroundColor Gray
             Write-Host "   $($config.Description)" -ForegroundColor Gray
             $fixes += "# Delete $varName (Railway Dashboard → Variables → Remove)"
-        } elseif ($config.ExpectedValue -and $value -ne $config.ExpectedValue) {
+        }
+        elseif ($config.ExpectedValue -and $value -ne $config.ExpectedValue) {
             Write-Host "⚠️  $varName = $value (recommended: $($config.ExpectedValue))" -ForegroundColor Yellow
             $fixes += "railway variables set ${varName}=`"$($config.ExpectedValue)`""
-        } elseif ($config.Pattern -and $value -notmatch $config.Pattern) {
+        }
+        elseif ($config.Pattern -and $value -notmatch $config.Pattern) {
             Write-Host "⚠️  $varName - Check format" -ForegroundColor Yellow
             Write-Host "   $($config.Description)" -ForegroundColor Gray
-        } else {
+        }
+        else {
             Write-Host "✅ $varName - OK" -ForegroundColor Green
         }
-    } else {
+    }
+    else {
         if ($config.ExpectedValue) {
             Write-Host "⚠️  $varName - Not set (recommended)" -ForegroundColor Yellow
             $fixes += "railway variables set ${varName}=`"$($config.ExpectedValue)`""
@@ -159,7 +168,8 @@ Write-Host ("=" * 70) -ForegroundColor Cyan
 
 if ($issues.Count -eq 0) {
     Write-Host "`n✅ All required variables are configured!" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "`n❌ Issues found:" -ForegroundColor Red
     $issues | ForEach-Object { Write-Host "   - $_" -ForegroundColor Red }
 }
@@ -182,8 +192,10 @@ Write-Host ""
 # Exit code
 if ($issues.Count -gt 0) {
     exit 1
-} elseif ($fixes.Count -gt 0) {
+}
+elseif ($fixes.Count -gt 0) {
     exit 2  # Has recommendations
-} else {
+}
+else {
     exit 0  # All good
 }

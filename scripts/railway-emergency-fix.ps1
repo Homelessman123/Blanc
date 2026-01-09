@@ -73,11 +73,13 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "⚠️  Failed to fetch variables (network issue?)" -ForegroundColor Yellow
     Write-Host "   Continuing with manual checks...`n" -ForegroundColor Gray
     $vars = @{}
-} else {
+}
+else {
     try {
         $vars = $varsOutput | ConvertFrom-Json -AsHashtable
         Write-Host "✅ Fetched $($vars.Count) variables`n" -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Host "⚠️  Failed to parse variables JSON" -ForegroundColor Yellow
         $vars = @{}
     }
@@ -97,19 +99,21 @@ if (-not $vars.ContainsKey("DATABASE_URL") -or [string]::IsNullOrWhiteSpace($var
     Write-Host "❌ DATABASE_URL: MISSING" -ForegroundColor Red
     $issues += "DATABASE_URL is missing"
     $fixes += @{
-        command = 'railway variables set DATABASE_URL="postgresql://user:pass@host:26257/dbname?sslmode=require"'
+        command     = 'railway variables set DATABASE_URL="postgresql://user:pass@host:26257/dbname?sslmode=require"'
         description = "Set DATABASE_URL to your CockroachDB connection string"
-        required = $true
+        required    = $true
     }
-} elseif ($vars.DATABASE_URL -match '\$\{\{|\}\}|<|>') {
+}
+elseif ($vars.DATABASE_URL -match '\$\{\{|\}\}|<|>') {
     Write-Host "❌ DATABASE_URL: CONTAINS PLACEHOLDERS" -ForegroundColor Red
     $issues += "DATABASE_URL has placeholder values"
     $fixes += @{
-        command = 'railway variables set DATABASE_URL="postgresql://user:pass@host:26257/dbname?sslmode=require"'
+        command     = 'railway variables set DATABASE_URL="postgresql://user:pass@host:26257/dbname?sslmode=require"'
         description = "Replace DATABASE_URL with actual connection string"
-        required = $true
+        required    = $true
     }
-} else {
+}
+else {
     Write-Host "✅ DATABASE_URL: OK" -ForegroundColor Green
 }
 
@@ -119,17 +123,19 @@ if (-not $vars.ContainsKey("JWT_SECRET") -or [string]::IsNullOrWhiteSpace($vars.
     $issues += "JWT_SECRET is missing"
     
     # Generate a secure random JWT secret
-    $jwtSecret = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 64 | ForEach-Object {[char]$_})
+    $jwtSecret = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 64 | ForEach-Object { [char]$_ })
     
     $fixes += @{
-        command = "railway variables set JWT_SECRET=`"$jwtSecret`""
+        command     = "railway variables set JWT_SECRET=`"$jwtSecret`""
         description = "Set JWT_SECRET (generated random 64-char string)"
-        required = $true
+        required    = $true
     }
-} elseif ($vars.JWT_SECRET.Length -lt 32) {
+}
+elseif ($vars.JWT_SECRET.Length -lt 32) {
     Write-Host "⚠️  JWT_SECRET: TOO SHORT (should be 32+ chars)" -ForegroundColor Yellow
     $issues += "JWT_SECRET is too short"
-} else {
+}
+else {
     Write-Host "✅ JWT_SECRET: OK" -ForegroundColor Green
 }
 
@@ -137,11 +143,12 @@ if (-not $vars.ContainsKey("JWT_SECRET") -or [string]::IsNullOrWhiteSpace($vars.
 if ($vars.NODE_ENV -ne "production") {
     Write-Host "⚠️  NODE_ENV: $($vars.NODE_ENV) (should be 'production')" -ForegroundColor Yellow
     $fixes += @{
-        command = 'railway variables set NODE_ENV="production"'
+        command     = 'railway variables set NODE_ENV="production"'
         description = "Set NODE_ENV to production"
-        required = $false
+        required    = $false
     }
-} else {
+}
+else {
     Write-Host "✅ NODE_ENV: production" -ForegroundColor Green
 }
 
@@ -158,12 +165,13 @@ if ($vars.ContainsKey("AUTH_COOKIE_DOMAIN") -and -not [string]::IsNullOrWhiteSpa
     if ($vars.AUTH_COOKIE_DOMAIN -match "railway\.app") {
         Write-Host "⚠️  AUTH_COOKIE_DOMAIN: Should be empty for Railway auto-domains" -ForegroundColor Yellow
         $fixes += @{
-            command = "railway variables delete AUTH_COOKIE_DOMAIN"
+            command     = "railway variables delete AUTH_COOKIE_DOMAIN"
             description = "Remove AUTH_COOKIE_DOMAIN (let Railway auto-handle)"
-            required = $false
+            required    = $false
         }
     }
-} else {
+}
+else {
     Write-Host "✅ AUTH_COOKIE_DOMAIN: Empty (auto-handled)" -ForegroundColor Green
 }
 
@@ -171,11 +179,12 @@ if ($vars.ContainsKey("AUTH_COOKIE_DOMAIN") -and -not [string]::IsNullOrWhiteSpa
 if (-not $vars.ContainsKey("TRUST_PROXY") -or $vars.TRUST_PROXY -ne "1") {
     Write-Host "⚠️  TRUST_PROXY: Not set (recommended for Railway)" -ForegroundColor Yellow
     $fixes += @{
-        command = 'railway variables set TRUST_PROXY="1"'
+        command     = 'railway variables set TRUST_PROXY="1"'
         description = "Enable trust proxy (Railway uses load balancer)"
-        required = $false
+        required    = $false
     }
-} else {
+}
+else {
     Write-Host "✅ TRUST_PROXY: 1" -ForegroundColor Green
 }
 
@@ -183,11 +192,12 @@ if (-not $vars.ContainsKey("TRUST_PROXY") -or $vars.TRUST_PROXY -ne "1") {
 if (-not $vars.ContainsKey("PGPOOL_MAX") -or $vars.PGPOOL_MAX -ne "5") {
     Write-Host "⚠️  PGPOOL_MAX: Not set (recommended: 5 for Railway free tier)" -ForegroundColor Yellow
     $fixes += @{
-        command = 'railway variables set PGPOOL_MAX="5"'
+        command     = 'railway variables set PGPOOL_MAX="5"'
         description = "Limit PostgreSQL pool to 5 connections (Railway 512MB RAM)"
-        required = $false
+        required    = $false
     }
-} else {
+}
+else {
     Write-Host "✅ PGPOOL_MAX: 5" -ForegroundColor Green
 }
 
@@ -196,11 +206,12 @@ $sameSite = $vars.AUTH_COOKIE_SAMESITE
 if ($sameSite -eq "strict") {
     Write-Host "⚠️  AUTH_COOKIE_SAMESITE: strict (may block cross-domain)" -ForegroundColor Yellow
     $fixes += @{
-        command = 'railway variables set AUTH_COOKIE_SAMESITE="lax"'
+        command     = 'railway variables set AUTH_COOKIE_SAMESITE="lax"'
         description = "Change to 'lax' for better compatibility"
-        required = $false
+        required    = $false
     }
-} elseif ($sameSite -eq "lax" -or [string]::IsNullOrWhiteSpace($sameSite)) {
+}
+elseif ($sameSite -eq "lax" -or [string]::IsNullOrWhiteSpace($sameSite)) {
     Write-Host "✅ AUTH_COOKIE_SAMESITE: lax (or default)" -ForegroundColor Green
 }
 
@@ -252,10 +263,12 @@ if ($fixes.Count -gt 0) {
                 Invoke-Expression $fix.command
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "✅ Fixed: $($fix.description)`n" -ForegroundColor Green
-                } else {
+                }
+                else {
                     Write-Host "❌ Failed: $($fix.description)`n" -ForegroundColor Red
                 }
-            } catch {
+            }
+            catch {
                 Write-Host "❌ Error: $($_.Exception.Message)`n" -ForegroundColor Red
             }
         }
@@ -263,7 +276,8 @@ if ($fixes.Count -gt 0) {
         Write-Host "`n✅ Auto-fix completed!" -ForegroundColor Green
         Write-Host "   Run 'railway up' or push to Git to redeploy`n" -ForegroundColor Gray
         
-    } else {
+    }
+    else {
         Write-Host "`n💡 To apply fixes automatically, run:" -ForegroundColor Cyan
         Write-Host "   .\railway-emergency-fix.ps1 -AutoFix`n" -ForegroundColor Gray
         
@@ -286,11 +300,13 @@ try {
     
     if ($response.ready -eq $true) {
         Write-Host "✅ Service is healthy and ready`n" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "⚠️  Service is not ready" -ForegroundColor Yellow
         Write-Host "   Checks: $($response.checks | ConvertTo-Json -Compress)`n" -ForegroundColor Gray
     }
-} catch {
+}
+catch {
     Write-Host "❌ Service health check failed" -ForegroundColor Red
     Write-Host "   Error: $($_.Exception.Message)`n" -ForegroundColor Gray
 }
