@@ -549,9 +549,9 @@ const ContestManager: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Allow dropdown menus to overflow outside the table area */}
-        <div className="overflow-x-auto overflow-visible relative">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 relative">
+        {/* Keep table layer above footer so dropdowns can overlap pagination */}
+        <div className="overflow-x-auto overflow-visible relative z-10">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 border-b border-gray-100 text-gray-900 uppercase font-semibold text-xs">
               <tr>
@@ -662,7 +662,7 @@ const ContestManager: React.FC = () => {
           </table>
         </div>
 
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between relative z-0">
           <span className="text-sm text-gray-500">
             {pagination.total === 0
               ? 'Showing 0 to 0 of 0 contests'
