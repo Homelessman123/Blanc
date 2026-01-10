@@ -126,6 +126,10 @@ const TOTP_PERIOD_SECONDS = 30;
 const TOTP_VERIFY_WINDOW = 1; // allow +/- 1 time-step for clock skew
 const TOTP_ISSUER = String(process.env.TOTP_ISSUER || process.env.SITE_NAME || 'Blanc').trim() || 'Blanc';
 
+function isTotpEncryptionConfigured() {
+  return Boolean(String(process.env.TOTP_ENCRYPTION_KEY || '').trim());
+}
+
 function hasEncryptedSecret(value) {
   return Boolean(value && typeof value === 'object' && value.ct && value.iv && value.tag);
 }
@@ -904,6 +908,13 @@ router.post('/login/initiate', async (req, res, next) => {
  */
 router.post('/login/verify-2fa', async (req, res, next) => {
   try {
+    if (!isTotpEncryptionConfigured()) {
+      return res.status(503).json({
+        error: 'Two-factor authentication is not configured.',
+        code: 'TOTP_NOT_CONFIGURED',
+      });
+    }
+
     await connectToDatabase();
     const { email, sessionToken, otp } = req.body || {};
 
@@ -1134,6 +1145,13 @@ router.get('/settings/2fa', authGuard, async (req, res, next) => {
  */
 router.post('/settings/2fa/setup', authGuard, async (req, res, next) => {
   try {
+    if (!isTotpEncryptionConfigured()) {
+      return res.status(503).json({
+        error: 'Two-factor authentication is not configured.',
+        code: 'TOTP_NOT_CONFIGURED',
+      });
+    }
+
     await connectToDatabase();
     const userId = req.user.id;
     const { password } = req.body || {};
@@ -1210,6 +1228,13 @@ router.post('/settings/2fa/setup', authGuard, async (req, res, next) => {
  */
 router.post('/settings/2fa/verify', authGuard, async (req, res, next) => {
   try {
+    if (!isTotpEncryptionConfigured()) {
+      return res.status(503).json({
+        error: 'Two-factor authentication is not configured.',
+        code: 'TOTP_NOT_CONFIGURED',
+      });
+    }
+
     await connectToDatabase();
     const userId = req.user.id;
     const { code } = req.body || {};
