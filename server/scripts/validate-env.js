@@ -10,6 +10,8 @@ const optionalVars = [
     'OTP_EMAIL_URL',
     'OPENROUTER_API_KEY',
     'OTP_SECRET_KEY',
+    'TOTP_ENCRYPTION_KEY',
+    'TOTP_ISSUER',
 ];
 
 console.log('🔍 Environment Validation:\n');

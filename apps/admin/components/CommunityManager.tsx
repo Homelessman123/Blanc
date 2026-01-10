@@ -118,13 +118,12 @@ const CommunityManager: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 items-center">
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                activeItem.status === 'open'
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${activeItem.status === 'open'
                   ? 'bg-emerald-100 text-emerald-700'
                   : activeItem.status === 'full'
                     ? 'bg-amber-100 text-amber-800'
                     : 'bg-slate-100 text-slate-700'
-              }`}>
+                }`}>
                 {activeItem.status}
               </span>
               {activeItem.deletedAt && (
@@ -387,13 +386,12 @@ const CommunityManager: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          item.status === 'open'
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'open'
                             ? 'bg-emerald-100 text-emerald-700'
                             : item.status === 'full'
                               ? 'bg-amber-100 text-amber-800'
                               : 'bg-slate-100 text-slate-700'
-                        }`}>
+                          }`}>
                           {item.status}
                         </span>
                         {item.deletedAt && (

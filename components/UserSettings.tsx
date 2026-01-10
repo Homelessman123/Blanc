@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button, Input, Card } from './ui/Common';
 import { api, API_BASE_URL } from '../lib/api';
 import { clientStorage } from '../lib/cache';
+import { QrCode } from './QrCode';
 import {
     User, Mail, Lock, Bell, Shield, Eye, EyeOff,
     Camera, Loader2, CheckCircle, AlertCircle, Save,
@@ -510,10 +511,26 @@ const UserSettings: React.FC = () => {
     });
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
     const [twoFactorInitial, setTwoFactorInitial] = useState(false);
+    const [twoFactorPendingSetup, setTwoFactorPendingSetup] = useState(false);
+    const [twoFactorSetup, setTwoFactorSetup] = useState<null | {
+        otpauthUrl: string;
+        secret: string;
+        issuer?: string;
+        digits?: number;
+        period?: number;
+        setupTtlMinutes?: number;
+    }>(null);
+    const [twoFactorCode, setTwoFactorCode] = useState('');
     const [twoFactorPassword, setTwoFactorPassword] = useState('');
     const [showTwoFactorPassword, setShowTwoFactorPassword] = useState(false);
     const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(true);
     const [isTwoFactorSaving, setIsTwoFactorSaving] = useState(false);
+
+    const twoFactorIsEnabling = twoFactorEnabled && !twoFactorInitial;
+    const twoFactorIsDisabling = !twoFactorEnabled && twoFactorInitial;
+    const twoFactorNeedsPassword = twoFactorIsDisabling || (twoFactorIsEnabling && !twoFactorSetup);
+    const twoFactorNeedsCode = twoFactorIsEnabling && Boolean(twoFactorSetup);
+    const twoFactorCodeOk = /^\d{6}$/.test(twoFactorCode.replace(/\s+/g, ''));
 
     const [notificationSettings, setNotificationSettings] = useState(() => ({ ...DEFAULT_NOTIFICATION_SETTINGS }));
     const [isNotificationSaving, setIsNotificationSaving] = useState(false);
@@ -594,10 +611,16 @@ const UserSettings: React.FC = () => {
     const fetchTwoFactorStatus = useCallback(async () => {
         try {
             setIsTwoFactorLoading(true);
-            const data = await api.get<{ twoFactorEnabled: boolean }>('/auth/settings/2fa');
+            const data = await api.get<{ twoFactorEnabled: boolean; twoFactorPendingSetup?: boolean }>('/auth/settings/2fa');
             const enabled = data.twoFactorEnabled === true;
+            const pending = data.twoFactorPendingSetup === true;
             setTwoFactorEnabled(enabled);
             setTwoFactorInitial(enabled);
+            setTwoFactorPendingSetup(pending);
+            if (enabled) {
+                setTwoFactorSetup(null);
+                setTwoFactorCode('');
+            }
         } catch (err) {
             showToast(err instanceof Error ? err.message : 'Khong the tai trang thai 2FA', 'error');
         } finally {
@@ -995,31 +1018,91 @@ const UserSettings: React.FC = () => {
     };
 
     const handleSaveTwoFactor = async () => {
-        if (twoFactorEnabled === twoFactorInitial) {
+        const isEnabling = twoFactorEnabled === true && twoFactorInitial === false;
+        const isDisabling = twoFactorEnabled === false && twoFactorInitial === true;
+
+        if (!isEnabling && !isDisabling) {
             return;
         }
-        if (!twoFactorPassword) {
+
+        // Start setup (generate secret + QR) or disable: both require password confirmation
+        const needsPassword = isDisabling || (isEnabling && !twoFactorSetup);
+        if (needsPassword && !twoFactorPassword) {
             showToast('Vui long nhap mat khau de cap nhat 2FA', 'error');
             return;
         }
 
+        if (isEnabling && twoFactorSetup) {
+            const code = twoFactorCode.replace(/\s+/g, '');
+            if (!/^\d{6}$/.test(code)) {
+                showToast('Vui long nhap ma 6 so tu ung dung Authenticator', 'error');
+                return;
+            }
+        }
+
         setIsTwoFactorSaving(true);
         try {
-            const data = await api.patch<{ twoFactorEnabled: boolean; message?: string }>('/auth/settings/2fa', {
-                enabled: twoFactorEnabled,
-                password: twoFactorPassword,
+            if (isDisabling) {
+                const data = await api.patch<{ twoFactorEnabled: boolean; message?: string }>('/auth/settings/2fa', {
+                    enabled: false,
+                    password: twoFactorPassword,
+                });
+                const updated = data.twoFactorEnabled === true;
+                setTwoFactorEnabled(updated);
+                setTwoFactorInitial(updated);
+                setTwoFactorPendingSetup(false);
+                setTwoFactorSetup(null);
+                setTwoFactorCode('');
+                setTwoFactorPassword('');
+                setShowTwoFactorPassword(false);
+                showToast(data.message || '2FA da duoc tat', 'success');
+                return;
+            }
+
+            if (!twoFactorSetup) {
+                const data = await api.post<{
+                    ok: boolean;
+                    issuer?: string;
+                    otpauthUrl: string;
+                    secret: string;
+                    digits?: number;
+                    period?: number;
+                    setupTtlMinutes?: number;
+                }>('/auth/settings/2fa/setup', {
+                    password: twoFactorPassword,
+                });
+                setTwoFactorSetup({
+                    otpauthUrl: data.otpauthUrl,
+                    secret: data.secret,
+                    issuer: data.issuer,
+                    digits: data.digits,
+                    period: data.period,
+                    setupTtlMinutes: data.setupTtlMinutes,
+                });
+                setTwoFactorPendingSetup(true);
+                setTwoFactorPassword('');
+                setShowTwoFactorPassword(false);
+                showToast('Quet QR code bang Google Authenticator/Authy/1Password, sau do nhap ma 6 so de xac nhan.', 'success');
+                return;
+            }
+
+            const data = await api.post<{ ok: boolean; twoFactorEnabled: boolean; message?: string }>('/auth/settings/2fa/verify', {
+                code: twoFactorCode.replace(/\s+/g, ''),
             });
             const updated = data.twoFactorEnabled === true;
             setTwoFactorEnabled(updated);
             setTwoFactorInitial(updated);
-            setTwoFactorPassword('');
-            setShowTwoFactorPassword(false);
-            showToast(data.message || (updated ? '2FA da duoc bat' : '2FA da duoc tat'), 'success');
+            setTwoFactorPendingSetup(false);
+            setTwoFactorSetup(null);
+            setTwoFactorCode('');
+            showToast(data.message || (updated ? '2FA da duoc bat' : 'Khong the bat 2FA'), updated ? 'success' : 'error');
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Khong the cap nhat 2FA';
             const vietnameseErrors: Record<string, string> = {
                 'Password confirmation required.': 'Vui long nhap mat khau de cap nhat 2FA.',
                 'Invalid password.': 'Mat khau khong dung.',
+                'No pending 2FA setup. Start setup first.': 'Chua co thiet lap 2FA. Vui long bat dau thiet lap.',
+                'Code must be 6 digits.': 'Ma phai gom 6 chu so.',
             };
             showToast(vietnameseErrors[message] || message, 'error');
         } finally {
@@ -1604,7 +1687,15 @@ const UserSettings: React.FC = () => {
                                     )}
                                     <ToggleSwitch
                                         checked={twoFactorEnabled}
-                                        onChange={(checked) => setTwoFactorEnabled(checked)}
+                                        onChange={(checked) => {
+                                            setTwoFactorEnabled(checked);
+                                            setTwoFactorSetup(null);
+                                            setTwoFactorCode('');
+                                            if (!checked) {
+                                                setTwoFactorPassword('');
+                                                setShowTwoFactorPassword(false);
+                                            }
+                                        }}
                                         disabled={isTwoFactorLoading || isTwoFactorSaving}
                                         label="Two-factor authentication"
                                         id="two-factor-toggle"
@@ -1636,11 +1727,68 @@ const UserSettings: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
+
+                                    {twoFactorSetup && (
+                                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                                <div className="flex-shrink-0">
+                                                    <QrCode data={twoFactorSetup.otpauthUrl} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p className="text-sm text-slate-700">
+                                                        1) M? Google Authenticator / Authy / 1Password<br />
+                                                        2) Qu?t QR code n y<br />
+                                                        3) Nh?p ma 6 s? d? x c nh?n b?t 2FA
+                                                    </p>
+                                                    <div className="text-xs text-slate-500">
+                                                        <div className="font-medium text-slate-700 mb-1">Ma d? ph“ng (secret)</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <code className="font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 break-all">
+                                                                {twoFactorSetup.secret}
+                                                            </code>
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await navigator.clipboard.writeText(twoFactorSetup.secret);
+                                                                        showToast('Da copy secret', 'success');
+                                                                    } catch {
+                                                                        showToast('Khong the copy secret', 'error');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Copy
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {twoFactorNeedsCode && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Ma Authenticator (6 s?) <span className="text-red-500">*</span>
+                                            </label>
+                                            <Input
+                                                value={twoFactorCode}
+                                                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                placeholder="123456"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                disabled={isTwoFactorSaving}
+                                            />
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-end">
                                         <Button
                                             type="button"
                                             onClick={handleSaveTwoFactor}
-                                            disabled={isTwoFactorSaving || !twoFactorPassword}
+                                            disabled={isTwoFactorSaving || (twoFactorNeedsPassword && !twoFactorPassword) || (twoFactorNeedsCode && !twoFactorCodeOk)}
                                         >
                                             {isTwoFactorSaving ? (
                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

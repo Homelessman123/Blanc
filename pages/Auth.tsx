@@ -496,19 +496,13 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
       });
 
       if (response.requiresOTP) {
-        // OTP verification required - send OTP via /otp/request
+        // 2FA is enabled for this account - require TOTP from authenticator app
         const otpSessionToken = response.sessionToken || newSessionToken;
-
-        await api.post('/otp/request', {
-          email: formData.email,
-          sessionToken: otpSessionToken,
-          action: 'login_2fa',
-        });
 
         setRequires2FA(true);
         setLogin2FASessionToken(otpSessionToken);
-        setOtpExpiresAt(new Date(response.expiresAt || Date.now() + 2 * 60 * 1000));
-        setCountdown(60);
+        setOtp('');
+        setOtpError('');
       } else if (response.token && response.user) {
         // Direct login (OTP bypassed for test accounts)
         localStorage.setItem('user', JSON.stringify(response.user));
@@ -560,7 +554,8 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
 
   // Handle resend OTP for 2FA login
   const handleResend2FAOtp = async () => {
-    if (countdown > 0 || isResending) return;
+    setOtpError('Ma 2FA duoc tao trong ung dung Authenticator (khong co chuc nang gui lai).');
+    return;
 
     setIsResending(true);
     setOtpError('');

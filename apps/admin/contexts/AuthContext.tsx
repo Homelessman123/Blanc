@@ -49,7 +49,6 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ success: boolean; requires2FA: boolean }>;
     verify2FA: (otp: string) => Promise<boolean>;
-    resendOTP: () => Promise<boolean>;
     logout: () => Promise<void>;
     clearError: () => void;
     checkAuth: () => Promise<void>;
@@ -162,19 +161,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (response.data.requiresOTP) {
                 const otpSessionToken = response.data.sessionToken || sessionToken;
 
-                // Request OTP to be sent to user's email
-                try {
-                    await api.post('/otp/request', {
-                        email: credentials.email.toLowerCase().trim(),
-                        sessionToken: otpSessionToken,
-                        action: 'login_2fa'
-                    }, { skipAuth: true });
-                } catch (otpError) {
-                    console.error('[Auth] Failed to request OTP:', otpError);
-                    // Continue with 2FA flow even if OTP request fails
-                    // User can use resend button if needed
-                }
-
                 // Store pending 2FA state for non-exempt accounts
                 setState(prev => ({
                     ...prev,
@@ -285,31 +271,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     }, [state.pending2FA]);
 
-    // Resend OTP for 2FA
-    const resendOTP = useCallback(async (): Promise<boolean> => {
-        if (!state.pending2FA) {
-            setState(prev => ({ ...prev, error: 'No pending 2FA session' }));
-            return false;
-        }
-
-        try {
-            await api.post('/otp/request', {
-                email: state.pending2FA.email.toLowerCase().trim(),
-                sessionToken: state.pending2FA.sessionToken,
-                action: 'login_2fa'
-            }, { skipAuth: true });
-
-            return true;
-        } catch (error) {
-            const message = error instanceof ApiError
-                ? error.message
-                : 'Failed to resend OTP. Please try again.';
-
-            setState(prev => ({ ...prev, error: message }));
-            return false;
-        }
-    }, [state.pending2FA]);
-
     // Cancel 2FA flow
     const cancel2FA = useCallback(() => {
         setState(prev => ({
@@ -367,7 +328,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...state,
         login,
         verify2FA,
-        resendOTP,
         logout,
         clearError,
         checkAuth,

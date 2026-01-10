@@ -15,7 +15,7 @@ const OTP_CONFIG = {
 };
 
 // Valid actions for OTP
-const VALID_ACTIONS = ['verify', 'reset_password', 'register_verify', 'login_2fa'];
+const VALID_ACTIONS = ['verify', 'reset_password', 'register_verify'];
 
 // Secret key for HMAC - should be in environment variables
 const SECRET_KEY = process.env.OTP_SECRET_KEY || process.env.JWT_SECRET || 'default-otp-secret-key-change-me';
@@ -582,7 +582,7 @@ function mapActionType(action) {
         'verify': 'verify',
         'register_verify': 'verify',
         'reset_password': 'reset_password',
-        'login_2fa': 'login',
+
     };
     return mapping[action] || 'verify';
 }

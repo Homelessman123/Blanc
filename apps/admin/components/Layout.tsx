@@ -249,87 +249,87 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     )}
                   </button>
 
-              {showNotifications && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
-                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fade-in-up origin-top-right">
-                    <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">Notifications</h3>
-                        <button
-                          onClick={fetchNotifications}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                          title="Refresh"
-                        >
-                          <RefreshCw size={14} className={isLoadingNotifications ? 'animate-spin' : ''} />
-                        </button>
-                      </div>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={handleMarkAllAsRead}
-                          className="text-xs text-emerald-600 font-medium hover:text-emerald-700"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-[400px] overflow-y-auto">
-                      {isLoadingNotifications && notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center">
-                          <RefreshCw size={24} className="animate-spin mx-auto text-gray-400 mb-2" />
-                          <p className="text-sm text-gray-500">Loading...</p>
+                  {showNotifications && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
+                      <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fade-in-up origin-top-right">
+                        <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">Notifications</h3>
+                            <button
+                              onClick={fetchNotifications}
+                              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                              title="Refresh"
+                            >
+                              <RefreshCw size={14} className={isLoadingNotifications ? 'animate-spin' : ''} />
+                            </button>
+                          </div>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllAsRead}
+                              className="text-xs text-emerald-600 font-medium hover:text-emerald-700"
+                            >
+                              Mark all as read
+                            </button>
+                          )}
                         </div>
-                      ) : notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center">
-                          <Bell size={32} className="mx-auto text-gray-300 mb-2" />
-                          <p className="text-sm text-gray-500">No notifications</p>
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                            className={`px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer group ${!notification.read ? 'bg-emerald-50/30' : ''}`}
-                          >
-                            <div className="flex gap-3">
-                              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${getNotificationBg(notification.type)}`}>
-                                {getNotificationIcon(notification.type)}
-                              </div>
-                              <div className="flex-1 space-y-1 min-w-0">
-                                <div className="flex justify-between items-start gap-2">
-                                  <p className={`text-sm truncate ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-                                    {notification.title}
-                                  </p>
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    {!notification.read && <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>}
-                                    <button
-                                      onClick={(e) => handleDeleteNotification(notification.id, e)}
-                                      className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      title="Delete"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
+                        <div className="max-h-[400px] overflow-y-auto">
+                          {isLoadingNotifications && notifications.length === 0 ? (
+                            <div className="px-4 py-8 text-center">
+                              <RefreshCw size={24} className="animate-spin mx-auto text-gray-400 mb-2" />
+                              <p className="text-sm text-gray-500">Loading...</p>
+                            </div>
+                          ) : notifications.length === 0 ? (
+                            <div className="px-4 py-8 text-center">
+                              <Bell size={32} className="mx-auto text-gray-300 mb-2" />
+                              <p className="text-sm text-gray-500">No notifications</p>
+                            </div>
+                          ) : (
+                            notifications.map((notification) => (
+                              <div
+                                key={notification.id}
+                                onClick={() => !notification.read && handleMarkAsRead(notification.id)}
+                                className={`px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 cursor-pointer group ${!notification.read ? 'bg-emerald-50/30' : ''}`}
+                              >
+                                <div className="flex gap-3">
+                                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${getNotificationBg(notification.type)}`}>
+                                    {getNotificationIcon(notification.type)}
+                                  </div>
+                                  <div className="flex-1 space-y-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-2">
+                                      <p className={`text-sm truncate ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                                        {notification.title}
+                                      </p>
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        {!notification.read && <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>}
+                                        <button
+                                          onClick={(e) => handleDeleteNotification(notification.id, e)}
+                                          className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          title="Delete"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
+                                    <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                                      <Clock size={10} />
+                                      {formatRelativeTime(notification.createdAt)}
+                                    </p>
                                   </div>
                                 </div>
-                                <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
-                                <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
-                                  <Clock size={10} />
-                                  {formatRelativeTime(notification.createdAt)}
-                                </p>
                               </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="p-2 border-t border-gray-50 bg-gray-50/30 text-center">
-                      <button className="text-xs text-gray-500 hover:text-gray-800 font-medium w-full py-1">
-                        View all notifications
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+                            ))
+                          )}
+                        </div>
+                        <div className="p-2 border-t border-gray-50 bg-gray-50/30 text-center">
+                          <button className="text-xs text-gray-500 hover:text-gray-800 font-medium w-full py-1">
+                            View all notifications
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}

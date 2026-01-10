@@ -6,6 +6,13 @@ import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, issueToken } from '../middleware/auth.js';
 import { logAuditEvent } from './admin.js';
 import { getMembershipSummary } from '../lib/membership.js';
+import {
+  buildOtpAuthUrl,
+  decryptTotpSecret,
+  encryptTotpSecret,
+  generateTotpSecretBase32,
+  verifyTotpToken,
+} from '../lib/totp.js';
 
 const router = Router();
 
@@ -113,6 +120,19 @@ router.get('/csrf', (req, res) => {
 // ============ CONSTANTS ============
 const PENDING_REGISTRATION_TTL_MINUTES = 10; // Pending registrations expire in 10 minutes
 const LOGIN_2FA_TTL_MINUTES = 2; // 2FA/OTP session expires in 2 minutes (auto-extends on OTP resend)
+const TOTP_SETUP_TTL_MINUTES = 15; // Pending TOTP setup expires in 15 minutes
+const TOTP_DIGITS = 6;
+const TOTP_PERIOD_SECONDS = 30;
+const TOTP_VERIFY_WINDOW = 1; // allow +/- 1 time-step for clock skew
+const TOTP_ISSUER = String(process.env.TOTP_ISSUER || process.env.SITE_NAME || 'Blanc').trim() || 'Blanc';
+
+function hasEncryptedSecret(value) {
+  return Boolean(value && typeof value === 'object' && value.ct && value.iv && value.tag);
+}
+
+function isTwoFactorEnabled(user) {
+  return user?.security?.twoFactorEnabled === true && hasEncryptedSecret(user?.security?.twoFactorSecret);
+}
 
 // ============ TEST ACCOUNTS (bypass OTP) ============
 const OTP_BYPASS_EMAILS = (() => {
@@ -724,10 +744,7 @@ router.post('/login/initiate', async (req, res, next) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    // sessionToken is always required for OTP verification
-    if (!sessionToken || sessionToken.length < 32) {
-      return res.status(400).json({ error: 'Valid session token is required.' });
-    }
+    // sessionToken is required only when 2FA is enabled (used to bind the pending login session).
 
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -816,8 +833,36 @@ router.post('/login/initiate', async (req, res, next) => {
       });
     }
 
-    // Always require OTP verification for login (enhanced security)
-    // Create pending login session
+    const requires2FA = isTwoFactorEnabled(user);
+
+    // If 2FA is not enabled, complete login with password only.
+    if (!requires2FA) {
+      // Record successful login (clears lockout if any)
+      await recordLoginAttempt(normalizedEmail, ip, userAgent, true);
+
+      // Update last login
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { lastLoginAt: new Date(), updatedAt: new Date() } }
+      );
+
+      const token = issueToken(user);
+      setAuthCookies(res, token);
+
+      return res.json({
+        ok: true,
+        requiresOTP: false,
+        token,
+        user: sanitizeUser(user),
+        message: 'Dang nh?p th…nh c“ng!',
+      });
+    }
+
+    if (!sessionToken || sessionToken.length < 32) {
+      return res.status(400).json({ error: 'Valid session token is required.' });
+    }
+
+    // Create pending login session for 2FA verification
     const pendingLogins = getCollection('pending_logins');
 
     // Remove existing pending logins for this user
@@ -837,14 +882,12 @@ router.post('/login/initiate', async (req, res, next) => {
       userAgent: req.headers['user-agent'],
     });
 
-    // OTP will be sent via /otp/request endpoint called by frontend
-    // This ensures consistent OTP derivation across all flows
-
     return res.json({
       ok: true,
       requiresOTP: true,
+      requires2FA: true,
       sessionToken, // Return the same sessionToken for frontend to use
-      message: 'Credentials verified. Please enter the OTP sent to your email.',
+      message: 'Credentials verified. Please enter the 6-digit code from your authenticator app.',
       email: normalizedEmail,
       ttlMinutes: LOGIN_2FA_TTL_MINUTES,
       expiresAt: expiresAt.toISOString(),
@@ -891,17 +934,35 @@ router.post('/login/verify-2fa', async (req, res, next) => {
       });
     }
 
-    // Verify OTP using HMAC derivation (same algorithm as otp.js)
-    const secretKey = process.env.OTP_SECRET_KEY || process.env.JWT_SECRET || 'default-otp-secret-key-change-me';
+    // Verify TOTP from authenticator app
+    const users = getCollection('users');
+    const user = await users.findOne({ _id: pending.userId });
 
-    // Derive OTP from sessionToken using same algorithm as otp.js
-    const hmac = crypto.createHmac('sha256', secretKey);
-    hmac.update(sessionToken);
-    const hash = hmac.digest();
-    const num = hash.readUInt32BE(0);
-    const derivedOtp = (num % 1_000_000).toString().padStart(6, '0');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
 
-    if (otp !== derivedOtp) {
+    if (!isTwoFactorEnabled(user)) {
+      return res.status(400).json({
+        error: '2FA is not enabled for this account. Please login again.',
+        code: 'TWO_FACTOR_NOT_ENABLED'
+      });
+    }
+
+    let secret;
+    try {
+      secret = decryptTotpSecret(user.security.twoFactorSecret);
+    } catch {
+      return res.status(500).json({ error: 'Failed to decrypt 2FA secret.' });
+    }
+
+    const ok = verifyTotpToken(secret, otp, {
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD_SECONDS,
+      window: TOTP_VERIFY_WINDOW,
+    });
+
+    if (!ok) {
       // Track failed attempts
       const attempts = (pending.failedAttempts || 0) + 1;
       const maxAttempts = 5;
@@ -927,14 +988,6 @@ router.post('/login/verify-2fa', async (req, res, next) => {
         code: 'INVALID_OTP',
         remainingAttempts: maxAttempts - attempts
       });
-    }
-
-    // Get user
-    const users = getCollection('users');
-    const user = await users.findOne({ _id: pending.userId });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
     }
 
     // Complete login
@@ -1005,6 +1058,13 @@ router.patch('/settings/2fa', authGuard, async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
+    if (enabled === true) {
+      return res.status(400).json({
+        error: 'Use /auth/settings/2fa/setup to enable 2FA.',
+        code: 'TOTP_SETUP_REQUIRED',
+      });
+    }
+
     // Update 2FA setting
     await users.updateOne(
       { _id: new ObjectId(userId) },
@@ -1013,7 +1073,14 @@ router.patch('/settings/2fa', authGuard, async (req, res, next) => {
           'security.twoFactorEnabled': enabled,
           'security.twoFactorUpdatedAt': new Date(),
           updatedAt: new Date(),
-        }
+        },
+        $unset: {
+          'security.twoFactorSecret': '',
+          'security.twoFactorVerifiedAt': '',
+          'security.twoFactorTempSecret': '',
+          'security.twoFactorTempCreatedAt': '',
+          'security.twoFactorTempFailedAttempts': '',
+        },
       }
     );
 
@@ -1044,7 +1111,7 @@ router.get('/settings/2fa', authGuard, async (req, res, next) => {
     const users = getCollection('users');
     const user = await users.findOne(
       { _id: new ObjectId(userId) },
-      { projection: { 'security.twoFactorEnabled': 1 } }
+      { projection: { 'security.twoFactorEnabled': 1, 'security.twoFactorSecret': 1, 'security.twoFactorTempSecret': 1 } }
     );
 
     if (!user) {
@@ -1052,9 +1119,230 @@ router.get('/settings/2fa', authGuard, async (req, res, next) => {
     }
 
     res.json({
-      twoFactorEnabled: user.security?.twoFactorEnabled === true,
+      twoFactorEnabled: isTwoFactorEnabled(user),
+      twoFactorPendingSetup: hasEncryptedSecret(user.security?.twoFactorTempSecret),
     });
 
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /auth/settings/2fa/setup
+ * Start TOTP enrollment (generates a per-user secret and returns an otpauth:// URL)
+ */
+router.post('/settings/2fa/setup', authGuard, async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    const userId = req.user.id;
+    const { password } = req.body || {};
+
+    if (!ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password confirmation required.' });
+    }
+
+    const users = getCollection('users');
+    const user = await users.findOne({ _id: new ObjectId(userId) });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    if (isTwoFactorEnabled(user)) {
+      return res.status(409).json({ error: '2FA is already enabled. Disable it first.' });
+    }
+
+    const secret = generateTotpSecretBase32(20);
+    const encrypted = encryptTotpSecret(secret);
+
+    const otpauthUrl = buildOtpAuthUrl({
+      issuer: TOTP_ISSUER,
+      accountName: user.email,
+      secret,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD_SECONDS,
+    });
+
+    await users.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          'security.twoFactorEnabled': false,
+          'security.twoFactorTempSecret': encrypted,
+          'security.twoFactorTempCreatedAt': new Date(),
+          'security.twoFactorTempFailedAttempts': 0,
+          updatedAt: new Date(),
+        },
+        $unset: {
+          'security.twoFactorSecret': '',
+          'security.twoFactorVerifiedAt': '',
+        },
+      }
+    );
+
+    return res.json({
+      ok: true,
+      issuer: TOTP_ISSUER,
+      otpauthUrl,
+      secret,
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD_SECONDS,
+      setupTtlMinutes: TOTP_SETUP_TTL_MINUTES,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /auth/settings/2fa/verify
+ * Verify TOTP code and enable 2FA
+ */
+router.post('/settings/2fa/verify', authGuard, async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    const userId = req.user.id;
+    const { code } = req.body || {};
+
+    if (!ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    const token = String(code || '').replace(/\\s+/g, '');
+    if (!/^\\d{6}$/.test(token)) {
+      return res.status(400).json({ error: 'Code must be 6 digits.' });
+    }
+
+    const users = getCollection('users');
+    const user = await users.findOne(
+      { _id: new ObjectId(userId) },
+      {
+        projection: {
+          email: 1,
+          'security.twoFactorEnabled': 1,
+          'security.twoFactorSecret': 1,
+          'security.twoFactorTempSecret': 1,
+          'security.twoFactorTempCreatedAt': 1,
+          'security.twoFactorTempFailedAttempts': 1,
+        },
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    if (isTwoFactorEnabled(user)) {
+      return res.status(409).json({ error: '2FA is already enabled.' });
+    }
+
+    if (!hasEncryptedSecret(user.security?.twoFactorTempSecret)) {
+      return res.status(400).json({ error: 'No pending 2FA setup. Start setup first.' });
+    }
+
+    const createdAt = user.security?.twoFactorTempCreatedAt ? new Date(user.security.twoFactorTempCreatedAt) : null;
+    if (createdAt && (Date.now() - createdAt.getTime()) > TOTP_SETUP_TTL_MINUTES * 60 * 1000) {
+      await users.updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $unset: {
+            'security.twoFactorTempSecret': '',
+            'security.twoFactorTempCreatedAt': '',
+            'security.twoFactorTempFailedAttempts': '',
+          },
+          $set: { updatedAt: new Date() },
+        }
+      );
+
+      return res.status(400).json({ error: '2FA setup expired. Please start again.' });
+    }
+
+    let secret;
+    try {
+      secret = decryptTotpSecret(user.security.twoFactorTempSecret);
+    } catch {
+      return res.status(500).json({ error: 'Failed to decrypt 2FA secret.' });
+    }
+
+    const ok = verifyTotpToken(secret, token, {
+      digits: TOTP_DIGITS,
+      period: TOTP_PERIOD_SECONDS,
+      window: TOTP_VERIFY_WINDOW,
+    });
+
+    if (!ok) {
+      const attempts = Number(user.security?.twoFactorTempFailedAttempts || 0) + 1;
+      const maxAttempts = 5;
+
+      if (attempts >= maxAttempts) {
+        await users.updateOne(
+          { _id: new ObjectId(userId) },
+          {
+            $unset: {
+              'security.twoFactorTempSecret': '',
+              'security.twoFactorTempCreatedAt': '',
+              'security.twoFactorTempFailedAttempts': '',
+            },
+            $set: { updatedAt: new Date() },
+          }
+        );
+
+        return res.status(400).json({
+          error: 'Too many failed attempts. Please start setup again.',
+          code: 'MAX_ATTEMPTS_EXCEEDED',
+        });
+      }
+
+      await users.updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            'security.twoFactorTempFailedAttempts': attempts,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      return res.status(400).json({
+        error: `Invalid code. Remaining attempts: ${maxAttempts - attempts}`,
+        code: 'INVALID_TOTP',
+        remainingAttempts: maxAttempts - attempts,
+      });
+    }
+
+    await users.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          'security.twoFactorEnabled': true,
+          'security.twoFactorSecret': user.security.twoFactorTempSecret,
+          'security.twoFactorVerifiedAt': new Date(),
+          'security.twoFactorUpdatedAt': new Date(),
+          updatedAt: new Date(),
+        },
+        $unset: {
+          'security.twoFactorTempSecret': '',
+          'security.twoFactorTempCreatedAt': '',
+          'security.twoFactorTempFailedAttempts': '',
+        },
+      }
+    );
+
+    return res.json({
+      ok: true,
+      message: '2FA enabled successfully.',
+      twoFactorEnabled: true,
+    });
   } catch (error) {
     next(error);
   }

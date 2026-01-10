@@ -100,6 +100,14 @@ export function validateProductionSetup(options = {}) {
         errors.push('OTP_SECRET_KEY must be at least 32 characters long');
     }
 
+    // Check TOTP_ENCRYPTION_KEY (used to encrypt per-user TOTP secrets at rest)
+    const totpEncryptionKey = process.env.TOTP_ENCRYPTION_KEY;
+    if (!totpEncryptionKey) {
+        errors.push('TOTP_ENCRYPTION_KEY is not configured');
+    } else if (totpEncryptionKey.length < 32) {
+        errors.push('TOTP_ENCRYPTION_KEY must be at least 32 characters long');
+    }
+
     // Ensure OTP delivery is configured (optional strictness)
     const requireOtpEmailProvider = String(process.env.REQUIRE_OTP_EMAIL_URL_IN_PROD || 'false').toLowerCase() === 'true';
     if (requireOtpEmailProvider && !process.env.OTP_EMAIL_URL) {

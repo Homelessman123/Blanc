@@ -10,8 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
-    const { login, verify2FA, resendOTP, isLoading, error, clearError, isAuthenticated, pending2FA, cancel2FA } = useAuth();
-    const [resendCooldown, setResendCooldown] = useState(0);
+    const { login, verify2FA, isLoading, error, clearError, isAuthenticated, pending2FA, cancel2FA } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -40,30 +39,8 @@ const Login: React.FC = () => {
     useEffect(() => {
         if (pending2FA && otpRefs.current[0]) {
             otpRefs.current[0].focus();
-            // Start initial cooldown when 2FA screen appears
-            setResendCooldown(60);
         }
     }, [pending2FA]);
-
-    // Resend cooldown timer
-    useEffect(() => {
-        if (resendCooldown > 0) {
-            const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [resendCooldown]);
-
-    // Handle resend OTP
-    const handleResendOTP = async () => {
-        if (resendCooldown > 0 || isLoading) return;
-        
-        const success = await resendOTP();
-        if (success) {
-            setResendCooldown(60); // 60 seconds cooldown
-            setOtp(['', '', '', '', '', '']); // Clear OTP inputs
-            otpRefs.current[0]?.focus();
-        }
-    };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -206,24 +183,6 @@ const Login: React.FC = () => {
                                 Back to login
                             </button>
                         </form>
-
-                        {/* Resend OTP */}
-                        <div className="mt-6 pt-6 border-t border-white/10 text-center">
-                            <p className="text-xs text-emerald-100/50 mb-3">
-                                Didn't receive the code? Check your spam folder.
-                            </p>
-                            <button
-                                type="button"
-                                onClick={handleResendOTP}
-                                disabled={resendCooldown > 0 || isLoading}
-                                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {resendCooldown > 0 
-                                    ? `Resend code in ${resendCooldown}s` 
-                                    : 'Resend verification code'
-                                }
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
