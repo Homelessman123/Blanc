@@ -1028,14 +1028,14 @@ const UserSettings: React.FC = () => {
         // Start setup (generate secret + QR) or disable: both require password confirmation
         const needsPassword = isDisabling || (isEnabling && !twoFactorSetup);
         if (needsPassword && !twoFactorPassword) {
-            showToast('Vui long nhap mat khau de cap nhat 2FA', 'error');
+            showToast('Vui lòng nhập mật khẩu để cập nhật 2FA.', 'error');
             return;
         }
 
         if (isEnabling && twoFactorSetup) {
             const code = twoFactorCode.replace(/[^0-9]/g, '');
             if (!/^\d{6}$/.test(code)) {
-                showToast('Vui long nhap ma 6 so tu ung dung Authenticator', 'error');
+                showToast('Vui lòng nhập mã 6 số từ ứng dụng Authenticator.', 'error');
                 return;
             }
         }
@@ -1055,7 +1055,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorCode('');
                 setTwoFactorPassword('');
                 setShowTwoFactorPassword(false);
-                showToast(data.message || '2FA da duoc tat', 'success');
+                showToast(data.message || '2FA đã được tắt.', 'success');
                 return;
             }
 
@@ -1082,7 +1082,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorPendingSetup(true);
                 setTwoFactorPassword('');
                 setShowTwoFactorPassword(false);
-                showToast('Quet QR code bang Google Authenticator/Authy/1Password, sau do nhap ma 6 so de xac nhan.', 'success');
+                showToast('Quét QR code bằng Google Authenticator/Authy/1Password, sau đó nhập mã 6 số để xác nhận.', 'success');
                 return;
             }
 
@@ -1095,13 +1095,43 @@ const UserSettings: React.FC = () => {
             setTwoFactorPendingSetup(false);
             setTwoFactorSetup(null);
             setTwoFactorCode('');
-            showToast(data.message || (updated ? '2FA da duoc bat' : 'Khong the bat 2FA'), updated ? 'success' : 'error');
+            showToast(data.message || (updated ? '2FA đã được bật.' : 'Không thể bật 2FA.'), updated ? 'success' : 'error');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Khong the cap nhat 2FA';
+            const errorCode: string | undefined = (err as any)?.code;
+
+            if (errorCode === 'NO_PENDING_2FA_SETUP' || errorCode === 'TOTP_SETUP_EXPIRED' || errorCode === 'MAX_ATTEMPTS_EXCEEDED') {
+                setTwoFactorPendingSetup(false);
+                setTwoFactorSetup(null);
+                setTwoFactorCode('');
+                setTwoFactorPassword('');
+                setShowTwoFactorPassword(false);
+                showToast(
+                    'Phiên thiết lập 2FA đã hết hạn hoặc đã bị reset. Vui lòng nhập mật khẩu và bấm "Cập nhật 2FA" để tạo QR code mới.',
+                    'error'
+                );
+                return;
+            }
+
+            if (errorCode === 'INVALID_TOTP') {
+                const remainingAttempts = Number((err as any)?.data?.remainingAttempts);
+                if (Number.isFinite(remainingAttempts)) {
+                    showToast(`Mã không đúng. Còn ${remainingAttempts} lần thử.`, 'error');
+                    return;
+                }
+            }
+
+            if (errorCode === 'TOTP_NOT_CONFIGURED') {
+                showToast('Hệ thống chưa cấu hình 2FA. Vui lòng liên hệ quản trị viên.', 'error');
+                return;
+            }
+
+            const message = err instanceof Error ? err.message : 'Không thể cập nhật 2FA';
             const vietnameseErrors: Record<string, string> = {
-                'Password confirmation required.': 'Vui long nhap mat khau de cap nhat 2FA.',
-                'Invalid password.': 'Mat khau khong dung.',
-                'No pending 2FA setup. Start setup first.': 'Chua co thiet lap 2FA. Vui long bat dau thiet lap.',
+                'Password confirmation required.': 'Vui lòng nhập mật khẩu để cập nhật 2FA.',
+                'Invalid password.': 'Mật khẩu không đúng.',
+                'No pending 2FA setup. Start setup first.': 'Chưa có thiết lập 2FA. Vui lòng bắt đầu thiết lập.',
+                '2FA setup expired. Please start again.': 'Phiên thiết lập 2FA đã hết hạn. Vui lòng tạo lại QR code.',
+                'Too many failed attempts. Please start setup again.': 'Bạn nhập sai quá nhiều lần. Vui lòng tạo lại QR code.',
                 'Code must be 6 digits.': 'Mã phải gồm 6 chữ số.',
             };
             showToast(vietnameseErrors[message] || message, 'error');

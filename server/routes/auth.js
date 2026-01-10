@@ -1273,7 +1273,10 @@ router.post('/settings/2fa/verify', authGuard, async (req, res, next) => {
     }
 
     if (!hasEncryptedSecret(user.security?.twoFactorTempSecret)) {
-      return res.status(400).json({ error: 'No pending 2FA setup. Start setup first.' });
+      return res.status(400).json({
+        error: 'No pending 2FA setup. Start setup first.',
+        code: 'NO_PENDING_2FA_SETUP',
+      });
     }
 
     const createdAt = user.security?.twoFactorTempCreatedAt ? new Date(user.security.twoFactorTempCreatedAt) : null;
@@ -1290,14 +1293,20 @@ router.post('/settings/2fa/verify', authGuard, async (req, res, next) => {
         }
       );
 
-      return res.status(400).json({ error: '2FA setup expired. Please start again.' });
+      return res.status(400).json({
+        error: '2FA setup expired. Please start again.',
+        code: 'TOTP_SETUP_EXPIRED',
+      });
     }
 
     let secret;
     try {
       secret = decryptTotpSecret(user.security.twoFactorTempSecret);
     } catch {
-      return res.status(500).json({ error: 'Failed to decrypt 2FA secret.' });
+      return res.status(500).json({
+        error: 'Failed to decrypt 2FA secret.',
+        code: 'TOTP_SECRET_DECRYPT_FAILED',
+      });
     }
 
     const ok = verifyTotpToken(secret, token, {

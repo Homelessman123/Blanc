@@ -187,7 +187,21 @@ async function fetchAPI<T>(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        const message =
+          errorData &&
+          typeof errorData === 'object' &&
+          'error' in errorData &&
+          typeof (errorData as { error?: unknown }).error === 'string'
+            ? String((errorData as { error?: unknown }).error)
+            : `HTTP error! status: ${response.status}`;
+
+        const err: any = new Error(message);
+        err.status = response.status;
+        err.data = errorData;
+        if (errorData && typeof errorData === 'object' && 'code' in errorData && typeof (errorData as any).code === 'string') {
+          err.code = String((errorData as any).code);
+        }
+        throw err;
       }
 
       const data = await response.json();
