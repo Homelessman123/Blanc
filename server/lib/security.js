@@ -8,7 +8,7 @@ export const RateLimiters = {
     // Strict limiting for authentication attempts
     auth: rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 5, // max 5 requests per 15 minutes
+        max: 30, // max 30 requests per 15 minutes
         standardHeaders: true,
         legacyHeaders: false,
         // Mounted at /api/auth. Exclude non-sensitive endpoints that are called frequently in normal flows.

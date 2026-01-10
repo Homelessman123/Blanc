@@ -13,24 +13,31 @@ export const authToken = {
   get: (): string | null => {
     if (typeof window === 'undefined') return null;
     try {
-      return sessionStorage.getItem(ACCESS_TOKEN_KEY) || localStorage.getItem(ACCESS_TOKEN_KEY);
+      const sessionToken = sessionStorage.getItem(ACCESS_TOKEN_KEY);
+      if (sessionToken) return sessionToken;
+
+      // Backward compatibility: migrate any previously persisted token to sessionStorage.
+      const localToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (localToken) {
+        sessionStorage.setItem(ACCESS_TOKEN_KEY, localToken);
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        return localToken;
+      }
+
+      return null;
     } catch {
       return null;
     }
   },
 
-  set: (token: string, persist: 'session' | 'local' = 'session'): void => {
+  set: (token: string): void => {
     if (typeof window === 'undefined') return;
     const value = String(token || '').trim();
     if (!value) return;
 
     try {
       sessionStorage.setItem(ACCESS_TOKEN_KEY, value);
-      if (persist === 'local') {
-        localStorage.setItem(ACCESS_TOKEN_KEY, value);
-      } else {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-      }
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
     } catch {
       // ignore storage failures
     }

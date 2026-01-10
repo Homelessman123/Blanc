@@ -25,6 +25,12 @@ body {
     color: #0f172a;
 }
 
+/* Hide native password reveal/clear icons (Edge/IE) to avoid duplicate "eye" buttons */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+    display: none;
+}
+
 /* Hide scrollbar for clean horizontal scrolls */
 .no-scrollbar::-webkit-scrollbar {
     display: none;

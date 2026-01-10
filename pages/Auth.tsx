@@ -48,7 +48,7 @@ const generateSessionToken = (): string => {
 };
 
 const ensureAuthSession = (token: string) => {
-  authToken.set(token, 'session');
+  authToken.set(token);
 
   void (async () => {
     try {
@@ -61,10 +61,6 @@ const ensureAuthSession = (token: string) => {
       if (res.ok) {
         authToken.clear();
         return;
-      }
-
-      if (res.status === 401) {
-        authToken.set(token, 'local');
       }
     } catch {
       // Keep session token; don't persist on transient network issues.
