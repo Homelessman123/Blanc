@@ -6,6 +6,47 @@ const apiBaseUrlRaw =
   (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api');
 const API_BASE_URL = apiBaseUrlRaw.replace(/\/+$/, '');
 
+// Optional Bearer token support (fallback when cookies are blocked in cross-site deployments)
+const ACCESS_TOKEN_KEY = 'access_token';
+
+export const authToken = {
+  get: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return sessionStorage.getItem(ACCESS_TOKEN_KEY) || localStorage.getItem(ACCESS_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+
+  set: (token: string, persist: 'session' | 'local' = 'session'): void => {
+    if (typeof window === 'undefined') return;
+    const value = String(token || '').trim();
+    if (!value) return;
+
+    try {
+      sessionStorage.setItem(ACCESS_TOKEN_KEY, value);
+      if (persist === 'local') {
+        localStorage.setItem(ACCESS_TOKEN_KEY, value);
+      } else {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+      }
+    } catch {
+      // ignore storage failures
+    }
+  },
+
+  clear: (): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+    } catch {
+      // ignore
+    }
+  },
+};
+
 // Request deduplication - prevent multiple identical requests
 const pendingRequests = new Map<string, Promise<unknown>>();
 
@@ -48,6 +89,25 @@ async function fetchCsrfToken(): Promise<string | null> {
   return csrfTokenInFlight;
 }
 
+function mergeHeaders(into: Record<string, string>, extra?: HeadersInit): void {
+  if (!extra) return;
+  if (typeof Headers !== 'undefined' && extra instanceof Headers) {
+    extra.forEach((value, key) => {
+      into[key] = value;
+    });
+    return;
+  }
+
+  if (Array.isArray(extra)) {
+    for (const [key, value] of extra) {
+      into[key] = value;
+    }
+    return;
+  }
+
+  Object.assign(into, extra);
+}
+
 // Generic fetch wrapper with error handling and caching
 async function fetchAPI<T>(
   endpoint: string,
@@ -86,26 +146,31 @@ async function fetchAPI<T>(
     return pendingRequests.get(key) as Promise<T>;
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  mergeHeaders(headers, fetchOptions?.headers);
+
+  const accessToken = authToken.get();
+  if (accessToken && !headers.Authorization && !headers.authorization) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...fetchOptions?.headers,
-    },
     credentials: 'include',
     ...fetchOptions,
+    headers,
   };
 
   // CSRF token for cookie-based auth (required for state-changing requests)
   const method = String(config.method || 'GET').toUpperCase();
   const isSafeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
-  if (!isSafeMethod) {
+  const hasAuthHeader = Boolean(headers.Authorization || headers.authorization);
+  if (!isSafeMethod && !hasAuthHeader) {
     const csrfFromCookie = getCookieValue('csrf_token');
     const csrf = csrfFromCookie || (await fetchCsrfToken());
     if (csrf) {
-      config.headers = {
-        ...config.headers,
-        'X-CSRF-Token': csrf,
-      };
+      headers['X-CSRF-Token'] = csrf;
     }
   }
 

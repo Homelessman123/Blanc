@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card, Dropdown } from '../components/ui/Common';
-import { api } from '../lib/api';
+import { api, authToken, API_BASE_URL } from '../lib/api';
 import { Check, User, Briefcase, MapPin, Code, Target, Shield, RefreshCw, FileText, ExternalLink } from 'lucide-react';
 
 interface AuthResponse {
@@ -45,6 +45,31 @@ const generateSessionToken = (): string => {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const ensureAuthSession = (token: string) => {
+  authToken.set(token, 'session');
+
+  void (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (res.ok) {
+        authToken.clear();
+        return;
+      }
+
+      if (res.status === 401) {
+        authToken.set(token, 'local');
+      }
+    } catch {
+      // Keep session token; don't persist on transient network issues.
+    }
+  })();
 };
 
 // Simple OTP Input component for Auth page
@@ -448,6 +473,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
           privacyAccepted,
         });
 
+        ensureAuthSession(response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
         window.dispatchEvent(new Event('auth-change'));
         navigate('/profile');
@@ -505,6 +531,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
         setOtpError('');
       } else if (response.token && response.user) {
         // Direct login (OTP bypassed for test accounts)
+        ensureAuthSession(response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
         window.dispatchEvent(new Event('auth-change'));
         navigate('/profile');
@@ -540,6 +567,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
         otp,
       });
 
+      ensureAuthSession(response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       window.dispatchEvent(new Event('auth-change'));
       navigate('/profile');

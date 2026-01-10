@@ -35,7 +35,7 @@ const ReportTemplates = lazy(() => import('./pages/ReportTemplates'));
 
 // Types
 import { User } from './types';
-import { api, invalidateCache } from './lib/api';
+import { api, authToken, invalidateCache } from './lib/api';
 import { clientStorage, localDrafts } from './lib/cache';
 
 // Auth modal event listener type
@@ -77,6 +77,7 @@ const App: React.FC = () => {
                         hasLocalUser = true;
                     } catch (err) {
                         console.error('Failed to parse user data:', err);
+                        authToken.clear();
                         localStorage.removeItem('user');
                         localStorage.removeItem(IDLE_ACTIVITY_KEY);
                         localStorage.removeItem(IDLE_USER_KEY);
@@ -87,9 +88,10 @@ const App: React.FC = () => {
                 }
 
                 const hasSessionCookie = hasCookie('csrf_token');
+                const hasStoredToken = Boolean(authToken.get());
 
                 // Only re-sync user when we likely have an existing session (avoids noisy 401s on fresh/guest visits)
-                if (hasLocalUser || hasSessionCookie) {
+                if (hasLocalUser || hasSessionCookie || hasStoredToken) {
                     try {
                         const me = await api.get<{ user: User }>('/auth/me');
                         if (me?.user) {
@@ -104,6 +106,7 @@ const App: React.FC = () => {
                             message.includes('HTTP error! status: 401');
 
                         if (looksUnauthorized) {
+                            authToken.clear();
                             localStorage.removeItem('user');
                             localStorage.removeItem(IDLE_ACTIVITY_KEY);
                             localStorage.removeItem(IDLE_USER_KEY);
@@ -136,6 +139,7 @@ const App: React.FC = () => {
                     setUser(null);
                 }
             } else {
+                authToken.clear();
                 localStorage.removeItem(IDLE_ACTIVITY_KEY);
                 localStorage.removeItem(IDLE_USER_KEY);
                 setUser(null);
@@ -184,6 +188,7 @@ const App: React.FC = () => {
 
             invalidateCache.all();
             localDrafts.clear();
+            authToken.clear();
             localStorage.removeItem('user');
             localStorage.removeItem(IDLE_ACTIVITY_KEY);
             localStorage.removeItem(IDLE_USER_KEY);
