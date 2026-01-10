@@ -1736,12 +1736,12 @@ const UserSettings: React.FC = () => {
                                                 </div>
                                                 <div className="space-y-2">
                                                     <p className="text-sm text-slate-700">
-                                                        1) M? Google Authenticator / Authy / 1Password<br />
-                                                        2) Qu?t QR code n y<br />
-                                                        3) Nh?p ma 6 s? d? x c nh?n b?t 2FA
+                                                        1) Mở Google Authenticator / Authy / 1Password<br />
+                                                        2) Quét QR code này<br />
+                                                        3) Nhập mã 6 số để xác nhận bật 2FA
                                                     </p>
                                                     <div className="text-xs text-slate-500">
-                                                        <div className="font-medium text-slate-700 mb-1">Ma d? ph“ng (secret)</div>
+                                                        <div className="font-medium text-slate-700 mb-1">Mã dự phòng (secret)</div>
                                                         <div className="flex items-center gap-2">
                                                             <code className="font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 break-all">
                                                                 {twoFactorSetup.secret}
@@ -1753,9 +1753,9 @@ const UserSettings: React.FC = () => {
                                                                 onClick={async () => {
                                                                     try {
                                                                         await navigator.clipboard.writeText(twoFactorSetup.secret);
-                                                                        showToast('Da copy secret', 'success');
+                                                                        showToast('Đã copy secret', 'success');
                                                                     } catch {
-                                                                        showToast('Khong the copy secret', 'error');
+                                                                        showToast('Không thể copy secret', 'error');
                                                                     }
                                                                 }}
                                                             >
@@ -1771,7 +1771,7 @@ const UserSettings: React.FC = () => {
                                     {twoFactorNeedsCode && (
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                                                Ma Authenticator (6 s?) <span className="text-red-500">*</span>
+                                                Mã Authenticator (6 số) <span className="text-red-500">*</span>
                                             </label>
                                             <Input
                                                 value={twoFactorCode}
