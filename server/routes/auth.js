@@ -1243,7 +1243,8 @@ router.post('/settings/2fa/verify', authGuard, async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid user ID' });
     }
 
-    const token = String(code || '').replace(/\\s+/g, '');
+    // Accept pasted codes that may contain separators/zero-width characters.
+    const token = String(code || '').replace(/[^0-9]/g, '');
     if (!/^\\d{6}$/.test(token)) {
       return res.status(400).json({ error: 'Code must be 6 digits.' });
     }

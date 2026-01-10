@@ -530,7 +530,7 @@ const UserSettings: React.FC = () => {
     const twoFactorIsDisabling = !twoFactorEnabled && twoFactorInitial;
     const twoFactorNeedsPassword = twoFactorIsDisabling || (twoFactorIsEnabling && !twoFactorSetup);
     const twoFactorNeedsCode = twoFactorIsEnabling && Boolean(twoFactorSetup);
-    const twoFactorCodeOk = /^\d{6}$/.test(twoFactorCode.replace(/\s+/g, ''));
+    const twoFactorCodeOk = /^\d{6}$/.test(twoFactorCode.replace(/[^0-9]/g, ''));
 
     const [notificationSettings, setNotificationSettings] = useState(() => ({ ...DEFAULT_NOTIFICATION_SETTINGS }));
     const [isNotificationSaving, setIsNotificationSaving] = useState(false);
@@ -1033,7 +1033,7 @@ const UserSettings: React.FC = () => {
         }
 
         if (isEnabling && twoFactorSetup) {
-            const code = twoFactorCode.replace(/\s+/g, '');
+            const code = twoFactorCode.replace(/[^0-9]/g, '');
             if (!/^\d{6}$/.test(code)) {
                 showToast('Vui long nhap ma 6 so tu ung dung Authenticator', 'error');
                 return;
@@ -1087,7 +1087,7 @@ const UserSettings: React.FC = () => {
             }
 
             const data = await api.post<{ ok: boolean; twoFactorEnabled: boolean; message?: string }>('/auth/settings/2fa/verify', {
-                code: twoFactorCode.replace(/\s+/g, ''),
+                code: twoFactorCode.replace(/[^0-9]/g, ''),
             });
             const updated = data.twoFactorEnabled === true;
             setTwoFactorEnabled(updated);
@@ -1102,7 +1102,7 @@ const UserSettings: React.FC = () => {
                 'Password confirmation required.': 'Vui long nhap mat khau de cap nhat 2FA.',
                 'Invalid password.': 'Mat khau khong dung.',
                 'No pending 2FA setup. Start setup first.': 'Chua co thiet lap 2FA. Vui long bat dau thiet lap.',
-                'Code must be 6 digits.': 'Ma phai gom 6 chu so.',
+                'Code must be 6 digits.': 'Mã phải gồm 6 chữ số.',
             };
             showToast(vietnameseErrors[message] || message, 'error');
         } finally {
