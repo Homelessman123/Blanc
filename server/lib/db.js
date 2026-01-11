@@ -748,10 +748,24 @@ class Collection {
         this.name = name;
     }
 
-    _applyUpdateOperators(doc, update) {
+    _isIdOnlyQuery(query) {
+        if (!query || typeof query !== 'object' || Array.isArray(query)) return false;
+        const keys = Object.keys(query);
+        if (keys.length !== 1 || keys[0] !== '_id') return false;
+        const id = query._id;
+        if (id && typeof id === 'object' && !(id instanceof ObjectId) && !(id instanceof Date) && !(id instanceof RegExp)) {
+            return false;
+        }
+        return true;
+    }
+
+    _applyUpdateOperators(doc, update, { isInsert = false } = {}) {
         const operators = update && typeof update === 'object' ? update : {};
         if ('$set' in operators) {
             for (const [k, v] of Object.entries(operators.$set || {})) setByPath(doc, k, v);
+        }
+        if (isInsert && '$setOnInsert' in operators) {
+            for (const [k, v] of Object.entries(operators.$setOnInsert || {})) setByPath(doc, k, v);
         }
         if ('$unset' in operators) {
             for (const k of Object.keys(operators.$unset || {})) unsetByPath(doc, k);
@@ -847,6 +861,17 @@ class Collection {
     }
 
     async findOne(query = {}, options = {}) {
+        if (this._isIdOnlyQuery(query)) {
+            await connectToDatabase();
+            const id = normalizeId(query._id);
+            const result = await pool.query(
+                'SELECT doc FROM documents WHERE collection = $1 AND id = $2 LIMIT 1',
+                [this.name, id]
+            );
+            const doc = result.rows[0]?.doc || null;
+            return doc && options?.projection ? applyProjection(doc, options.projection) : doc;
+        }
+
         const docs = await this.find(query, options).limit(1).toArray();
         return docs[0] || null;
     }
@@ -943,6 +968,45 @@ class Collection {
 
     async updateOne(filter, update, options = {}) {
         await connectToDatabase();
+        if (this._isIdOnlyQuery(filter)) {
+            const id = normalizeId(filter._id);
+            const result = await pool.query(
+                'SELECT doc FROM documents WHERE collection = $1 AND id = $2 LIMIT 1',
+                [this.name, id]
+            );
+            const existing = result.rows[0]?.doc ? deepCloneJson(result.rows[0].doc) : null;
+
+            if (!existing && !options?.upsert) {
+                return { matchedCount: 0, modifiedCount: 0, upsertedCount: 0, acknowledged: true };
+            }
+
+            let doc = existing || { _id: id };
+
+            if (Array.isArray(update)) {
+                doc = this._applyUpdatePipeline(doc, update);
+            } else {
+                this._applyUpdateOperators(doc, update, { isInsert: !existing });
+            }
+
+            doc._id = normalizeId(doc._id);
+
+            await pool.query(
+                `INSERT INTO documents(collection, id, doc, updated_at)
+                 VALUES ($1, $2, $3, now())
+                 ON CONFLICT (collection, id)
+                 DO UPDATE SET doc = EXCLUDED.doc, updated_at = now()`,
+                [this.name, doc._id, doc]
+            );
+
+            return {
+                matchedCount: existing ? 1 : 0,
+                modifiedCount: 1,
+                upsertedCount: existing ? 0 : 1,
+                upsertedId: existing ? undefined : doc._id,
+                acknowledged: true,
+            };
+        }
+
         const docs = await this.find(filter).limit(1).toArray();
         let doc = docs[0];
 
@@ -959,7 +1023,7 @@ class Collection {
         if (Array.isArray(update)) {
             doc = this._applyUpdatePipeline(doc, update);
         } else {
-            this._applyUpdateOperators(doc, update);
+            this._applyUpdateOperators(doc, update, { isInsert: !docs[0] });
         }
 
         const id = normalizeId(doc._id);
@@ -992,6 +1056,7 @@ class Collection {
 
         const targets = matchedCount > 0 ? docs : [deepCloneJson(filter || {})];
         let modifiedCount = 0;
+        const isInsert = matchedCount === 0;
 
         for (const original of targets) {
             let doc = deepCloneJson(original);
@@ -1000,7 +1065,7 @@ class Collection {
             if (Array.isArray(update)) {
                 doc = this._applyUpdatePipeline(doc, update);
             } else {
-                this._applyUpdateOperators(doc, update);
+                this._applyUpdateOperators(doc, update, { isInsert });
             }
 
             const id = normalizeId(doc._id);
@@ -1058,7 +1123,7 @@ class Collection {
         if (Array.isArray(update)) {
             doc = this._applyUpdatePipeline(doc, update);
         } else {
-            this._applyUpdateOperators(doc, update);
+            this._applyUpdateOperators(doc, update, { isInsert: !existing });
         }
 
         const id = normalizeId(doc._id);

@@ -32,9 +32,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1GlTghfKTWF6q0HKfLY-gJh
    - `MEDIA_PUBLIC_FOLDERS` - comma-separated folders that are publicly readable (default: `avatars,mentor-blog`)
    - Payments (SePay):
      - `PAYMENTS_ENABLED=true` (or `FEATURE_PAYMENTS_ENABLED=true`) to enable membership checkout
-     - `PAYMENT_BANK_CODE`, `PAYMENT_ACCOUNT_NUMBER`, `PAYMENT_ACCOUNT_NAME` to generate VietQR
-     - `SEPAY_API_KEY` to protect `POST /api/payments/sepay/webhook`
-     - Optional: `PAYMENT_AMOUNT_TOLERANCE_VND` to allow small amount mismatches
+     - `PAYMENT_BANK_CODE`, `PAYMENT_ACCOUNT_NUMBER`, `PAYMENT_ACCOUNT_NAME` to generate VietQR (required when payments enabled)
+     - `SEPAY_API_KEY` to protect `POST /api/payments/sepay/webhook` (required when payments enabled)
+       - Optional (recommended): `SEPAY_API_KEYS` (comma-separated) to support API key rotation without downtime
+       - Optional (recommended): `SEPAY_WEBHOOK_IP_ALLOWLIST` to restrict webhook callers by IP (comma-separated; IPv4 CIDR supported)
+       - Optional: `SEPAY_WEBHOOK_STORE_RAW_PAYLOAD=false` to reduce stored PII (stores normalized fields only)
+     - Optional: `PAYMENT_AMOUNT_TOLERANCE_VND` to allow small amount mismatches (VND)
+     - Optional: `MEMBERSHIP_ORDER_PREFIX` (transfer content prefix, default `CHUB`)
+     - Optional: `MEMBERSHIP_ORDER_TTL_MINUTES` (order expiry, default 30)
    - `OTP_EMAIL_URL` - deployed App Script URL for OTP emails (see `scripts/otpService.gs`)
    - `NOTIFICATION_EMAIL_URL` - deployed App Script URL for notification emails (see `scripts/notificationService.gs`)
    - `OPENROUTER_API_KEY` - API key from [OpenRouter](https://openrouter.ai) for AI Chat
@@ -65,6 +70,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1GlTghfKTWF6q0HKfLY-gJh
 
 - Webhook URL: `https://<your-api-host>/api/payments/sepay/webhook`
 - Auth header: `Authorization: ApiKey <SEPAY_API_KEY>` (or `x-api-key: <SEPAY_API_KEY>`)
+- Ensure SePay monitors the same bank account as `PAYMENT_ACCOUNT_NUMBER` (the backend will flag mismatches as `needs_review`)
 
 4. Key endpoints:
    - **Auth:** `POST /api/auth/register/initiate`, `POST /api/auth/register/verify`, `POST /api/auth/register/complete`, `POST /api/auth/login/initiate`, `POST /api/auth/login/verify-2fa`, `GET /api/auth/me`, `POST /api/auth/logout`

@@ -28,6 +28,13 @@ function getPaymentBankInfo() {
     };
 }
 
+function isPaymentConfigured() {
+    const bank = getPaymentBankInfo();
+    const hasBank = Boolean(bank.bankCode && bank.accountNumber);
+    const hasSepayKey = Boolean((process.env.SEPAY_API_KEY || '').trim());
+    return { ok: hasBank && hasSepayKey, bank, hasSepayKey, hasBank };
+}
+
 function getClientMeta(req) {
     return {
         ip:
@@ -71,6 +78,16 @@ router.post('/checkout', authGuard, async (req, res, next) => {
         const settings = await getPlatformSettings();
         if (!settings?.features?.paymentsEnabled) {
             return res.status(403).json({ error: 'Payments are currently disabled.' });
+        }
+
+        const paymentConfig = isPaymentConfigured();
+        if (!paymentConfig.ok) {
+            // eslint-disable-next-line no-console
+            console.warn('[membership] Payments enabled but missing configuration', {
+                hasBank: paymentConfig.hasBank,
+                hasSepayKey: paymentConfig.hasSepayKey,
+            });
+            return res.status(503).json({ error: 'Payments are not configured.' });
         }
 
         const { planId } = req.body || {};
@@ -136,7 +153,29 @@ router.post('/checkout', authGuard, async (req, res, next) => {
             return res.status(500).json({ error: 'Failed to create order' });
         }
 
-        const bank = getPaymentBankInfo();
+        // Best-effort mapping from orderCode -> orderId for fast webhook lookups.
+        try {
+            await getCollection('payment_order_codes').updateOne(
+                { _id: orderCode },
+                {
+                    $setOnInsert: {
+                        _id: orderCode,
+                        orderId: inserted.insertedId.toString(),
+                        provider: 'sepay',
+                        type: 'membership',
+                        userId: req.user.id,
+                        createdAt: now,
+                        expiresAt,
+                    },
+                },
+                { upsert: true }
+            );
+        } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn('[membership] Failed to persist orderCode mapping:', err?.message || err);
+        }
+
+        const bank = paymentConfig.bank;
         const qrUrl = buildVietQrUrl({
             bankCode: bank.bankCode,
             accountNumber: bank.accountNumber,
