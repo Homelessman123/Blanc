@@ -233,8 +233,12 @@ router.post('/sepay/webhook', async (req, res, next) => {
             return res.status(200).json({ success: true, ignored: true, reason: 'transferType_not_in' });
         }
 
-        const rawCode = payload.code ? String(payload.code).trim() : '';
-        const orderCode = rawCode || extractOrderCodeFromContent(payload.content);
+        // Prefer parsing the merchant order code from the transfer description/content.
+        // Some providers use `code` for the bank transaction reference, not our order code.
+        const contentText = payload.content || payload.description || '';
+        const orderCodeFromContent = extractOrderCodeFromContent(contentText);
+        const orderCodeFromCode = extractOrderCodeFromContent(payload.code ? String(payload.code) : '');
+        const orderCode = orderCodeFromContent || orderCodeFromCode;
         if (!orderCode) {
             await getCollection('payment_transactions').updateOne(
                 { _id: transactionId },
