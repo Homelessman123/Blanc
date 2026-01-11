@@ -88,8 +88,6 @@ const Pagination: React.FC<PaginationProps> = memo(({
     const handlePageClick = (page: number) => {
         if (page !== currentPage && page >= 1 && page <= totalPages) {
             onPageChange(page);
-            // Scroll to top smoothly
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
@@ -103,6 +101,7 @@ const Pagination: React.FC<PaginationProps> = memo(({
         >
             {/* Previous Button */}
             <button
+                type="button"
                 onClick={() => handlePageClick(currentPage - 1)}
                 disabled={currentPage === 1}
                 className={cn(
@@ -134,6 +133,7 @@ const Pagination: React.FC<PaginationProps> = memo(({
                     return (
                         <button
                             key={page}
+                            type="button"
                             onClick={() => handlePageClick(page)}
                             className={cn(
                                 'min-w-[40px] h-10 px-3 rounded-full font-medium text-sm transition-all duration-200',
@@ -152,6 +152,7 @@ const Pagination: React.FC<PaginationProps> = memo(({
 
             {/* Next Button */}
             <button
+                type="button"
                 onClick={() => handlePageClick(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className={cn(

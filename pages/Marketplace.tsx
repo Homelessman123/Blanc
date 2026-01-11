@@ -40,7 +40,7 @@ const COURSE_SORT_OPTIONS: DropdownOption[] = [
 ];
 
 // Constants
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 8;
 
 // --- MARKETPLACE LIST ---
 const Marketplace: React.FC = () => {
