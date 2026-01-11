@@ -12,6 +12,7 @@ import { documentService, validateAndSanitizeUrl } from '../services/documentSer
 import { courseService } from '../services/courseService';
 import { Dropdown } from './ui/Dropdown';
 import { ConfirmActionModal } from './ui/UserModals';
+import { useAuth } from '../contexts/AuthContext';
 
 type TabType = 'courses' | 'documents';
 type ModalType = 'course' | 'document' | 'view-course' | 'view-document' | null;
@@ -198,6 +199,8 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
 const ITEMS_PER_PAGE = 6;
 
 const DocumentManager: React.FC = () => {
+    const { user } = useAuth();
+    const canManageDocuments = user?.role === 'admin' || user?.role === 'super_admin';
     const [activeTab, setActiveTab] = useState<TabType>('courses');
     const [courses, setCourses] = useState<Course[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -219,6 +222,7 @@ const DocumentManager: React.FC = () => {
     const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
+    const [isBulkDeletingDocuments, setIsBulkDeletingDocuments] = useState(false);
 
     // View Details state
     const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
@@ -343,6 +347,38 @@ const DocumentManager: React.FC = () => {
             setIsLoadingDocuments(false);
         }
     }, [showToast]);
+
+    const handleDeleteAllDocuments = useCallback(() => {
+        if (!canManageDocuments) {
+            showToast('Admin access required', 'error');
+            return;
+        }
+
+        setPendingConfirm({
+            title: 'Delete all documents',
+            message: 'Are you sure you want to delete ALL documents? This action cannot be undone.',
+            confirmLabel: 'Delete all',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    setIsBulkDeletingDocuments(true);
+                    await documentService.deleteAll();
+                    setDocumentSearchQuery('');
+                    setDocumentPage(1);
+                    await fetchDocuments();
+                    showToast('Deleted all documents', 'success');
+                } catch (error) {
+                    console.error('Failed to delete all documents:', error);
+                    showToast(
+                        error instanceof Error ? error.message : 'Failed to delete all documents. Please try again.',
+                        'error'
+                    );
+                } finally {
+                    setIsBulkDeletingDocuments(false);
+                }
+            },
+        });
+    }, [canManageDocuments, fetchDocuments, showToast]);
 
     // Initial data fetch - use Promise.all for parallel loading
     useEffect(() => {
@@ -817,6 +853,7 @@ const DocumentManager: React.FC = () => {
                 <div className="flex gap-2">
                     {/* Refresh button */}
                     <button
+                        type="button"
                         onClick={() => activeTab === 'courses' ? fetchCourses() : fetchDocuments()}
                         disabled={isLoadingCourses || isLoadingDocuments}
                         title="Refresh data"
@@ -824,7 +861,20 @@ const DocumentManager: React.FC = () => {
                     >
                         <RefreshCw size={18} className={(isLoadingCourses || isLoadingDocuments) ? 'animate-spin' : ''} />
                     </button>
+                    {activeTab === 'documents' && (
+                        <button
+                            type="button"
+                            onClick={handleDeleteAllDocuments}
+                            disabled={!canManageDocuments || isLoadingDocuments || isBulkDeletingDocuments}
+                            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
+                            title="Delete all documents"
+                        >
+                            <Trash2 size={18} />
+                            {isBulkDeletingDocuments ? 'Deleting...' : 'Delete All'}
+                        </button>
+                    )}
                     <button
+                        type="button"
                         onClick={() => openDocumentModal()}
                         className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
                     >
@@ -832,6 +882,7 @@ const DocumentManager: React.FC = () => {
                         Add Document
                     </button>
                     <button
+                        type="button"
                         onClick={() => openCourseModal()}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
                     >

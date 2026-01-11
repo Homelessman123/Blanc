@@ -77,6 +77,11 @@ function mapDocument(doc) {
     };
 }
 
+async function deleteAllDocumentsData() {
+    const result = await getCollection('documents').deleteMany({});
+    return { deletedDocuments: result.deletedCount || 0 };
+}
+
 // GET /api/documents - Get all documents
 router.get('/', async (req, res, next) => {
     try {
@@ -172,6 +177,26 @@ router.get('/', async (req, res, next) => {
             limit,
             totalPages: Math.ceil(total / limit)
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Delete ALL documents (admin only)
+router.delete('/', authGuard, requireRole('admin'), async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        res.json(await deleteAllDocumentsData());
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Proxy-friendly bulk delete (admin only). Some deployments block DELETE methods.
+router.post('/delete-all', authGuard, requireRole('admin'), async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        res.json(await deleteAllDocumentsData());
     } catch (error) {
         next(error);
     }

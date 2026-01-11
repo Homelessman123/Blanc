@@ -27,6 +27,10 @@ export interface PaginatedResponse<T> {
     totalPages: number;
 }
 
+export interface DeleteAllDocumentsResponse {
+    deletedDocuments: number;
+}
+
 export interface CreateDocumentData {
     title: string;
     author: string;
@@ -247,6 +251,16 @@ export const documentService = {
         // Clear cache after mutation
         requestCache.clear();
         await api.delete(`/documents/${id}`);
+    },
+
+    /**
+     * Delete ALL documents (admin only)
+     */
+    deleteAll: async (): Promise<DeleteAllDocumentsResponse> => {
+        // Clear cache after mutation
+        requestCache.clear();
+        const response = await api.post<DeleteAllDocumentsResponse>('/documents/delete-all');
+        return response.data;
     },
 
     /**
