@@ -17,7 +17,7 @@ const Home: React.FC = () => {
   // Database hooks
   const { stats, isLoading: statsLoading } = useStats();
   const { contests: defaultContests, isLoading: contestsLoading } = useContests({ limit: 3 });
-  const { courses: defaultCourses, isLoading: coursesLoading } = useCourses({ limit: 3 });
+  const { courses: defaultCourses, isLoading: coursesLoading } = useCourses({ limit: 4 });
 
   // Personalized recommendations (only for logged-in users)
   const {
