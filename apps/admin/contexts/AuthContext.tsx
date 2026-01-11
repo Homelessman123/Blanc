@@ -2,7 +2,7 @@
  * Authentication Context
  * Provides secure authentication state management with:
  * - Login/Logout functionality
- * - 2FA support (mandatory for admin)
+ * - 2FA support (TOTP authenticator)
  * - Token refresh
  * - Protected route wrapper
  * - User session management
@@ -28,6 +28,8 @@ interface LoginCredentials {
 
 interface LoginInitiateResponse {
     requiresOTP: boolean;
+    requires2FA?: boolean;
+    twoFactorMethod?: 'totp';
     sessionToken?: string;
     token?: string;
     user?: AdminUser;
@@ -39,6 +41,7 @@ interface AuthState {
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
+    errorCode: string | null;
     // 2FA state
     pending2FA: {
         email: string;
@@ -69,6 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: false,
         isLoading: true,
         error: null,
+        errorCode: null,
         pending2FA: null,
     });
 
@@ -108,6 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     isAuthenticated: false,
                     isLoading: false,
                     error: 'Access denied. Privileged access required.',
+                    errorCode: null,
                     pending2FA: null,
                 });
                 return;
@@ -118,6 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: true,
                 isLoading: false,
                 error: null,
+                errorCode: null,
                 pending2FA: null,
             });
         } catch {
@@ -127,6 +133,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: false,
                 isLoading: false,
                 error: null,
+                errorCode: null,
                 pending2FA: null,
             });
         }
@@ -134,7 +141,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Login function - Step 1: Initiate login (may require 2FA)
     const login = useCallback(async (credentials: LoginCredentials): Promise<{ success: boolean; requires2FA: boolean }> => {
-        setState(prev => ({ ...prev, isLoading: true, error: null, pending2FA: null }));
+        setState(prev => ({ ...prev, isLoading: true, error: null, errorCode: null, pending2FA: null }));
 
         try {
             // Validate email format
@@ -192,6 +199,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: true,
                 isLoading: false,
                 error: null,
+                errorCode: null,
                 pending2FA: null,
             });
 
@@ -203,10 +211,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     ? error.message
                     : 'Login failed. Please try again.';
 
+            const code =
+                error instanceof ApiError &&
+                    error.data &&
+                    typeof error.data === 'object' &&
+                    'code' in error.data &&
+                    typeof (error.data as any).code === 'string'
+                    ? String((error.data as any).code)
+                    : null;
+
             setState(prev => ({
                 ...prev,
                 isLoading: false,
                 error: message,
+                errorCode: code,
                 pending2FA: null,
             }));
 
@@ -214,14 +232,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     }, []);
 
-    // Verify 2FA - Step 2: Complete login with OTP
+    // Verify 2FA - Step 2: Complete login with authenticator (TOTP)
     const verify2FA = useCallback(async (otp: string): Promise<boolean> => {
         if (!state.pending2FA) {
-            setState(prev => ({ ...prev, error: 'No pending 2FA session' }));
+            setState(prev => ({ ...prev, error: 'No pending 2FA session', errorCode: null }));
             return false;
         }
 
-        setState(prev => ({ ...prev, isLoading: true, error: null }));
+        setState(prev => ({ ...prev, isLoading: true, error: null, errorCode: null }));
 
         try {
             const response = await api.post<{
@@ -250,6 +268,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: true,
                 isLoading: false,
                 error: null,
+                errorCode: null,
                 pending2FA: null,
             });
 
@@ -261,10 +280,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     ? error.message
                     : '2FA verification failed. Please try again.';
 
+            const code =
+                error instanceof ApiError &&
+                    error.data &&
+                    typeof error.data === 'object' &&
+                    'code' in error.data &&
+                    typeof (error.data as any).code === 'string'
+                    ? String((error.data as any).code)
+                    : null;
+
             setState(prev => ({
                 ...prev,
                 isLoading: false,
                 error: message,
+                errorCode: code,
             }));
 
             return false;
@@ -277,6 +306,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             ...prev,
             pending2FA: null,
             error: null,
+            errorCode: null,
         }));
     }, []);
 
@@ -293,6 +323,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: false,
                 isLoading: false,
                 error: null,
+                errorCode: null,
                 pending2FA: null,
             });
         }
@@ -300,7 +331,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Clear error
     const clearError = useCallback(() => {
-        setState(prev => ({ ...prev, error: null }));
+        setState(prev => ({ ...prev, error: null, errorCode: null }));
     }, []);
 
     // Listen for auth logout events (from api interceptor)
@@ -311,6 +342,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isAuthenticated: false,
                 isLoading: false,
                 error: 'Session expired. Please login again.',
+                errorCode: null,
                 pending2FA: null,
             });
         };

@@ -474,8 +474,8 @@ const Settings: React.FC = () => {
                 <div className="max-w-xl space-y-6">
                   <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-lg border border-emerald-100">
                     <div>
-                      <p className="font-medium text-gray-900">Two-Factor Authentication (2FA)</p>
-                      <p className="text-xs text-gray-500">Require 2FA for all admin accounts</p>
+                      <p className="font-medium text-gray-900">Two-Factor Authentication (TOTP)</p>
+                      <p className="text-xs text-gray-500">Require authenticator app (Google Authenticator/Authy) for privileged accounts</p>
                     </div>
                     <button
                       onClick={() => handleToggle('twoFactor')}

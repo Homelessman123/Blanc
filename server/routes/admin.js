@@ -7,7 +7,7 @@ import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, requireAdmin as requireAdminFactory } from '../middleware/auth.js';
 import { getClientIp } from '../lib/security.js';
 import { sendSystemNotification, sendMarketingEmail } from '../lib/emailService.js';
-import { getPlatformSettings } from '../lib/platformSettings.js';
+import { getPlatformSettings, invalidatePlatformSettingsCache } from '../lib/platformSettings.js';
 import { getMembershipSummary, isTierAtLeast, normalizeTier, setUserMembership } from '../lib/membership.js';
 import { normalizePagination } from '../lib/pagination.js';
 
@@ -1135,6 +1135,7 @@ router.patch('/settings/general', authGuard, requireAdmin, async (req, res, next
         );
 
         const updatedSettings = result?.value ?? result;
+        invalidatePlatformSettingsCache();
 
         // Log audit event
         logAuditEvent({
@@ -1186,6 +1187,7 @@ router.patch('/settings/notifications', authGuard, requireAdmin, async (req, res
         );
 
         const updatedSettings = result?.value ?? result;
+        invalidatePlatformSettingsCache();
         res.json(updatedSettings?.notifications || {});
     } catch (error) {
         next(error);
@@ -1224,6 +1226,7 @@ router.patch('/settings/security', authGuard, requireAdmin, async (req, res, nex
         );
 
         const updatedSettings = result?.value ?? result;
+        invalidatePlatformSettingsCache();
         res.json(updatedSettings?.security || {});
     } catch (error) {
         next(error);
@@ -1262,6 +1265,7 @@ router.patch('/settings/features', authGuard, requireAdmin, async (req, res, nex
         );
 
         const updatedSettings = result?.value ?? result;
+        invalidatePlatformSettingsCache();
         res.json(updatedSettings?.features || {});
     } catch (error) {
         next(error);
@@ -1292,6 +1296,7 @@ router.post('/settings/reset-sessions', authGuard, requireAdmin, async (req, res
             },
             { upsert: true }
         );
+        invalidatePlatformSettingsCache();
 
         logAuditEvent({
             action: 'SESSIONS_RESET',

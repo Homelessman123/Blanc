@@ -10,14 +10,17 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
-    const { login, verify2FA, isLoading, error, clearError, isAuthenticated, pending2FA, cancel2FA } = useAuth();
+    const { login, verify2FA, isLoading, error, errorCode, clearError, isAuthenticated, pending2FA, cancel2FA } = useAuth();
+
+    const publicSiteUrl = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').replace(/\/+$/, '');
+    const profileSetupUrl = publicSiteUrl ? `${publicSiteUrl}/#/profile` : '';
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
-    // 2FA OTP state
+    // 2FA code state (TOTP from authenticator app)
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -35,7 +38,7 @@ const Login: React.FC = () => {
         }
     }, [email, password, otp]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Focus first OTP input when 2FA is required
+    // Focus first code input when 2FA is required
     useEffect(() => {
         if (pending2FA && otpRefs.current[0]) {
             otpRefs.current[0].focus();
@@ -112,7 +115,8 @@ const Login: React.FC = () => {
                             <KeyRound className="w-8 h-8 text-white" />
                         </div>
                         <h1 className="text-3xl font-bold text-white mb-2">Two-Factor Authentication</h1>
-                        <p className="text-emerald-200/70">Enter the 6-digit code sent to your email</p>
+                        <p className="text-emerald-200/70">Enter the 6-digit code from your authenticator app</p>
+                        <p className="text-emerald-200/60 text-xs mt-2">Google Authenticator / Authy / 1Password</p>
                         <p className="text-emerald-300/50 text-sm mt-1">{pending2FA.email}</p>
                     </div>
 
@@ -130,10 +134,10 @@ const Login: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* OTP Input */}
+                            {/* TOTP Input */}
                             <div>
                                 <label className="block text-sm font-medium text-emerald-100 mb-4 text-center">
-                                    Verification Code
+                                    Authenticator Code
                                 </label>
                                 <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
                                     {otp.map((digit, index) => (
@@ -147,7 +151,7 @@ const Login: React.FC = () => {
                                             onChange={(e) => handleOtpChange(index, e.target.value)}
                                             onKeyDown={(e) => handleOtpKeyDown(index, e)}
                                             placeholder="•"
-                                            aria-label={`OTP digit ${index + 1}`}
+                                            aria-label={`Authenticator code digit ${index + 1}`}
                                             className="w-12 h-14 text-center text-2xl font-bold bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                                         />
                                     ))}
@@ -211,15 +215,34 @@ const Login: React.FC = () => {
                 <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Error Alert */}
-                        {error && (
-                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3 animate-fade-in-up">
-                                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-red-200 text-sm font-medium">Authentication Failed</p>
-                                    <p className="text-red-300/70 text-sm mt-1">{error}</p>
-                                </div>
-                            </div>
-                        )}
+                         {error && (
+                             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3 animate-fade-in-up">
+                                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                 <div>
+                                     <p className="text-red-200 text-sm font-medium">Authentication Failed</p>
+                                     <p className="text-red-300/70 text-sm mt-1">{error}</p>
+
+                                     {errorCode === 'TOTP_SETUP_REQUIRED' && (
+                                         <div className="mt-3">
+                                             {profileSetupUrl ? (
+                                                 <a
+                                                     href={profileSetupUrl}
+                                                     target="_blank"
+                                                     rel="noreferrer"
+                                                     className="inline-flex items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-white/20 transition-colors"
+                                                 >
+                                                     Open Profile to set up 2FA
+                                                 </a>
+                                             ) : (
+                                                 <p className="text-xs text-emerald-100/80">
+                                                     Please set up 2FA (authenticator app) on your account, then sign in again.
+                                                 </p>
+                                             )}
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                         )}
 
                         {/* Email Input */}
                         <div>
@@ -256,7 +279,7 @@ const Login: React.FC = () => {
                                     placeholder="••••••••"
                                     autoComplete="current-password"
                                     required
-                                    minLength={6}
+                                    minLength={8}
                                     className="w-full pl-11 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                                 />
                                 <button

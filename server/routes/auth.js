@@ -6,6 +6,7 @@ import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, issueToken } from '../middleware/auth.js';
 import { logAuditEvent } from './admin.js';
 import { getMembershipSummary } from '../lib/membership.js';
+import { getPlatformSettings } from '../lib/platformSettings.js';
 import {
   buildOtpAuthUrl,
   decryptTotpSecret,
@@ -136,6 +137,10 @@ function hasEncryptedSecret(value) {
 
 function isTwoFactorEnabled(user) {
   return user?.security?.twoFactorEnabled === true && hasEncryptedSecret(user?.security?.twoFactorSecret);
+}
+
+function isPrivilegedRole(role) {
+  return role === 'admin' || role === 'super_admin' || role === 'mentor';
 }
 
 // ============ TEST ACCOUNTS (bypass OTP) ============
@@ -408,6 +413,13 @@ router.post('/register/initiate', async (req, res, next) => {
     // Validate required fields
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
+    if (!isTotpEncryptionConfigured()) {
+      return res.status(503).json({
+        error: 'Two-factor authentication is not configured.',
+        code: 'TOTP_NOT_CONFIGURED',
+      });
     }
 
     if (!sessionToken || sessionToken.length < 32) {
@@ -841,7 +853,32 @@ router.post('/login/initiate', async (req, res, next) => {
       });
     }
 
-    const requires2FA = isTwoFactorEnabled(user);
+    const has2FA = isTwoFactorEnabled(user);
+    let requires2FA = has2FA;
+
+    // Enforce 2FA for privileged accounts when enabled in platform settings.
+    if (!requires2FA && isPrivilegedRole(user?.role)) {
+      const settings = await getPlatformSettings().catch(() => null);
+      if (settings?.security?.twoFactorRequired === true) {
+        requires2FA = true;
+
+        if (!isTotpEncryptionConfigured()) {
+          return res.status(503).json({
+            error: 'Two-factor authentication is not configured.',
+            code: 'TOTP_NOT_CONFIGURED',
+          });
+        }
+
+        if (!has2FA) {
+          return res.status(403).json({
+            error: 'Two-factor authentication is required for this account. Please set up an authenticator app first.',
+            code: 'TOTP_SETUP_REQUIRED',
+            requires2FA: true,
+            twoFactorMethod: 'totp',
+          });
+        }
+      }
+    }
 
     // If 2FA is not enabled, complete login with password only.
     if (!requires2FA) {
