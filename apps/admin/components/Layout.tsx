@@ -36,9 +36,10 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const SidebarItem = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => (
+const SidebarItem = ({ to, icon: Icon, label, onNavigate }: { to: string, icon: React.ElementType, label: string, onNavigate?: () => void }) => (
   <NavLink
     to={to}
+    onClick={onNavigate}
     className={({ isActive }) =>
       `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${isActive
         ? 'bg-emerald-50 text-emerald-600 font-medium'
@@ -99,6 +100,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchNotifications, isMentor]);
+
+  // Default sidebar behavior:
+  // - Desktop (lg+): sidebar shown
+  // - Mobile/tablet: sidebar hidden until toggled
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+
+    const sync = () => setSidebarOpen(mediaQuery.matches);
+    sync();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', sync);
+      return () => mediaQuery.removeEventListener('change', sync);
+    }
+
+    mediaQuery.addListener(sync);
+    return () => mediaQuery.removeListener(sync);
+  }, []);
 
   // Mark single notification as read
   const handleMarkAsRead = async (id: string) => {
@@ -163,6 +184,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-30 lg:hidden"
+          aria-hidden="true"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -179,25 +208,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
-          {!isMentor && <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" />}
-          <SidebarItem to="/reports" icon={FileText} label="Reports" />
+          {!isMentor && <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onNavigate={() => setSidebarOpen(false)} />}
+          <SidebarItem to="/reports" icon={FileText} label="Reports" onNavigate={() => setSidebarOpen(false)} />
           {!isMentor && (
             <>
-              <SidebarItem to="/users" icon={Users} label="Students" />
-              <SidebarItem to="/contests" icon={Trophy} label="Contests" />
-              <SidebarItem to="/courses" icon={FileText} label="Documents" />
-              <SidebarItem to="/community" icon={MessageSquare} label="Community" />
-              <SidebarItem to="/recruitments" icon={Briefcase} label="Recruitments" />
-              <SidebarItem to="/news" icon={Newspaper} label="News & Tips" />
-              <SidebarItem to="/mentors" icon={Users} label="Mentor Directory" />
-              <SidebarItem to="/mentor-blogs" icon={BookOpen} label="Mentor Blogs" />
+              <SidebarItem to="/users" icon={Users} label="Students" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/contests" icon={Trophy} label="Contests" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/courses" icon={FileText} label="Documents" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/community" icon={MessageSquare} label="Community" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/recruitments" icon={Briefcase} label="Recruitments" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/news" icon={Newspaper} label="News & Tips" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/mentors" icon={Users} label="Mentor Directory" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/mentor-blogs" icon={BookOpen} label="Mentor Blogs" onNavigate={() => setSidebarOpen(false)} />
 
               <div className="pt-8 pb-2">
                 <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">System</p>
               </div>
-              <SidebarItem to="/security" icon={ShieldAlert} label="Security" />
-              <SidebarItem to="/audit" icon={FileText} label="Audit Log" />
-              <SidebarItem to="/settings" icon={Settings} label="Settings" />
+              <SidebarItem to="/security" icon={ShieldAlert} label="Security" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/audit" icon={FileText} label="Audit Log" onNavigate={() => setSidebarOpen(false)} />
+              <SidebarItem to="/settings" icon={Settings} label="Settings" onNavigate={() => setSidebarOpen(false)} />
             </>
           )}
         </nav>
@@ -225,7 +254,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Menu size={24} />
           </button>
 
-          <div className="flex items-center bg-gray-100 rounded-lg px-3 py-2 w-full max-w-md mx-4 lg:mx-0">
+          <div className="hidden sm:flex items-center bg-gray-100 rounded-lg px-3 py-2 w-full max-w-md mx-4 lg:mx-0">
             <Search size={18} className="text-gray-400" />
             <input
               type="text"
