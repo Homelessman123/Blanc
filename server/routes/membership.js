@@ -32,7 +32,11 @@ function isPaymentConfigured() {
     const bank = getPaymentBankInfo();
     const hasBank = Boolean(bank.bankCode && bank.accountNumber);
     const hasSepayKey = Boolean((process.env.SEPAY_API_KEY || '').trim());
-    return { ok: hasBank && hasSepayKey, bank, hasSepayKey, hasBank };
+    const missing = [];
+    if (!bank.bankCode) missing.push('PAYMENT_BANK_CODE');
+    if (!bank.accountNumber) missing.push('PAYMENT_ACCOUNT_NUMBER');
+    if (!hasSepayKey) missing.push('SEPAY_API_KEY');
+    return { ok: hasBank && hasSepayKey, bank, hasSepayKey, hasBank, missing };
 }
 
 function getClientMeta(req) {
@@ -87,7 +91,7 @@ router.post('/checkout', authGuard, async (req, res, next) => {
                 hasBank: paymentConfig.hasBank,
                 hasSepayKey: paymentConfig.hasSepayKey,
             });
-            return res.status(503).json({ error: 'Payments are not configured.' });
+            return res.status(503).json({ error: 'Payments are not configured.', missing: paymentConfig.missing });
         }
 
         const { planId } = req.body || {};
