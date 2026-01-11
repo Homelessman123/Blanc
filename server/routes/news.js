@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
+import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard } from '../middleware/auth.js';
 
 const router = Router();
@@ -250,6 +251,7 @@ router.post('/', authGuard, requireAdmin, async (req, res, next) => {
     };
 
     const result = await collection.insertOne(doc);
+    await invalidate('news:*');
     return res.status(201).json({ item: mapNews({ ...doc, _id: result.insertedId }) });
   } catch (error) {
     return next(error);
@@ -354,6 +356,7 @@ router.patch('/:id', authGuard, requireAdmin, async (req, res, next) => {
     const updatedDoc = result?.value ?? result;
     if (!updatedDoc) return res.status(404).json({ error: 'News item not found' });
 
+    await invalidate('news:*');
     return res.json({ item: mapNews(updatedDoc, { includeBody: true }) });
   } catch (error) {
     return next(error);
@@ -393,6 +396,7 @@ router.patch('/:id/status', authGuard, requireAdmin, async (req, res, next) => {
     const updatedDoc = result?.value ?? result;
     if (!updatedDoc) return res.status(404).json({ error: 'News item not found' });
 
+    await invalidate('news:*');
     return res.json({ item: mapNews(updatedDoc, { includeBody: true }) });
   } catch (error) {
     return next(error);
@@ -410,6 +414,8 @@ router.delete('/:id', authGuard, requireAdmin, async (req, res, next) => {
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'News item not found' });
     }
+
+    await invalidate('news:*');
     return res.json({ success: true });
   } catch (error) {
     return next(error);
@@ -420,21 +426,31 @@ router.delete('/:id', authGuard, requireAdmin, async (req, res, next) => {
 
 router.get('/tags', async (req, res, next) => {
   try {
-    await ensureIndexes();
-    const collection = getCollection(collectionName);
-    const tags = await collection
-      .aggregate([
-        { $match: { status: 'published' } },
-        { $unwind: '$tags' },
-        { $group: { _id: '$tags', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ])
-      .toArray();
+    res.setHeader('Cache-Control', 'public, max-age=600, stale-while-revalidate=300');
 
-    res.json({
-      tags: tags.map((t) => t._id),
-      tagsWithCount: tags.map((t) => ({ tag: t._id, count: t.count })),
-    });
+    const payload = await getCached(
+      'news:tags',
+      async () => {
+        await ensureIndexes();
+        const collection = getCollection(collectionName);
+        const tags = await collection
+          .aggregate([
+            { $match: { status: 'published' } },
+            { $unwind: '$tags' },
+            { $group: { _id: '$tags', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ])
+          .toArray();
+
+        return {
+          tags: tags.map((t) => t._id),
+          tagsWithCount: tags.map((t) => ({ tag: t._id, count: t.count })),
+        };
+      },
+      600
+    );
+
+    res.json(payload);
   } catch (error) {
     next(error);
   }
@@ -442,9 +458,6 @@ router.get('/tags', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    await ensureIndexes();
-    const collection = getCollection(collectionName);
-
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
     const skip = (page - 1) * limit;
@@ -475,17 +488,42 @@ router.get('/', async (req, res, next) => {
       if (to) query.publishAt.$lte = to;
     }
 
-    const [total, items] = await Promise.all([
-      collection.countDocuments(query),
-      collection
-        .find(query, { projection: { body: 0 } })
-        .sort({ publishAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-    ]);
+    const cacheKey = `news:list:${encodeURIComponent(
+      JSON.stringify({
+        page,
+        limit,
+        search,
+        tag,
+        from: from ? from.toISOString() : '',
+        to: to ? to.toISOString() : '',
+        highlightOnly,
+      })
+    )}`;
 
-    res.json({ items: items.map((doc) => mapNews(doc)), page, limit, total });
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+
+    const payload = await getCached(
+      cacheKey,
+      async () => {
+        await ensureIndexes();
+        const collection = getCollection(collectionName);
+
+        const [total, items] = await Promise.all([
+          collection.countDocuments(query),
+          collection
+            .find(query, { projection: { body: 0 } })
+            .sort({ publishAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray(),
+        ]);
+
+        return { items: items.map((doc) => mapNews(doc)), page, limit, total };
+      },
+      60
+    );
+
+    res.json(payload);
   } catch (error) {
     next(error);
   }
@@ -493,8 +531,6 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:slugOrId', async (req, res, next) => {
   try {
-    await ensureIndexes();
-    const collection = getCollection(collectionName);
     const { slugOrId } = req.params;
     const now = new Date();
 
@@ -502,14 +538,24 @@ router.get('/:slugOrId', async (req, res, next) => {
       ? { _id: new ObjectId(slugOrId) }
       : { slug: slugOrId };
 
-    const doc = await collection.findOne({
-      ...query,
-      status: 'published',
-      publishAt: { $lte: now },
-    });
+    const cacheKey = `news:item:${encodeURIComponent(slugOrId)}`;
+    const doc = await getCached(
+      cacheKey,
+      async () => {
+        await ensureIndexes();
+        const collection = getCollection(collectionName);
+        return await collection.findOne({
+          ...query,
+          status: 'published',
+          publishAt: { $lte: now },
+        });
+      },
+      60
+    );
 
     if (!doc) return res.status(404).json({ error: 'News item not found' });
 
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     return res.json({ item: mapNews(doc, { includeBody: true }) });
   } catch (error) {
     return next(error);

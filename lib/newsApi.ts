@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, CACHE_TTL } from './api';
 import { NewsArticle } from '../types';
 
 type ListParams = {
@@ -35,11 +35,18 @@ export const newsApi = {
       to: params.to,
       highlight: params.highlight,
     });
-    return api.get<{ items: NewsArticle[]; total: number; page: number; limit: number }>(`/news${query}`);
+    return api.get<{ items: NewsArticle[]; total: number; page: number; limit: number }>(`/news${query}`, {
+      useCache: true,
+      cacheTTL: CACHE_TTL.NEWS,
+    });
   },
 
   async getPublic(slugOrId: string) {
-    return api.get<{ item: NewsArticle }>(`/news/${slugOrId}`);
+    return api.get<{ item: NewsArticle }>(`/news/${slugOrId}`, {
+      useCache: true,
+      cacheTTL: CACHE_TTL.NEWS_DETAIL,
+      cacheKey: `news:${slugOrId}`,
+    });
   },
 
   async listAdmin(params: ListParams = {}) {

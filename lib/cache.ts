@@ -92,6 +92,10 @@ export const CACHE_TTL = {
     STATS: 10 * 60 * 1000,      // 10 minutes - stats don't change often
     CONTESTS: 2 * 60 * 1000,    // 2 minutes - may have updates
     COURSES: 2 * 60 * 1000,     // 2 minutes
+    NEWS: 1 * 60 * 1000,        // 1 minute - public news list (fast refresh)
+    NEWS_DETAIL: 5 * 60 * 1000, // 5 minutes - individual news article
+    MENTORS: 2 * 60 * 1000,     // 2 minutes - mentor list
+    MENTOR_DETAIL: 5 * 60 * 1000, // 5 minutes - individual mentor profile
     DOCUMENTS: 2 * 60 * 1000,   // 2 minutes
     COURSE_DETAIL: 5 * 60 * 1000, // 5 minutes - individual course
     USER_PROFILE: 1 * 60 * 1000,  // 1 minute - user data

@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, CACHE_TTL } from './api';
 import { MentorBlog, MentorDetail, MentorSummary } from '../types';
 
 type ListParams = {
@@ -30,11 +30,18 @@ export const mentorApi = {
       sort: params.sort,
       seed: params.seed,
     });
-    return api.get<{ items: MentorSummary[]; total: number; page: number; limit: number }>(`/mentors${query}`);
+    return api.get<{ items: MentorSummary[]; total: number; page: number; limit: number }>(`/mentors${query}`, {
+      useCache: true,
+      cacheTTL: CACHE_TTL.MENTORS,
+    });
   },
 
   async getPublic(id: string) {
-    return api.get<{ mentor: MentorDetail }>(`/mentors/${id}`);
+    return api.get<{ mentor: MentorDetail }>(`/mentors/${id}`, {
+      useCache: true,
+      cacheTTL: CACHE_TTL.MENTOR_DETAIL,
+      cacheKey: `mentor:${id}`,
+    });
   },
 
   async getMyBlog() {

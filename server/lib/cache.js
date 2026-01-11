@@ -23,6 +23,107 @@ import Redis from 'ioredis';
 let redis = null;
 let isRedisAvailable = false;
 
+const DEFAULT_MEMORY_MAX_ENTRIES = 1000;
+const memoryMaxEntriesRaw = Number.parseInt(process.env.CACHE_MEMORY_MAX_ENTRIES || '', 10);
+const MEMORY_MAX_ENTRIES =
+    Number.isFinite(memoryMaxEntriesRaw) && memoryMaxEntriesRaw >= 0
+        ? memoryMaxEntriesRaw
+        : DEFAULT_MEMORY_MAX_ENTRIES;
+
+const memoryCache = new Map(); // key -> { value, expiresAtMs }
+const inFlightRequests = new Map(); // key -> Promise
+const keyGenerations = new Map(); // key -> number
+let memoryCleanupCounter = 0;
+
+function bumpGeneration(key) {
+    const next = (keyGenerations.get(key) || 0) + 1;
+    keyGenerations.set(key, next);
+    return next;
+}
+
+function getGeneration(key) {
+    return keyGenerations.get(key) || 0;
+}
+
+function escapeRegExp(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globPatternToRegex(pattern) {
+    const escaped = escapeRegExp(pattern).replace(/\\\*/g, '.*');
+    return new RegExp(`^${escaped}$`);
+}
+
+function pruneMemoryCache() {
+    if (MEMORY_MAX_ENTRIES === 0) {
+        memoryCache.clear();
+        return;
+    }
+
+    memoryCleanupCounter += 1;
+    if (memoryCleanupCounter >= 50) {
+        memoryCleanupCounter = 0;
+        const now = Date.now();
+        for (const [key, entry] of memoryCache.entries()) {
+            if (!entry || entry.expiresAtMs <= now) {
+                memoryCache.delete(key);
+            }
+        }
+    }
+
+    while (memoryCache.size > MEMORY_MAX_ENTRIES) {
+        const oldestKey = memoryCache.keys().next().value;
+        if (!oldestKey) break;
+        memoryCache.delete(oldestKey);
+    }
+}
+
+function getMemoryCache(key) {
+    const entry = memoryCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAtMs) {
+        memoryCache.delete(key);
+        return null;
+    }
+    return entry.value;
+}
+
+function setMemoryCache(key, value, ttlSeconds) {
+    if (MEMORY_MAX_ENTRIES === 0) return;
+    const ttlMs = Math.max(0, Number(ttlSeconds) || 0) * 1000;
+    const expiresAtMs = Date.now() + ttlMs;
+    memoryCache.set(key, { value, expiresAtMs });
+    pruneMemoryCache();
+}
+
+function invalidateMemoryCache(keyOrPattern) {
+    if (!keyOrPattern) return;
+
+    if (keyOrPattern.includes('*')) {
+        const regex = globPatternToRegex(keyOrPattern);
+
+        for (const key of memoryCache.keys()) {
+            if (regex.test(key)) {
+                memoryCache.delete(key);
+                bumpGeneration(key);
+            }
+        }
+
+        for (const key of inFlightRequests.keys()) {
+            if (regex.test(key)) {
+                bumpGeneration(key);
+                inFlightRequests.delete(key);
+            }
+        }
+
+        return;
+    }
+
+    memoryCache.delete(keyOrPattern);
+    bumpGeneration(keyOrPattern);
+    inFlightRequests.delete(keyOrPattern);
+}
+
 export function normalizeRedisUrl(value) {
     if (!value) return value;
     const trimmed = String(value).trim();
@@ -213,32 +314,65 @@ export async function checkRedisHealth(timeoutMs = 5000) {
  * @returns {Promise<any>} Cached or freshly fetched data
  */
 export async function getCached(key, fetcher, ttl = 300) {
+    const cachedMemory = getMemoryCache(key);
+    if (cachedMemory !== null) {
+        return cachedMemory;
+    }
+
+    const pending = inFlightRequests.get(key);
+    if (pending) {
+        return await pending;
+    }
+
+    const generationAtStart = getGeneration(key);
     const client = initRedis();
+    const useRedis = Boolean(client && isRedisAvailable);
 
-    // If Redis is not available, always fetch fresh
-    if (!client || !isRedisAvailable) {
-        return await fetcher();
-    }
+    const requestPromise = (async () => {
+        try {
+            if (useRedis) {
+                try {
+                    const cached = await client.get(key);
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        setMemoryCache(key, parsed, ttl);
+                        return parsed;
+                    }
+                } catch (err) {
+                    console.warn('Cache read error:', err?.message || err);
+                }
+            }
 
-    try {
-        // Try to get from cache
-        const cached = await client.get(key);
-        if (cached) {
-            return JSON.parse(cached);
+            const data = await fetcher();
+
+            // Don't cache null/undefined results (avoids caching "not found" responses).
+            if (data === null || data === undefined) {
+                return data;
+            }
+
+            // Avoid caching if the key was invalidated while the fetch was in flight.
+            if (getGeneration(key) !== generationAtStart) {
+                return data;
+            }
+
+            setMemoryCache(key, data, ttl);
+
+            if (useRedis) {
+                try {
+                    await client.setex(key, ttl, JSON.stringify(data));
+                } catch (err) {
+                    console.warn('Cache write error:', err?.message || err);
+                }
+            }
+
+            return data;
+        } finally {
+            inFlightRequests.delete(key);
         }
+    })();
 
-        // Not in cache, fetch fresh data
-        const data = await fetcher();
-
-        // Store in cache with TTL
-        await client.setex(key, ttl, JSON.stringify(data));
-
-        return data;
-    } catch (err) {
-        console.error('Cache error:', err);
-        // On cache error, fetch fresh data
-        return await fetcher();
-    }
+    inFlightRequests.set(key, requestPromise);
+    return await requestPromise;
 }
 
 /**
@@ -249,6 +383,11 @@ export async function getCached(key, fetcher, ttl = 300) {
  */
 export async function setCache(key, value, ttl = 300) {
     const client = initRedis();
+
+    if (value !== null && value !== undefined) {
+        setMemoryCache(key, value, ttl);
+    }
+
     if (!client || !isRedisAvailable) return;
 
     try {
@@ -263,6 +402,9 @@ export async function setCache(key, value, ttl = 300) {
  * @param {string} keyOrPattern - Cache key or pattern (e.g., "contests:*")
  */
 export async function invalidate(keyOrPattern) {
+    if (!keyOrPattern) return;
+    invalidateMemoryCache(keyOrPattern);
+
     const client = initRedis();
     if (!client || !isRedisAvailable) return;
 
@@ -296,6 +438,10 @@ export async function invalidate(keyOrPattern) {
  * Clear all cache
  */
 export async function clearAll() {
+    memoryCache.clear();
+    inFlightRequests.clear();
+    keyGenerations.clear();
+
     const client = initRedis();
     if (!client || !isRedisAvailable) return;
 
@@ -323,6 +469,10 @@ export async function disconnect() {
         redis = null;
         isRedisAvailable = false;
     }
+
+    memoryCache.clear();
+    inFlightRequests.clear();
+    keyGenerations.clear();
 }
 
 export default {

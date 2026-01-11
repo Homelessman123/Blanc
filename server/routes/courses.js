@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import crypto from 'crypto';
 import { connectToDatabase, getCollection } from '../lib/db.js';
+import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -142,7 +143,6 @@ async function sendCourseUpdateNotification(courseId, courseTitle, updateType, u
 // GET /api/courses - Lấy danh sách khóa học
 router.get('/', async (req, res, next) => {
     try {
-        await connectToDatabase();
         const limit = Math.min(Number(req.query.limit) || 50, 100);
         const page = Math.max(Number(req.query.page) || 1, 1);
         const skip = (page - 1) * limit;
@@ -192,23 +192,50 @@ router.get('/', async (req, res, next) => {
         const sortField = sortBy && ALLOWED_SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt';
         const sort = { [sortField]: sortOrder, _id: -1 };
 
-        const collection = getCollection('courses');
-        const total = await collection.countDocuments(query);
+        const normalizedSearch = search && search.trim() ? search.trim().slice(0, 200) : '';
+        const normalizedInstructor = instructor && instructor.trim() ? instructor.trim().slice(0, 100) : '';
+        const cacheKey = `courses:list:${encodeURIComponent(
+            JSON.stringify({
+                limit,
+                page,
+                level: level || '',
+                search: normalizedSearch,
+                instructor: normalizedInstructor,
+                minPrice: Number.isFinite(minPrice) ? minPrice : '',
+                maxPrice: Number.isFinite(maxPrice) ? maxPrice : '',
+                isPublic: isPublic === undefined ? '' : isPublic,
+                sortField,
+                sortOrder,
+            })
+        )}`;
 
-        const courses = await collection
-            .find(query, courseFields)
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .toArray();
+        const payload = await getCached(
+            cacheKey,
+            async () => {
+                await connectToDatabase();
 
-        res.json({
-            courses: courses.map(mapCourse),
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        });
+                const collection = getCollection('courses');
+                const total = await collection.countDocuments(query);
+
+                const courses = await collection
+                    .find(query, courseFields)
+                    .sort(sort)
+                    .skip(skip)
+                    .limit(limit)
+                    .toArray();
+
+                return {
+                    courses: courses.map(mapCourse),
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                };
+            },
+            120
+        );
+
+        res.json(payload);
     } catch (error) {
         next(error);
     }
@@ -514,16 +541,23 @@ router.delete('/enrolled/:id', authGuard, async (req, res, next) => {
 // GET /api/courses/:id - Chi tiết khóa học
 router.get('/:id', async (req, res, next) => {
     try {
-        await connectToDatabase();
         const id = req.params.id;
         if (!ObjectId.isValid(id)) {
             return res.status(400).json({ error: 'Invalid course id' });
         }
 
-        const course = await getCollection('courses').findOne({
-            _id: new ObjectId(id),
-            deletedAt: { $exists: false }
-        }, courseFields);
+        const cacheKey = `courses:item:${id}`;
+        const course = await getCached(
+            cacheKey,
+            async () => {
+                await connectToDatabase();
+                return await getCollection('courses').findOne({
+                    _id: new ObjectId(id),
+                    deletedAt: { $exists: false }
+                }, courseFields);
+            },
+            300
+        );
         if (!course) {
             return res.status(404).json({ error: 'Course not found' });
         }
@@ -568,6 +602,7 @@ router.post('/', authGuard, requireRole('admin'), async (req, res, next) => {
         };
 
         const result = await getCollection('courses').insertOne(payload);
+        await invalidate('courses:*');
         res.status(201).json({ id: result.insertedId.toString() });
     } catch (error) {
         next(error);
@@ -601,6 +636,7 @@ router.patch('/:id', authGuard, requireRole('admin'), async (req, res, next) => 
             return res.status(404).json({ error: 'Course not found' });
         }
 
+        await invalidate('courses:*');
         res.json({ updated: true });
     } catch (error) {
         next(error);
@@ -662,6 +698,7 @@ router.delete('/:id', authGuard, requireRole('admin'), async (req, res, next) =>
             ip: req.ip
         });
 
+        await invalidate('courses:*');
         res.json({
             deleted: true,
             message: 'Course deleted successfully'

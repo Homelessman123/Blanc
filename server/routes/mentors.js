@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
+import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard } from '../middleware/auth.js';
 
 const router = Router();
@@ -239,80 +240,100 @@ const requireMentor = (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    await connectToDatabase();
-    const users = getCollection('users');
-
     const page = normalizePage(req.query.page);
     const limit = normalizeLimit(req.query.limit, 12, 60);
-    const skip = (page - 1) * limit;
     const search = sanitizeString(req.query.search, MAX_SEARCH_LEN);
     const sort = normalizeSort(req.query.sort);
     const field = normalizeField(req.query.field);
 
-    const query = {
-      role: 'mentor',
-      status: { $nin: ['banned', 'inactive', 'deleted'] },
-      'privacy.showProfile': { $ne: false },
-    };
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
 
-    const filters = [];
-    const searchQuery = buildSearchQuery(search);
-    if (searchQuery) {
-      filters.push(searchQuery);
-    }
+    const cacheKey = `mentors:list:${encodeURIComponent(
+      JSON.stringify({
+        page,
+        limit,
+        search,
+        sort,
+        field,
+      })
+    )}`;
 
-    const fieldQuery = buildFieldQuery(field);
-    if (fieldQuery) {
-      filters.push(fieldQuery);
-    }
+    const payload = await getCached(
+      cacheKey,
+      async () => {
+        await connectToDatabase();
+        const users = getCollection('users');
+        const skip = (page - 1) * limit;
 
-    if (filters.length > 0) {
-      query.$and = filters;
-    }
+        const query = {
+          role: 'mentor',
+          status: { $nin: ['banned', 'inactive', 'deleted'] },
+          'privacy.showProfile': { $ne: false },
+        };
 
-    const projection = {
-      name: 1,
-      avatar: 1,
-      createdAt: 1,
-      updatedAt: 1,
-      'mentorBlog.bannerUrl': 1,
-      'matchingProfile.primaryRole': 1,
-      'matchingProfile.secondaryRoles': 1,
-      'matchingProfile.skills': 1,
-      'matchingProfile.techStack': 1,
-      mentorBlogCompleted: 1,
-      role: 1,
-    };
+        const filters = [];
+        const searchQuery = buildSearchQuery(search);
+        if (searchQuery) {
+          filters.push(searchQuery);
+        }
 
-    const total = await users.countDocuments(query);
+        const fieldQuery = buildFieldQuery(field);
+        if (fieldQuery) {
+          filters.push(fieldQuery);
+        }
 
-    const sortSpec = (() => {
-      switch (sort) {
-        case 'oldest':
-          return { createdAt: 1 };
-        case 'name-asc':
-          return { name: 1 };
-        case 'name-desc':
-          return { name: -1 };
-        case 'newest':
-        case 'random':
-        default:
-          return { createdAt: -1 };
-      }
-    })();
+        if (filters.length > 0) {
+          query.$and = filters;
+        }
 
-    let cursor = users.find(query, { projection }).sort(sortSpec).skip(skip).limit(limit);
-    if (sort === 'name-asc' || sort === 'name-desc') {
-      cursor = cursor.collation({ locale: 'vi', strength: 2 });
-    }
-    const docs = await cursor.toArray();
+        const projection = {
+          name: 1,
+          avatar: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          'mentorBlog.bannerUrl': 1,
+          'matchingProfile.primaryRole': 1,
+          'matchingProfile.secondaryRoles': 1,
+          'matchingProfile.skills': 1,
+          'matchingProfile.techStack': 1,
+          mentorBlogCompleted: 1,
+          role: 1,
+        };
 
-    res.json({
-      items: docs.map(mapMentorSummary),
-      page,
-      limit,
-      total,
-    });
+        const total = await users.countDocuments(query);
+
+        const sortSpec = (() => {
+          switch (sort) {
+            case 'oldest':
+              return { createdAt: 1 };
+            case 'name-asc':
+              return { name: 1 };
+            case 'name-desc':
+              return { name: -1 };
+            case 'newest':
+            case 'random':
+            default:
+              return { createdAt: -1 };
+          }
+        })();
+
+        let cursor = users.find(query, { projection }).sort(sortSpec).skip(skip).limit(limit);
+        if (sort === 'name-asc' || sort === 'name-desc') {
+          cursor = cursor.collation({ locale: 'vi', strength: 2 });
+        }
+        const docs = await cursor.toArray();
+
+        return {
+          items: docs.map(mapMentorSummary),
+          page,
+          limit,
+          total,
+        };
+      },
+      120
+    );
+
+    res.json(payload);
   } catch (error) {
     next(error);
   }
@@ -402,6 +423,7 @@ router.patch('/me/blog', authGuard, requireMentor, async (req, res, next) => {
     }
 
     await users.updateOne({ _id: new ObjectId(userId) }, update);
+    await invalidate('mentors:*');
 
     res.json({
       blog: {
@@ -585,6 +607,7 @@ router.patch('/admin/:id', authGuard, requireAdmin, async (req, res, next) => {
     }
 
     await users.updateOne({ ...query, role: 'mentor' }, update);
+    await invalidate('mentors:*');
 
     res.json({
       mentor: {
@@ -607,34 +630,42 @@ router.patch('/admin/:id', authGuard, requireAdmin, async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    await connectToDatabase();
     const { id } = req.params;
-    const users = getCollection('users');
-
     const query = buildUserIdQuery(id);
-    const mentor = await users.findOne(
-      { ...query, role: 'mentor', status: { $nin: ['banned', 'inactive', 'deleted'] }, 'privacy.showProfile': { $ne: false } },
-      {
-        projection: {
-          name: 1,
-          avatar: 1,
-          bio: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          mentorBlog: 1,
-          role: 1,
-          'matchingProfile.primaryRole': 1,
-          'matchingProfile.secondaryRoles': 1,
-          'matchingProfile.skills': 1,
-          'matchingProfile.techStack': 1,
-        },
-      }
+
+    const cacheKey = `mentors:item:${encodeURIComponent(id)}`;
+    const mentor = await getCached(
+      cacheKey,
+      async () => {
+        await connectToDatabase();
+        const users = getCollection('users');
+        return await users.findOne(
+          { ...query, role: 'mentor', status: { $nin: ['banned', 'inactive', 'deleted'] }, 'privacy.showProfile': { $ne: false } },
+          {
+            projection: {
+              name: 1,
+              avatar: 1,
+              bio: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              mentorBlog: 1,
+              role: 1,
+              'matchingProfile.primaryRole': 1,
+              'matchingProfile.secondaryRoles': 1,
+              'matchingProfile.skills': 1,
+              'matchingProfile.techStack': 1,
+            },
+          }
+        );
+      },
+      300
     );
 
     if (!mentor) {
       return res.status(404).json({ error: 'Mentor not found' });
     }
 
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.json({ mentor: mapMentorDetail(mentor) });
   } catch (error) {
     next(error);
