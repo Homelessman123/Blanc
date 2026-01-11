@@ -289,10 +289,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     ? String((error.data as any).code)
                     : null;
 
+            let safeMessage = message;
+            if (code === 'INVALID_OTP') safeMessage = 'Invalid authenticator code. Please try again.';
+            if (code === 'MAX_ATTEMPTS_EXCEEDED') safeMessage = 'Too many attempts. Please sign in again.';
+            if (code === 'LOGIN_SESSION_EXPIRED') safeMessage = 'Session expired. Please sign in again.';
+
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                error: message,
+                error: safeMessage,
                 errorCode: code,
             }));
 

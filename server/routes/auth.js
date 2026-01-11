@@ -960,11 +960,11 @@ router.post('/login/verify-2fa', async (req, res, next) => {
     const { email, sessionToken, otp } = req.body || {};
 
     if (!email || !sessionToken || !otp) {
-      return res.status(400).json({ error: 'Email, session token and OTP are required.' });
+      return res.status(400).json({ error: 'Email, session token and authenticator code are required.' });
     }
 
     if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-      return res.status(400).json({ error: 'OTP must be 6 digits.' });
+      return res.status(400).json({ error: 'Authenticator code must be 6 digits.' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
