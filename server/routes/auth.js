@@ -421,8 +421,12 @@ router.post('/register/initiate', async (req, res, next) => {
     }
 
     // Validate password strength
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+
+    if (password.length > 128) {
+      return res.status(400).json({ error: 'Password must be 128 characters or less.' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -1546,6 +1550,14 @@ router.post('/logout', (req, res) => {
 // POST /auth/forgot-password - Request password reset
 router.post('/forgot-password', async (req, res, next) => {
   try {
+    // Legacy endpoint: production should use OTP flow (/otp/request + /otp/verify + /auth/reset-password).
+    if (!isLegacyAuthAllowed()) {
+      return res.status(410).json({
+        error: 'This endpoint is disabled in production. Use /otp/request (action=reset_password) instead.',
+        code: 'LEGACY_AUTH_DISABLED',
+      });
+    }
+
     await connectToDatabase();
     const { email } = req.body || {};
 
@@ -1557,8 +1569,13 @@ router.post('/forgot-password', async (req, res, next) => {
     const users = getCollection('users');
     const user = await users.findOne({ email: normalizedEmail });
 
+    const responsePayload = {
+      message: 'If the email exists, password reset instructions have been sent.',
+    };
+
+    // Do not reveal whether the email exists (prevents user enumeration).
     if (!user) {
-      return res.status(404).json({ error: 'Email not found.' });
+      return res.json(responsePayload);
     }
 
     // Generate reset token
@@ -1578,16 +1595,17 @@ router.post('/forgot-password', async (req, res, next) => {
       }
     );
 
-    // In production, send email here with reset link
-    // For now, just log the token (development only)
-    // eslint-disable-next-line no-console
-    console.log(`[DEV] Password reset token for ${email}: ${resetToken}`);
+    // SECURITY: avoid logging reset tokens by default.
+    // For local debugging only, opt-in via EXPOSE_DEV_RESET_TOKEN=true
+    const exposeDevToken =
+      process.env.NODE_ENV !== 'production' &&
+      String(process.env.EXPOSE_DEV_RESET_TOKEN || '').trim().toLowerCase() === 'true';
 
-    res.json({
-      message: 'Password reset instructions sent to your email.',
-      // Only for development - remove in production
-      ...(process.env.NODE_ENV !== 'production' && { devToken: resetToken })
-    });
+    if (exposeDevToken) {
+      return res.json({ ...responsePayload, devToken: resetToken });
+    }
+
+    return res.json(responsePayload);
   } catch (error) {
     next(error);
   }
@@ -1603,8 +1621,12 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(400).json({ error: 'Token and new password are required.' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+
+    if (password.length > 128) {
+      return res.status(400).json({ error: 'Password must be 128 characters or less.' });
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

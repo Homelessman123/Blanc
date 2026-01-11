@@ -583,36 +583,6 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
     }
   };
 
-  // Handle resend OTP for 2FA login
-  const handleResend2FAOtp = async () => {
-    setOtpError('Ma 2FA duoc tao trong ung dung Authenticator (khong co chuc nang gui lai).');
-    return;
-
-    setIsResending(true);
-    setOtpError('');
-
-    try {
-      const newSessionToken = generateSessionToken();
-
-      await api.post('/otp/request', {
-        email: formData.email,
-        sessionToken: newSessionToken,
-        action: 'login_2fa',
-      });
-
-      setLogin2FASessionToken(newSessionToken);
-      setOtpExpiresAt(new Date(Date.now() + 2 * 60 * 1000)); // 2 minutes - auto-extends on resend
-      setCountdown(60);
-      setOtp('');
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
-      setOtpError(errorMessage);
-    } finally {
-      setIsResending(false);
-    }
-  };
-
   // Render Step 4 Form (Terms & Conditions)
   const renderTermsForm = () => (
     <div className="space-y-5">

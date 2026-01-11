@@ -143,8 +143,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
 
             // Validate password
-            if (!credentials.password || credentials.password.length < 6) {
-                throw new Error('Password must be at least 6 characters');
+            if (!credentials.password || credentials.password.length < 8) {
+                throw new Error('Password must be at least 8 characters');
             }
 
             // Generate session token for 2FA flow

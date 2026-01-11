@@ -163,18 +163,14 @@ router.post('/request', async (req, res, next) => {
         }
 
         const users = getCollection('users');
+        let shouldSendEmail = true;
 
         // Check based on action type
-        if (action === 'reset_password' || action === 'login_2fa') {
-            // User must exist for password reset and 2FA login
-            const user = await users.findOne({ email: normalizedEmail });
-            if (!user) {
-                return res.status(404).json({
-                    ok: false,
-                    error: 'Email này chưa được đăng ký trong hệ thống.',
-                    code: 'EMAIL_NOT_FOUND'
-                });
-            }
+        if (action === 'reset_password') {
+            // SECURITY: do not reveal whether the email exists.
+            // Only send OTP if the user exists.
+            const user = await users.findOne({ email: normalizedEmail }, { projection: { _id: 1 } });
+            shouldSendEmail = Boolean(user);
         } else if (action === 'register_verify') {
             // For registration, user should NOT exist
             const existingUser = await users.findOne({ email: normalizedEmail });
@@ -216,24 +212,6 @@ router.post('/request', async (req, res, next) => {
         // Hash session token for storage (moved up before usage)
         const sessionTokenHash = hashSessionToken(sessionToken);
 
-        // CRITICAL: Update pending_logins sessionTokenHash when requesting new OTP for login_2fa
-        // This ensures the sessionToken used for OTP matches the one stored in pending_logins
-        // Also extend expiry time by 2 minutes from now on each resend
-        if (action === 'login_2fa') {
-            const pendingLogins = getCollection('pending_logins');
-            const newExpiresAt = new Date(Date.now() + 2 * 60 * 1000); // Extend by 2 minutes from now
-            await pendingLogins.updateMany(
-                { email: normalizedEmail, status: 'PENDING_OTP' },
-                {
-                    $set: {
-                        sessionTokenHash,
-                        expiresAt: newExpiresAt,
-                        updatedAt: new Date()
-                    }
-                }
-            );
-        }
-
         // Similarly for register_verify - update pending_registrations and extend expiry
         if (action === 'register_verify') {
             const pendingRegistrations = getCollection('pending_registrations');
@@ -268,19 +246,18 @@ router.post('/request', async (req, res, next) => {
         await otpSessions.insertOne(otpSession);
 
         // Send OTP email via Apps Script or direct email
-        try {
-            await sendOtpEmail(normalizedEmail, otp, action);
-        } catch (emailError) {
-            // eslint-disable-next-line no-console
-            console.error('[OTP] Failed to send email:', emailError.message);
-            // Don't fail the request, but log it
+        if (shouldSendEmail) {
+            void sendOtpEmail(normalizedEmail, otp, action).catch((emailError) => {
+                // eslint-disable-next-line no-console
+                console.error('[OTP] Failed to send email:', emailError.message);
+            });
         }
 
         // SECURITY: Never log OTP values.
 
         res.json({
             ok: true,
-            message: 'Mã OTP đã được gửi đến email của bạn.',
+            message: 'Nếu email tồn tại, mã OTP đã được gửi.',
             ttlSeconds: OTP_CONFIG.TTL_MINUTES * 60,
             expiresAt: expiresAt.toISOString(),
         });
@@ -463,6 +440,13 @@ router.post('/resend', async (req, res, next) => {
         await connectToDatabase();
         const { email, action = 'verify' } = req.body || {};
 
+        if (!VALID_ACTIONS.includes(action)) {
+            return res.status(400).json({
+                error: 'Action không hợp lệ.',
+                code: 'INVALID_ACTION'
+            });
+        }
+
         if (!email) {
             return res.status(400).json({
                 error: 'Email là bắt buộc.',
@@ -487,6 +471,26 @@ router.post('/resend', async (req, res, next) => {
                 error: `Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau ${OTP_CONFIG.RATE_LIMIT_WINDOW_MINUTES} phút.`,
                 code: 'RATE_LIMITED',
             });
+        }
+
+        const users = getCollection('users');
+        let shouldSendEmail = true;
+
+        if (action === 'reset_password') {
+            // SECURITY: do not reveal whether the email exists.
+            // Only send OTP if the user exists.
+            const user = await users.findOne({ email: normalizedEmail }, { projection: { _id: 1 } });
+            shouldSendEmail = Boolean(user);
+        }
+
+        if (action === 'register_verify') {
+            // Only resend OTP when there is a pending registration.
+            const pendingRegistrations = getCollection('pending_registrations');
+            const pending = await pendingRegistrations.findOne(
+                { email: normalizedEmail, status: 'PENDING', expiresAt: { $gt: new Date() } },
+                { projection: { _id: 1 } }
+            );
+            shouldSendEmail = Boolean(pending);
         }
 
         // Generate new session token
@@ -517,15 +521,6 @@ router.post('/resend', async (req, res, next) => {
             updatedAt: new Date(),
         });
 
-        // CRITICAL: Update pending_logins with new sessionTokenHash for login_2fa resend
-        if (action === 'login_2fa') {
-            const pendingLogins = getCollection('pending_logins');
-            await pendingLogins.updateMany(
-                { email: normalizedEmail, status: 'PENDING_OTP' },
-                { $set: { sessionTokenHash, updatedAt: new Date() } }
-            );
-        }
-
         // Similarly for register_verify resend
         if (action === 'register_verify') {
             const pendingRegistrations = getCollection('pending_registrations');
@@ -536,18 +531,18 @@ router.post('/resend', async (req, res, next) => {
         }
 
         // Send email
-        try {
-            await sendOtpEmail(normalizedEmail, otp, action);
-        } catch (emailError) {
-            // eslint-disable-next-line no-console
-            console.error('[OTP] Failed to send email:', emailError.message);
+        if (shouldSendEmail) {
+            void sendOtpEmail(normalizedEmail, otp, action).catch((emailError) => {
+                // eslint-disable-next-line no-console
+                console.error('[OTP] Failed to send email:', emailError.message);
+            });
         }
 
         // SECURITY: Never log OTP values.
 
         res.json({
             ok: true,
-            message: 'Mã OTP mới đã được gửi.',
+            message: 'Nếu đủ điều kiện, mã OTP mới đã được gửi.',
             sessionToken: newSessionToken,
             ttlSeconds: OTP_CONFIG.TTL_MINUTES * 60,
             expiresAt: expiresAt.toISOString(),

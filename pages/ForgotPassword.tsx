@@ -102,8 +102,8 @@ const ForgotPassword: React.FC = () => {
     const handleSetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (newPassword.length < 6) {
-            setError('Mật khẩu phải có ít nhất 6 ký tự.');
+        if (newPassword.length < 8) {
+            setError('Mật khẩu phải có ít nhất 8 ký tự.');
             return;
         }
 
@@ -127,7 +127,7 @@ const ForgotPassword: React.FC = () => {
             const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
             const vietnameseErrors: Record<string, string> = {
                 'Token and new password are required.': 'Thiếu thông tin xác thực.',
-                'Password must be at least 6 characters.': 'Mật khẩu phải có ít nhất 6 ký tự.',
+                'Password must be at least 8 characters.': 'Mật khẩu phải có ít nhất 8 ký tự.',
                 'Invalid or expired reset token.': 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại.',
             };
             setError(vietnameseErrors[errorMessage] || errorMessage);
@@ -242,7 +242,7 @@ const ForgotPassword: React.FC = () => {
                                 label="Mật khẩu mới"
                                 type="password"
                                 name="newPassword"
-                                placeholder="Ít nhất 6 ký tự"
+                                placeholder="Ít nhất 8 ký tự"
                                 value={newPassword}
                                 onChange={(e) => {
                                     setNewPassword(e.target.value);

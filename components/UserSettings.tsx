@@ -980,8 +980,8 @@ const UserSettings: React.FC = () => {
             showToast('Vui lòng nhập mật khẩu hiện tại', 'error');
             return;
         }
-        if (passwordForm.newPassword.length < 6) {
-            showToast('Mật khẩu mới phải có ít nhất 6 ký tự', 'error');
+        if (passwordForm.newPassword.length < 8) {
+            showToast('Mật khẩu mới phải có ít nhất 8 ký tự', 'error');
             return;
         }
         if (passwordForm.newPassword.length > 128) {
@@ -1009,7 +1009,7 @@ const UserSettings: React.FC = () => {
             const message = err instanceof Error ? err.message : 'Không thể đổi mật khẩu';
             const vietnameseErrors: Record<string, string> = {
                 'Current password is incorrect.': 'Mật khẩu hiện tại không đúng.',
-                'Password must be at least 6 characters.': 'Mật khẩu phải có ít nhất 6 ký tự.',
+                'Password must be at least 8 characters.': 'Mật khẩu phải có ít nhất 8 ký tự.',
             };
             showToast(vietnameseErrors[message] || message, 'error');
         } finally {
@@ -1839,7 +1839,7 @@ const UserSettings: React.FC = () => {
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                                 <p className="text-sm text-amber-800">
                                     <Shield className="w-4 h-4 inline mr-1" />
-                                    Để bảo vệ tài khoản, hãy sử dụng mật khẩu mạnh với ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường và số.
+                                    Để bảo vệ tài khoản, hãy sử dụng mật khẩu mạnh với ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số.
                                 </p>
                             </div>
 
@@ -1876,7 +1876,7 @@ const UserSettings: React.FC = () => {
                                         type={showPasswords.new ? 'text' : 'password'}
                                         value={passwordForm.newPassword}
                                         onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                        placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
+                                        placeholder="Nhập mật khẩu mới (ít nhất 8 ký tự)"
                                         autoComplete="new-password"
                                     />
                                     <button

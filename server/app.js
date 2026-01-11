@@ -103,6 +103,17 @@ app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestSanitizer);
 
+// Prevent caching of sensitive responses (tokens, OTP flows, admin data)
+function noStore(_req, res, next) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  return next();
+}
+
+app.use('/api/auth', noStore);
+app.use('/api/otp', noStore);
+app.use('/api/admin', noStore);
+
 // Track approximate concurrent users (best-effort, in-memory) for alerting.
 app.use((req, _res, next) => {
   try {
@@ -116,6 +127,8 @@ app.use((req, _res, next) => {
 });
 
 // Apply rate limiters based on endpoint
+app.use('/api/auth/reset-password', RateLimiters.sensitive);
+app.use('/api/auth/forgot-password', RateLimiters.sensitive);
 app.use('/api/auth', RateLimiters.auth);
 app.use('/api/otp', RateLimiters.otp);
 app.use('/api/admin', RateLimiters.admin);
