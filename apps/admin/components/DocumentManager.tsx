@@ -13,6 +13,7 @@ import { courseService } from '../services/courseService';
 import { Dropdown } from './ui/Dropdown';
 import { ConfirmActionModal } from './ui/UserModals';
 import { useAuth } from '../contexts/AuthContext';
+import { convertGoogleDriveImageUrl } from '../utils/googleDrive';
 
 type TabType = 'courses' | 'documents';
 type ModalType = 'course' | 'document' | 'view-course' | 'view-document' | null;
@@ -563,6 +564,8 @@ const DocumentManager: React.FC = () => {
             const validBenefits = benefits.filter(b => b.trim());
             // Filter out empty sections
             const validSections = sections.filter(s => s.title.trim());
+            const rawCourseImage = newImage.trim();
+            const normalizedCourseImage = rawCourseImage ? convertGoogleDriveImageUrl(rawCourseImage) : '';
 
             // Build course data with all fields
             const courseData = {
@@ -577,7 +580,7 @@ const DocumentManager: React.FC = () => {
                 hoursPerWeek: newHoursPerWeek || undefined,
                 startDate: newStartDate || undefined,
                 endDate: newEndDate || undefined,
-                image: newImage.trim() || `https://picsum.photos/seed/${newTitle.replace(/\s/g, '')}/400/300`,
+                image: normalizedCourseImage || rawCourseImage || `https://picsum.photos/seed/${newTitle.replace(/\s/g, '')}/400/300`,
                 benefits: validBenefits.length > 0 ? validBenefits : undefined,
                 sections: validSections.length > 0 ? validSections : undefined,
             };
@@ -632,6 +635,8 @@ const DocumentManager: React.FC = () => {
 
         try {
             setIsSaving(true);
+            const rawThumbnail = docThumbnail.trim();
+            const normalizedThumbnail = rawThumbnail ? convertGoogleDriveImageUrl(rawThumbnail) : '';
 
             const documentData = {
                 title: docTitle.trim(),
@@ -640,7 +645,7 @@ const DocumentManager: React.FC = () => {
                 link: validation.sanitizedUrl,
                 description: docDescription.trim(),
                 isPublic: docIsPublic,
-                thumbnail: docThumbnail.trim() || undefined,
+                thumbnail: normalizedThumbnail || rawThumbnail || undefined,
             };
 
             if (editingId) {
@@ -1369,6 +1374,14 @@ const DocumentManager: React.FC = () => {
                                             placeholder="https://..."
                                             value={newImage}
                                             onChange={(e) => setNewImage(e.target.value)}
+                                            onBlur={() => {
+                                                if (!newImage) return;
+                                                const converted = convertGoogleDriveImageUrl(newImage);
+                                                if (converted !== newImage) {
+                                                    setNewImage(converted);
+                                                    showToast('Converted Google Drive link', 'success');
+                                                }
+                                            }}
                                         />
                                     </div>
 
@@ -1730,6 +1743,14 @@ const DocumentManager: React.FC = () => {
                                     placeholder="https://example.com/thumbnail.jpg"
                                     value={docThumbnail}
                                     onChange={(e) => setDocThumbnail(e.target.value)}
+                                    onBlur={() => {
+                                        if (!docThumbnail) return;
+                                        const converted = convertGoogleDriveImageUrl(docThumbnail);
+                                        if (converted !== docThumbnail) {
+                                            setDocThumbnail(converted);
+                                            showToast('Converted Google Drive link', 'success');
+                                        }
+                                    }}
                                 />
                                 {docThumbnail && (
                                     <div className="mt-2">

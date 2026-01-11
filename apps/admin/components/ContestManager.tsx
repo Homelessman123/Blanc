@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/api';
 import { ConfirmActionModal } from './ui/UserModals';
 import toast from 'react-hot-toast';
+import { convertGoogleDriveImageUrl } from '../utils/googleDrive';
 
 const safeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -379,6 +380,11 @@ const ContestManager: React.FC = () => {
         name: organizerDetails.name || newOrganizer,
       };
 
+      const normalizedContestImage = newImage ? convertGoogleDriveImageUrl(newImage) : '';
+      const normalizedOrganizerLogo = syncedOrganizerDetails.logo
+        ? convertGoogleDriveImageUrl(syncedOrganizerDetails.logo)
+        : '';
+
       const contestData = {
         title: newTitle,
         organizer: newOrganizer,
@@ -389,7 +395,7 @@ const ContestManager: React.FC = () => {
         deadline: newDeadline,
         tags: newTags.split(',').map(t => t.trim()).filter(Boolean),
         description: generatedDesc,
-        image: newImage || undefined,
+        image: normalizedContestImage || newImage || undefined,
         category: newCategory || undefined,
         location: newLocation || undefined,
         locationType: newLocationType,
@@ -399,7 +405,9 @@ const ContestManager: React.FC = () => {
         eligibility: newEligibility || undefined,
         prizes: prizes.length > 0 ? prizes : undefined,
         schedule: schedule.length > 0 ? schedule : undefined,
-        organizerDetails: syncedOrganizerDetails.name ? syncedOrganizerDetails : undefined,
+        organizerDetails: syncedOrganizerDetails.name
+          ? { ...syncedOrganizerDetails, logo: normalizedOrganizerLogo || syncedOrganizerDetails.logo }
+          : undefined,
       };
 
       if (editingContest) {
@@ -863,6 +871,14 @@ const ContestManager: React.FC = () => {
                       placeholder="https://example.com/image.jpg"
                       value={newImage}
                       onChange={(e) => setNewImage(e.target.value)}
+                      onBlur={() => {
+                        if (!newImage) return;
+                        const converted = convertGoogleDriveImageUrl(newImage);
+                        if (converted !== newImage) {
+                          setNewImage(converted);
+                          toast.success('Converted Google Drive link');
+                        }
+                      }}
                     />
                     {newImage && (
                       <div className="mt-2">
@@ -980,6 +996,15 @@ const ContestManager: React.FC = () => {
                       placeholder="https://example.com/logo.png"
                       value={organizerDetails.logo}
                       onChange={(e) => setOrganizerDetails({ ...organizerDetails, logo: e.target.value })}
+                      onBlur={() => {
+                        const currentLogo = organizerDetails.logo;
+                        if (!currentLogo) return;
+                        const converted = convertGoogleDriveImageUrl(currentLogo);
+                        if (converted !== currentLogo) {
+                          setOrganizerDetails((prev) => ({ ...prev, logo: converted }));
+                          toast.success('Converted Google Drive link');
+                        }
+                      }}
                     />
                   </div>
                   <div>
