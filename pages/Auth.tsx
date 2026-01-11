@@ -279,12 +279,16 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
   const [expirationDisplay, setExpirationDisplay] = useState('');
 
   useEffect(() => {
-    if (otpExpiresAt) {
-      const timer = setInterval(() => {
-        setExpirationDisplay(getExpirationDisplay());
-      }, 1000);
-      return () => clearInterval(timer);
+    if (!otpExpiresAt) {
+      setExpirationDisplay('');
+      return;
     }
+
+    setExpirationDisplay(getExpirationDisplay());
+    const timer = setInterval(() => {
+      setExpirationDisplay(getExpirationDisplay());
+    }, 1000);
+    return () => clearInterval(timer);
   }, [otpExpiresAt, getExpirationDisplay]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -501,14 +505,14 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
     goToTermsStep();
   };
 
-  // Handle login submit - always requires OTP verification
+  // Handle login submit - optional 2FA (TOTP)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      // Generate session token for OTP verification
+      // Generate session token (bind pending 2FA session)
       const newSessionToken = generateSessionToken();
 
       const response = await api.post<LoginInitiateResponse>('/auth/login/initiate', {
@@ -525,6 +529,9 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
         setLogin2FASessionToken(otpSessionToken);
         setOtp('');
         setOtpError('');
+        setCountdown(0);
+        setIsResending(false);
+        setOtpExpiresAt(response.expiresAt ? new Date(response.expiresAt) : null);
       } else if (response.token && response.user) {
         // Direct login (OTP bypassed for test accounts)
         ensureAuthSession(response.token);
@@ -976,7 +983,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
     </form>
   );
 
-  // Render 2FA OTP verification for login
+  // Render 2FA verification for login (TOTP)
   const render2FAForm = () => (
     <div className="space-y-5">
       <div className="text-center mb-4">
@@ -985,12 +992,13 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
         </div>
         <h3 className="text-lg font-semibold text-slate-900 mb-1">Xác thực 2 bước</h3>
         <p className="text-slate-600 text-sm">
-          Nhập mã xác thực đã gửi đến{' '}
+          Nhập mã 6 số từ ứng dụng Authenticator cho tài khoản{' '}
           <span className="font-semibold text-primary-600">{formData.email}</span>
         </p>
+        <p className="text-xs text-slate-500 mt-2">Mã được tạo trong ứng dụng Authenticator (không gửi qua email).</p>
         {expirationDisplay && (
           <p className="text-xs text-slate-500 mt-2">
-            Mã hết hạn sau: <span className="font-mono font-semibold">{expirationDisplay}</span>
+            Phiên xác thực hết hạn sau: <span className="font-mono font-semibold">{expirationDisplay}</span>
           </p>
         )}
       </div>
@@ -1019,19 +1027,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
       </Button>
 
       <div className="text-center">
-        <p className="text-sm text-slate-500 mb-2">Không nhận được mã?</p>
-        <button
-          type="button"
-          onClick={handleResend2FAOtp}
-          disabled={countdown > 0 || isResending}
-          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${countdown > 0 || isResending
-            ? 'text-slate-400 cursor-not-allowed'
-            : 'text-primary-600 hover:text-primary-700'
-            }`}
-        >
-          <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
-          {countdown > 0 ? `Gửi lại sau ${countdown}s` : isResending ? 'Đang gửi...' : 'Gửi lại mã'}
-        </button>
+        <p className="text-sm text-slate-500">Không có mã? Hãy mở ứng dụng Authenticator để lấy mã 6 số.</p>
       </div>
 
       <button
@@ -1040,6 +1036,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
           setRequires2FA(false);
           setOtp('');
           setOtpError('');
+          setOtpExpiresAt(null);
         }}
         className="w-full text-sm text-slate-500 hover:text-slate-700 mt-2"
       >
@@ -1054,7 +1051,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
       if (requires2FA) {
         return {
           title: 'Xác thực bảo mật',
-          subtitle: 'Vui lòng nhập mã OTP để hoàn tất đăng nhập.'
+          subtitle: 'Vui lòng nhập mã 6 số từ ứng dụng Authenticator để hoàn tất đăng nhập.'
         };
       }
       return {
