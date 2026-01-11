@@ -241,6 +241,48 @@ router.get('/', async (req, res, next) => {
     }
 });
 
+async function deleteAllCourseData(deletedByUserId) {
+    const courses = getCollection('courses');
+    const enrollments = getCollection('enrollments');
+
+    const deletedEnrollments = await enrollments.deleteMany({ courseId: { $exists: true, $ne: null } });
+
+    const deletedBy = ObjectId.isValid(deletedByUserId) ? new ObjectId(deletedByUserId) : deletedByUserId;
+    const now = new Date();
+
+    const deletedCourses = await courses.updateMany(
+        { deletedAt: { $exists: false } },
+        { $set: { deletedAt: now, deletedBy, isActive: false } }
+    );
+
+    await invalidate('courses:*');
+
+    return {
+        deletedCourses: deletedCourses.modifiedCount || 0,
+        deletedEnrollments: deletedEnrollments.deletedCount || 0,
+    };
+}
+
+// Delete ALL courses (admin only)
+router.delete('/', authGuard, requireRole('admin'), async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        res.json(await deleteAllCourseData(req.user?.id));
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Proxy-friendly bulk delete (admin only). Some deployments block DELETE methods.
+router.post('/delete-all', authGuard, requireRole('admin'), async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        res.json(await deleteAllCourseData(req.user?.id));
+    } catch (error) {
+        next(error);
+    }
+});
+
 // GET /api/courses/enrolled - Lấy khóa học đã đăng ký của user (PROTECTED)
 router.get('/enrolled', authGuard, async (req, res, next) => {
     try {

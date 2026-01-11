@@ -27,6 +27,11 @@ export interface PaginatedResponse<T> {
     totalPages: number;
 }
 
+export interface DeleteAllCoursesResponse {
+    deletedCourses: number;
+    deletedEnrollments: number;
+}
+
 export interface CourseSectionData {
     title: string;
     lessons: number;
@@ -274,6 +279,16 @@ export const courseService = {
         // Clear cache after mutation
         requestCache.clear();
         await api.delete(`/courses/${id}`);
+    },
+
+    /**
+     * Delete ALL courses (admin only)
+     */
+    deleteAll: async (): Promise<DeleteAllCoursesResponse> => {
+        // Clear cache after mutation
+        requestCache.clear();
+        const response = await api.post<DeleteAllCoursesResponse>('/courses/delete-all');
+        return response.data;
     },
 
     /**

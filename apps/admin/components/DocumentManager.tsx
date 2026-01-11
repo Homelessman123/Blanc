@@ -223,6 +223,7 @@ const DocumentManager: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const [isBulkDeletingDocuments, setIsBulkDeletingDocuments] = useState(false);
+    const [isBulkDeletingCourses, setIsBulkDeletingCourses] = useState(false);
 
     // View Details state
     const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
@@ -348,37 +349,52 @@ const DocumentManager: React.FC = () => {
         }
     }, [showToast]);
 
-    const handleDeleteAllDocuments = useCallback(() => {
+    const handleDeleteAll = useCallback(() => {
         if (!canManageDocuments) {
             showToast('Admin access required', 'error');
             return;
         }
 
+        const targetLabel = activeTab === 'courses' ? 'courses' : 'documents';
+        const title = activeTab === 'courses' ? 'Delete all courses' : 'Delete all documents';
+        const successMessage = activeTab === 'courses' ? 'Deleted all courses' : 'Deleted all documents';
+        const failureMessage = activeTab === 'courses'
+            ? 'Failed to delete all courses. Please try again.'
+            : 'Failed to delete all documents. Please try again.';
+
         setPendingConfirm({
-            title: 'Delete all documents',
-            message: 'Are you sure you want to delete ALL documents? This action cannot be undone.',
+            title,
+            message: `Are you sure you want to delete ALL ${targetLabel}? This action cannot be undone.`,
             confirmLabel: 'Delete all',
             variant: 'danger',
             onConfirm: async () => {
                 try {
-                    setIsBulkDeletingDocuments(true);
-                    await documentService.deleteAll();
-                    setDocumentSearchQuery('');
-                    setDocumentPage(1);
-                    await fetchDocuments();
-                    showToast('Deleted all documents', 'success');
+                    if (activeTab === 'courses') {
+                        setIsBulkDeletingCourses(true);
+                        await courseService.deleteAll();
+                        setCoursePage(1);
+                        await fetchCourses();
+                    } else {
+                        setIsBulkDeletingDocuments(true);
+                        await documentService.deleteAll();
+                        setDocumentSearchQuery('');
+                        setDocumentPage(1);
+                        await fetchDocuments();
+                    }
+                    showToast(successMessage, 'success');
                 } catch (error) {
-                    console.error('Failed to delete all documents:', error);
+                    console.error(`Failed to delete all ${targetLabel}:`, error);
                     showToast(
-                        error instanceof Error ? error.message : 'Failed to delete all documents. Please try again.',
+                        error instanceof Error ? error.message : failureMessage,
                         'error'
                     );
                 } finally {
                     setIsBulkDeletingDocuments(false);
+                    setIsBulkDeletingCourses(false);
                 }
             },
         });
-    }, [canManageDocuments, fetchDocuments, showToast]);
+    }, [activeTab, canManageDocuments, fetchCourses, fetchDocuments, showToast]);
 
     // Initial data fetch - use Promise.all for parallel loading
     useEffect(() => {
@@ -863,13 +879,17 @@ const DocumentManager: React.FC = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={handleDeleteAllDocuments}
-                        disabled={!canManageDocuments || isLoadingDocuments || isBulkDeletingDocuments}
+                        onClick={handleDeleteAll}
+                        disabled={
+                            !canManageDocuments
+                            || (activeTab === 'courses' ? isLoadingCourses : isLoadingDocuments)
+                            || (activeTab === 'courses' ? isBulkDeletingCourses : isBulkDeletingDocuments)
+                        }
                         className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm"
-                        title="Delete all documents"
+                        title={activeTab === 'courses' ? 'Delete all courses' : 'Delete all documents'}
                     >
                         <Trash2 size={18} />
-                        {isBulkDeletingDocuments ? 'Deleting...' : 'Delete All Documents'}
+                        {(activeTab === 'courses' ? isBulkDeletingCourses : isBulkDeletingDocuments) ? 'Deleting...' : 'Delete All'}
                     </button>
                     <button
                         type="button"
