@@ -177,6 +177,14 @@ function safeParseUrl(urlString) {
     }
 }
 
+function parseRedisFamily(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return 0; // auto
+    const n = Number.parseInt(raw, 10);
+    if (n === 0 || n === 4 || n === 6) return n;
+    return 0;
+}
+
 /**
  * Initialize Redis connection with Railway-optimized settings
  */
@@ -219,6 +227,10 @@ function initRedis() {
         const usernameOverride = !urlHasUsername ? normalizeRedisUrl(process.env.REDIS_USERNAME) : '';
         const passwordOverride = !urlHasPassword ? normalizeRedisUrl(process.env.REDIS_PASSWORD) : '';
 
+        // Some platforms (including Railway internal DNS) may resolve Redis hosts to IPv6-only.
+        // Default to auto family selection unless explicitly forced.
+        const family = parseRedisFamily(process.env.REDIS_FAMILY);
+
         redis = new Redis(redisUrl, {
             maxRetriesPerRequest: Number(process.env.REDIS_MAX_RETRIES_PER_REQUEST || 3),
             connectTimeout: isProduction ? 10000 : 5000, // 10s for prod, 5s for dev
@@ -249,7 +261,7 @@ function initRedis() {
             enableOfflineQueue: false, // Don't queue commands when offline
             enableReadyCheck,
             keepAlive: isProduction ? 30000 : 0, // Keep-alive for production
-            family: 4, // Force IPv4 (Railway compatibility)
+            family,
             ...(useTls ? { tls: { servername: parsedUrl?.hostname } } : {}),
             ...(usernameOverride ? { username: usernameOverride } : {}),
             ...(passwordOverride ? { password: passwordOverride } : {}),
