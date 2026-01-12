@@ -179,10 +179,10 @@ function safeParseUrl(urlString) {
 
 function parseRedisFamily(value) {
     const raw = String(value ?? '').trim();
-    if (!raw) return 0; // auto
+    if (!raw) return undefined;
     const n = Number.parseInt(raw, 10);
-    if (n === 0 || n === 4 || n === 6) return n;
-    return 0;
+    if (n === 4 || n === 6) return n;
+    return undefined;
 }
 
 /**
@@ -206,6 +206,7 @@ function initRedis() {
 
     try {
         const parsedUrl = safeParseUrl(redisUrl);
+        const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
         const isTlsFromScheme = parsedUrl?.protocol === 'rediss:';
         const forceTls = parseBoolean(process.env.REDIS_TLS);
         const useTls = forceTls ?? isTlsFromScheme;
@@ -227,9 +228,11 @@ function initRedis() {
         const usernameOverride = !urlHasUsername ? normalizeRedisUrl(process.env.REDIS_USERNAME) : '';
         const passwordOverride = !urlHasPassword ? normalizeRedisUrl(process.env.REDIS_PASSWORD) : '';
 
-        // Some platforms (including Railway internal DNS) may resolve Redis hosts to IPv6-only.
-        // Default to auto family selection unless explicitly forced.
-        const family = parseRedisFamily(process.env.REDIS_FAMILY);
+        // Railway internal DNS can resolve to IPv6 and cause intermittent timeouts.
+        // Default to IPv4 when on Railway + using railway.internal, unless explicitly overridden.
+        const envFamily = parseRedisFamily(process.env.REDIS_FAMILY);
+        const host = String(parsedUrl?.hostname || '');
+        const family = envFamily ?? (isRailway && /(^|\.)railway\.internal$/i.test(host) ? 4 : undefined);
 
         redis = new Redis(redisUrl, {
             maxRetriesPerRequest: Number(process.env.REDIS_MAX_RETRIES_PER_REQUEST || 3),
@@ -261,7 +264,7 @@ function initRedis() {
             enableOfflineQueue: false, // Don't queue commands when offline
             enableReadyCheck,
             keepAlive: isProduction ? 30000 : 0, // Keep-alive for production
-            family,
+            ...(family ? { family } : {}),
             ...(useTls ? { tls: { servername: parsedUrl?.hostname } } : {}),
             ...(usernameOverride ? { username: usernameOverride } : {}),
             ...(passwordOverride ? { password: passwordOverride } : {}),
@@ -297,11 +300,53 @@ function initRedis() {
     }
 }
 
+async function waitForRedisReady(client, timeoutMs) {
+    if (!client) return;
+    if (client.status === 'ready') return;
+
+    // If we're in 'wait', attempting connect() is safe and can speed things up.
+    if (client.status === 'wait') {
+        try {
+            await client.connect();
+        } catch {
+            // We'll fall back to waiting for events below.
+        }
+        if (client.status === 'ready') return;
+    }
+
+    await Promise.race([
+        new Promise((resolve, reject) => {
+            const onReady = () => cleanup(resolve);
+            const onError = (err) => cleanup(() => reject(err));
+            const onEnd = () => cleanup(() => reject(new Error('Redis connection ended')));
+            const onClose = () => cleanup(() => reject(new Error('Redis connection closed')));
+
+            const cleanup = (done) => {
+                client.off('ready', onReady);
+                client.off('error', onError);
+                client.off('end', onEnd);
+                client.off('close', onClose);
+                if (typeof done === 'function') done();
+            };
+
+            client.once('ready', onReady);
+            client.once('error', onError);
+            client.once('end', onEnd);
+            client.once('close', onClose);
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis connect timeout')), timeoutMs)),
+    ]);
+}
+
 export async function checkRedisHealth(timeoutMs = 5000) {
     const client = initRedis();
     if (!client) return false;
 
     try {
+        // With enableOfflineQueue=false, issuing commands before the socket is ready
+        // throws "Stream isn't writeable". Wait for readiness first to avoid false negatives.
+        await waitForRedisReady(client, timeoutMs);
+
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Redis healthcheck timeout')), timeoutMs)
         );
