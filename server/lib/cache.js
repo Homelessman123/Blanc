@@ -23,259 +23,34 @@ import Redis from 'ioredis';
 let redis = null;
 let isRedisAvailable = false;
 
-const DEFAULT_MEMORY_MAX_ENTRIES = 1000;
-const memoryMaxEntriesRaw = Number.parseInt(process.env.CACHE_MEMORY_MAX_ENTRIES || '', 10);
-const MEMORY_MAX_ENTRIES =
-    Number.isFinite(memoryMaxEntriesRaw) && memoryMaxEntriesRaw >= 0
-        ? memoryMaxEntriesRaw
-        : DEFAULT_MEMORY_MAX_ENTRIES;
-
-const memoryCache = new Map(); // key -> { value, expiresAtMs }
-const inFlightRequests = new Map(); // key -> Promise
-const keyGenerations = new Map(); // key -> number
-let memoryCleanupCounter = 0;
-
-function bumpGeneration(key) {
-    const next = (keyGenerations.get(key) || 0) + 1;
-    keyGenerations.set(key, next);
-    return next;
-}
-
-function getGeneration(key) {
-    return keyGenerations.get(key) || 0;
-}
-
-function escapeRegExp(value) {
-    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function globPatternToRegex(pattern) {
-    const escaped = escapeRegExp(pattern).replace(/\\\*/g, '.*');
-    return new RegExp(`^${escaped}$`);
-}
-
-function pruneMemoryCache() {
-    if (MEMORY_MAX_ENTRIES === 0) {
-        memoryCache.clear();
-        return;
-    }
-
-    memoryCleanupCounter += 1;
-    if (memoryCleanupCounter >= 50) {
-        memoryCleanupCounter = 0;
-        const now = Date.now();
-        for (const [key, entry] of memoryCache.entries()) {
-            if (!entry || entry.expiresAtMs <= now) {
-                memoryCache.delete(key);
-            }
-        }
-    }
-
-    while (memoryCache.size > MEMORY_MAX_ENTRIES) {
-        const oldestKey = memoryCache.keys().next().value;
-        if (!oldestKey) break;
-        memoryCache.delete(oldestKey);
-    }
-}
-
-function getMemoryCache(key) {
-    const entry = memoryCache.get(key);
-    if (!entry) return null;
-    if (Date.now() > entry.expiresAtMs) {
-        memoryCache.delete(key);
-        return null;
-    }
-    return entry.value;
-}
-
-function setMemoryCache(key, value, ttlSeconds) {
-    if (MEMORY_MAX_ENTRIES === 0) return;
-    const ttlMs = Math.max(0, Number(ttlSeconds) || 0) * 1000;
-    const expiresAtMs = Date.now() + ttlMs;
-    memoryCache.set(key, { value, expiresAtMs });
-    pruneMemoryCache();
-}
-
-function invalidateMemoryCache(keyOrPattern) {
-    if (!keyOrPattern) return;
-
-    if (keyOrPattern.includes('*')) {
-        const regex = globPatternToRegex(keyOrPattern);
-
-        for (const key of memoryCache.keys()) {
-            if (regex.test(key)) {
-                memoryCache.delete(key);
-                bumpGeneration(key);
-            }
-        }
-
-        for (const key of inFlightRequests.keys()) {
-            if (regex.test(key)) {
-                bumpGeneration(key);
-                inFlightRequests.delete(key);
-            }
-        }
-
-        return;
-    }
-
-    memoryCache.delete(keyOrPattern);
-    bumpGeneration(keyOrPattern);
-    inFlightRequests.delete(keyOrPattern);
-}
-
-export function normalizeRedisUrl(value) {
-    if (!value) return value;
-    const trimmed = String(value).trim();
-
-    // Common template placeholders (GitHub Actions/Railway-like) that indicate the value
-    // was not expanded at runtime.
-    if (trimmed.includes('${{') || trimmed.includes('}}')) {
-        return '';
-    }
-
-    if (
-        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))
-    ) {
-        return trimmed.slice(1, -1);
-    }
-    return trimmed;
-}
-
-function coerceRedisUrl(value) {
-    const normalized = normalizeRedisUrl(value);
-    if (!normalized) return '';
-
-    // ioredis supports redis://, rediss:// and unix://
-    if (/^(redis|rediss|unix):\/\//i.test(normalized)) {
-        return normalized;
-    }
-
-    // If it looks like host:port or user:pass@host:port, add redis:// prefix
-    // Railway format: redis://default:xxx@redis.railway.internal:6379
-    if (/^[a-zA-Z0-9_-]+:[^/]/.test(normalized)) {
-        return `redis://${normalized}`;
-    }
-
-    return normalized;
-}
-
-function parseBoolean(value) {
-    if (value === undefined || value === null) return undefined;
-    const v = String(value).trim().toLowerCase();
-    if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
-    if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
-    return undefined;
-}
-
-function safeParseUrl(urlString) {
-    try {
-        return new URL(urlString);
-    } catch {
-        return null;
-    }
-}
-
-function parseRedisFamily(value) {
-    const raw = String(value ?? '').trim();
-    if (!raw) return undefined;
-    const n = Number.parseInt(raw, 10);
-    if (n === 4 || n === 6) return n;
-    return undefined;
-}
-
 /**
- * Initialize Redis connection with Railway-optimized settings
+ * Initialize Redis connection
  */
 function initRedis() {
     if (redis) return redis;
 
-    // Railway deployments often run with NODE_ENV unset/"development".
-    // Treat Railway as production for more conservative timeouts/retries.
-    const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
-
-    const redisUrl = coerceRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
+    const redisUrl = process.env.REDIS_URL || process.env.REDIS_URI;
 
     if (!redisUrl) {
         console.warn('⚠️ Redis URL not configured, caching will be disabled');
         return null;
     }
 
-    // Log sanitized URL for debugging (hide password)
-    const sanitizedUrl = redisUrl.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@');
-    console.log(`🔗 Initializing Redis: ${sanitizedUrl}`);
-
     try {
-        const parsedUrl = safeParseUrl(redisUrl);
-        const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
-        const isTlsFromScheme = parsedUrl?.protocol === 'rediss:';
-        const forceTls = parseBoolean(process.env.REDIS_TLS);
-        const useTls = forceTls ?? isTlsFromScheme;
-
-        const enableReadyCheckEnv = parseBoolean(process.env.REDIS_ENABLE_READY_CHECK);
-        const enableReadyCheck = enableReadyCheckEnv ?? true;
-
-        const maxConnectAttemptsRaw = String(process.env.REDIS_MAX_CONNECT_ATTEMPTS ?? '').trim();
-        const maxConnectAttemptsEnv = maxConnectAttemptsRaw === '' ? Number.NaN : Number(maxConnectAttemptsRaw);
-        const maxConnectAttempts = Number.isFinite(maxConnectAttemptsEnv) && maxConnectAttemptsEnv >= 0
-            ? maxConnectAttemptsEnv
-            : (isRailway ? 15 : (isProduction ? 10 : 3)); // 15 for Railway to handle cold starts
-
-        const retryBaseDelayMs = Number(process.env.REDIS_RETRY_BASE_DELAY_MS || (isProduction ? 250 : 50));
-        const retryMaxDelayMs = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || (isProduction ? 30_000 : 2_000));
-
-        const urlHasUsername = Boolean(parsedUrl?.username);
-        const urlHasPassword = Boolean(parsedUrl?.password);
-
-        const usernameOverride = !urlHasUsername ? normalizeRedisUrl(process.env.REDIS_USERNAME) : '';
-        const passwordOverride = !urlHasPassword ? normalizeRedisUrl(process.env.REDIS_PASSWORD) : '';
-
-        // Railway internal DNS can resolve to IPv6 and cause intermittent timeouts.
-        // ALWAYS force IPv4 for railway.internal hosts to avoid ETIMEDOUT.
-        const envFamily = parseRedisFamily(process.env.REDIS_FAMILY);
-        const host = String(parsedUrl?.hostname || '');
-        const isRailwayInternalHost = /(^|\.)railway\.internal$/i.test(host);
-        const family = envFamily ?? (isRailwayInternalHost ? 4 : undefined);
-
-        if (family) {
-            console.log(`🔧 Redis: using IPv${family} (host: ${host})`);
-        }
-
         redis = new Redis(redisUrl, {
-            maxRetriesPerRequest: Number(process.env.REDIS_MAX_RETRIES_PER_REQUEST || 3),
-            connectTimeout: isRailway ? 15000 : (isProduction ? 10000 : 5000), // 15s for Railway
-            commandTimeout: isProduction ? 5000 : 3000,  // 5s for prod, 3s for dev
+            maxRetriesPerRequest: 3,
             retryStrategy: (times) => {
-                // Limit retry attempts to avoid infinite loops on persistent failures
-                if (maxConnectAttempts > 0 && times > maxConnectAttempts) {
-                    console.warn(`⚠️ Redis connection failed after ${maxConnectAttempts} attempts, disabling cache`);
-                    isRedisAvailable = false;
-                    return null; // Stop retrying
-                }
-
-                const expDelay = Math.round(retryBaseDelayMs * Math.pow(1.7, Math.max(0, times - 1)));
-                const delay = Math.min(retryMaxDelayMs, Math.max(50, expDelay));
-                if (times <= 3 || times % 5 === 0) {
-                    console.log(`🔄 Redis retry ${times}/${maxConnectAttempts || '∞'} in ${delay}ms...`);
-                }
+                const delay = Math.min(times * 50, 2000);
                 return delay;
             },
             reconnectOnError: (err) => {
                 const targetError = 'READONLY';
                 if (err.message.includes(targetError)) {
-                    return true; // Reconnect on READONLY error
+                    // Reconnect on READONLY error
+                    return true;
                 }
                 return false;
             },
-            lazyConnect: true, // Don't connect immediately
-            enableOfflineQueue: false, // Don't queue commands when offline
-            enableReadyCheck,
-            keepAlive: isProduction ? 30000 : 0, // Keep-alive for production
-            ...(family ? { family } : {}),
-            ...(useTls ? { tls: { servername: parsedUrl?.hostname } } : {}),
-            ...(usernameOverride ? { username: usernameOverride } : {}),
-            ...(passwordOverride ? { password: passwordOverride } : {}),
         });
 
         redis.on('connect', () => {
@@ -284,9 +59,8 @@ function initRedis() {
         });
 
         redis.on('error', (err) => {
-            console.error('❌ Redis error:', err.message || err);
+            console.error('❌ Redis error:', err.message);
             isRedisAvailable = false;
-            // Don't let Redis errors crash the app
         });
 
         redis.on('close', () => {
@@ -294,93 +68,10 @@ function initRedis() {
             isRedisAvailable = false;
         });
 
-        // Try to connect once, but don't block if it fails
-        redis.connect().catch((err) => {
-            console.warn('⚠️ Redis initial connection failed, caching disabled:', err.message);
-            if (isRailway) {
-                console.warn('💡 Railway Redis tips: Ensure Redis plugin is in same environment, Private Networking enabled');
-            }
-            isRedisAvailable = false;
-        });
-
         return redis;
     } catch (err) {
-        console.error('Failed to initialize Redis:', err.message || err);
-        isRedisAvailable = false;
+        console.error('Failed to initialize Redis:', err);
         return null;
-    }
-}
-
-async function waitForRedisReady(client, timeoutMs) {
-    if (!client) return;
-    if (client.status === 'ready') return;
-
-    // If we're in 'wait', attempting connect() is safe and can speed things up.
-    if (client.status === 'wait') {
-        try {
-            await client.connect();
-        } catch {
-            // We'll fall back to waiting for events below.
-        }
-        if (client.status === 'ready') return;
-    }
-
-    await Promise.race([
-        new Promise((resolve, reject) => {
-            const onReady = () => cleanup(resolve);
-            const onError = (err) => cleanup(() => reject(err));
-            const onEnd = () => cleanup(() => reject(new Error('Redis connection ended')));
-            const onClose = () => cleanup(() => reject(new Error('Redis connection closed')));
-
-            const cleanup = (done) => {
-                client.off('ready', onReady);
-                client.off('error', onError);
-                client.off('end', onEnd);
-                client.off('close', onClose);
-                if (typeof done === 'function') done();
-            };
-
-            client.once('ready', onReady);
-            client.once('error', onError);
-            client.once('end', onEnd);
-            client.once('close', onClose);
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis connect timeout')), timeoutMs)),
-    ]);
-}
-
-export async function checkRedisHealth(timeoutMs) {
-    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
-    const timeoutOverrideMsRaw = Number(process.env.REDIS_HEALTHCHECK_TIMEOUT_MS || '');
-    const timeoutOverrideMs = Number.isFinite(timeoutOverrideMsRaw) && timeoutOverrideMsRaw > 0
-        ? timeoutOverrideMsRaw
-        : undefined;
-
-    // Default to a longer timeout on Railway to survive cold starts.
-    const timeoutMsSanitized = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : undefined;
-    timeoutMs = timeoutOverrideMs ?? timeoutMsSanitized ?? (isRailway ? 12000 : 5000);
-
-    const client = initRedis();
-    if (!client) return false;
-
-    try {
-        // With enableOfflineQueue=false, issuing commands before the socket is ready
-        // throws "Stream isn't writeable". Wait for readiness first to avoid false negatives.
-        await waitForRedisReady(client, timeoutMs);
-
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Redis healthcheck timeout')), timeoutMs)
-        );
-        await Promise.race([client.ping(), timeoutPromise]);
-        isRedisAvailable = true;
-        return true;
-    } catch (err) {
-        const message = String(err?.message || err || '').slice(0, 300);
-        if (message) {
-            console.warn('⚠️ Redis healthcheck failed:', message);
-        }
-        isRedisAvailable = false;
-        return false;
     }
 }
 
@@ -392,65 +83,32 @@ export async function checkRedisHealth(timeoutMs) {
  * @returns {Promise<any>} Cached or freshly fetched data
  */
 export async function getCached(key, fetcher, ttl = 300) {
-    const cachedMemory = getMemoryCache(key);
-    if (cachedMemory !== null) {
-        return cachedMemory;
-    }
-
-    const pending = inFlightRequests.get(key);
-    if (pending) {
-        return await pending;
-    }
-
-    const generationAtStart = getGeneration(key);
     const client = initRedis();
-    const useRedis = Boolean(client && isRedisAvailable);
 
-    const requestPromise = (async () => {
-        try {
-            if (useRedis) {
-                try {
-                    const cached = await client.get(key);
-                    if (cached) {
-                        const parsed = JSON.parse(cached);
-                        setMemoryCache(key, parsed, ttl);
-                        return parsed;
-                    }
-                } catch (err) {
-                    console.warn('Cache read error:', err?.message || err);
-                }
-            }
+    // If Redis is not available, always fetch fresh
+    if (!client || !isRedisAvailable) {
+        return await fetcher();
+    }
 
-            const data = await fetcher();
-
-            // Don't cache null/undefined results (avoids caching "not found" responses).
-            if (data === null || data === undefined) {
-                return data;
-            }
-
-            // Avoid caching if the key was invalidated while the fetch was in flight.
-            if (getGeneration(key) !== generationAtStart) {
-                return data;
-            }
-
-            setMemoryCache(key, data, ttl);
-
-            if (useRedis) {
-                try {
-                    await client.setex(key, ttl, JSON.stringify(data));
-                } catch (err) {
-                    console.warn('Cache write error:', err?.message || err);
-                }
-            }
-
-            return data;
-        } finally {
-            inFlightRequests.delete(key);
+    try {
+        // Try to get from cache
+        const cached = await client.get(key);
+        if (cached) {
+            return JSON.parse(cached);
         }
-    })();
 
-    inFlightRequests.set(key, requestPromise);
-    return await requestPromise;
+        // Not in cache, fetch fresh data
+        const data = await fetcher();
+
+        // Store in cache with TTL
+        await client.setex(key, ttl, JSON.stringify(data));
+
+        return data;
+    } catch (err) {
+        console.error('Cache error:', err);
+        // On cache error, fetch fresh data
+        return await fetcher();
+    }
 }
 
 /**
@@ -461,11 +119,6 @@ export async function getCached(key, fetcher, ttl = 300) {
  */
 export async function setCache(key, value, ttl = 300) {
     const client = initRedis();
-
-    if (value !== null && value !== undefined) {
-        setMemoryCache(key, value, ttl);
-    }
-
     if (!client || !isRedisAvailable) return;
 
     try {
@@ -480,9 +133,6 @@ export async function setCache(key, value, ttl = 300) {
  * @param {string} keyOrPattern - Cache key or pattern (e.g., "contests:*")
  */
 export async function invalidate(keyOrPattern) {
-    if (!keyOrPattern) return;
-    invalidateMemoryCache(keyOrPattern);
-
     const client = initRedis();
     if (!client || !isRedisAvailable) return;
 
@@ -516,10 +166,6 @@ export async function invalidate(keyOrPattern) {
  * Clear all cache
  */
 export async function clearAll() {
-    memoryCache.clear();
-    inFlightRequests.clear();
-    keyGenerations.clear();
-
     const client = initRedis();
     if (!client || !isRedisAvailable) return;
 
@@ -539,39 +185,36 @@ export function isAvailable() {
 }
 
 /**
+ * Check Redis health by pinging
+ */
+export async function checkRedisHealth(timeoutMs = 5000) {
+    const client = initRedis();
+    if (!client) return false;
+
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), timeoutMs)
+        );
+        await Promise.race([client.ping(), timeoutPromise]);
+        return isRedisAvailable;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Disconnect from Redis
  */
 export async function disconnect() {
     if (redis) {
         try {
-            // Only attempt quit if connection is in a valid state
-            const status = redis.status;
-            if (status === 'ready' || status === 'connect' || status === 'connecting') {
-                await Promise.race([
-                    redis.quit(),
-                    new Promise((resolve) => setTimeout(resolve, 2000)) // 2s timeout for quit
-                ]);
-            } else {
-                // Connection already closed/closing, just disconnect
-                redis.disconnect();
-            }
-        } catch (err) {
-            // Ignore errors during shutdown - connection may already be closed
-            console.warn('⚠️ Redis disconnect warning (non-fatal):', err.message);
-            try {
-                redis.disconnect();
-            } catch {
-                // Ignore secondary errors
-            }
-        } finally {
-            redis = null;
-            isRedisAvailable = false;
+            await redis.quit();
+        } catch {
+            // Ignore errors during disconnect
         }
+        redis = null;
+        isRedisAvailable = false;
     }
-
-    memoryCache.clear();
-    inFlightRequests.clear();
-    keyGenerations.clear();
 }
 
 export default {
@@ -580,5 +223,6 @@ export default {
     invalidate,
     clearAll,
     isAvailable,
+    checkRedisHealth,
     disconnect,
 };
