@@ -1,19 +1,12 @@
 import { Router } from 'express';
 import { connectToDatabase, getDb } from '../lib/db.js';
-import { checkRedisHealth, isAvailable as isRedisAvailable } from '../lib/cache.js';
+import { checkRedisHealth, getRedisEnvSummary, isAvailable as isRedisAvailable } from '../lib/cache.js';
 
 const router = Router();
 
 // Debug endpoint - REMOVE AFTER TROUBLESHOOTING
 router.get('/debug-env', (_req, res) => {
-  const redisUrlRaw = process.env.REDIS_URL || process.env.REDIS_URI || '';
-  const redisUrl = redisUrlRaw ? String(redisUrlRaw).trim().replace(/^"|"$/g, '').replace(/^'|'$/g, '') : '';
-  let redisParsed;
-  try {
-    redisParsed = redisUrl ? new URL(redisUrl) : undefined;
-  } catch {
-    redisParsed = undefined;
-  }
+  const redisSummary = getRedisEnvSummary();
 
   const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
   const isProduction = process.env.NODE_ENV === 'production' || isRailway;
@@ -32,14 +25,22 @@ router.get('/debug-env', (_req, res) => {
       gitCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT,
     },
     redisDiagnostics: {
-      configured: !!redisUrlRaw,
-      protocol: redisParsed?.protocol,
-      host: redisParsed?.hostname,
-      port: redisParsed?.port,
-      isRailwayInternalHost: redisParsed?.hostname ? /(^|\.)railway\.internal$/i.test(redisParsed.hostname) : false,
+      configured: redisSummary.configured,
+      source: redisSummary.source,
+      protocol: redisSummary.protocol,
+      host: redisSummary.host,
+      port: redisSummary.port,
+      isRailwayInternalHost: redisSummary.isRailwayInternalHost,
+      looksLikePlaceholder: redisSummary.looksLikePlaceholder,
       env: {
+        REDIS_URL: process.env.REDIS_URL ? 'set' : undefined,
+        REDIS_PRIVATE_URL: process.env.REDIS_PRIVATE_URL ? 'set' : undefined,
+        REDIS_PUBLIC_URL: process.env.REDIS_PUBLIC_URL ? 'set' : undefined,
+        REDIS_URI: process.env.REDIS_URI ? 'set' : undefined,
+        REDIS_CONNECTION_STRING: process.env.REDIS_CONNECTION_STRING ? 'set' : undefined,
         REDIS_FAMILY: process.env.REDIS_FAMILY,
         REDIS_TLS: process.env.REDIS_TLS,
+        REDIS_TLS_REJECT_UNAUTHORIZED: process.env.REDIS_TLS_REJECT_UNAUTHORIZED,
         REDIS_ENABLE_READY_CHECK: process.env.REDIS_ENABLE_READY_CHECK,
         REDIS_MAX_CONNECT_ATTEMPTS: process.env.REDIS_MAX_CONNECT_ATTEMPTS,
         REDIS_MAX_RETRIES_PER_REQUEST: process.env.REDIS_MAX_RETRIES_PER_REQUEST,

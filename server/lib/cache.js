@@ -23,35 +23,191 @@ import Redis from 'ioredis';
 let redis = null;
 let isRedisAvailable = false;
 
+function sanitizeRedisUrl(value) {
+    return value ? String(value).trim().replace(/^['"]|['"]$/g, '') : '';
+}
+
+function readBoolEnv(name, defaultValue = false) {
+    const raw = process.env[name];
+    if (raw === undefined) return defaultValue;
+    const v = String(raw).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
+    if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
+    return defaultValue;
+}
+
+function readIntEnv(name, defaultValue) {
+    const raw = process.env[name];
+    if (raw === undefined || raw === null || String(raw).trim() === '') return defaultValue;
+    const n = Number.parseInt(String(raw), 10);
+    return Number.isFinite(n) ? n : defaultValue;
+}
+
+function getRedisUrlFromEnvWithSource() {
+    const candidates = [
+        'REDIS_URL',
+        'REDIS_PRIVATE_URL',
+        'REDIS_PUBLIC_URL',
+        'REDIS_URI',
+        'REDIS_CONNECTION_STRING',
+    ];
+
+    for (const name of candidates) {
+        const raw = process.env[name];
+        const v = sanitizeRedisUrl(raw);
+        if (v) return { url: v, source: name };
+    }
+    return { url: '', source: null };
+}
+
+function looksLikePlaceholder(value) {
+    if (!value) return false;
+    return (
+        value.includes('${{') ||
+        value.includes('}}') ||
+        (value.includes('<') && value.includes('>'))
+    );
+}
+
+function getRedisTargetForLogs(redisUrl, tlsEnabled) {
+    try {
+        const u = new URL(redisUrl);
+        const host = u.hostname || 'unknown-host';
+        const port = u.port || ((u.protocol === 'rediss:' || tlsEnabled) ? '6380' : '6379');
+        const proto = (u.protocol === 'rediss:' || tlsEnabled) ? 'rediss:' : 'redis:';
+        return `${proto}//${host}:${port}`;
+    } catch {
+        return 'invalid-url';
+    }
+}
+
+export function getRedisEnvSummary() {
+    const { url, source } = getRedisUrlFromEnvWithSource();
+    const configured = Boolean(url);
+
+    let protocol;
+    let host;
+    let port;
+    let isRailwayInternalHost = false;
+
+    try {
+        if (url) {
+            const parsed = new URL(url);
+            protocol = parsed.protocol;
+            host = parsed.hostname;
+            port = parsed.port;
+            isRailwayInternalHost = parsed.hostname
+                ? /(^|\.)railway\.internal$/i.test(parsed.hostname)
+                : false;
+        }
+    } catch {
+        // ignore
+    }
+
+    return {
+        configured,
+        source,
+        protocol,
+        host,
+        port,
+        isRailwayInternalHost,
+        looksLikePlaceholder: looksLikePlaceholder(url),
+        targetForLogs: url ? getRedisTargetForLogs(url, protocol === 'rediss:') : undefined,
+    };
+}
+
 /**
  * Initialize Redis connection
  */
 function initRedis() {
     if (redis) return redis;
 
-    const redisUrl = process.env.REDIS_URL || process.env.REDIS_URI;
+    const { url: redisUrl, source: redisUrlSource } = getRedisUrlFromEnvWithSource();
 
     if (!redisUrl) {
         console.warn('⚠️ Redis URL not configured, caching will be disabled');
         return null;
     }
 
+    if (looksLikePlaceholder(redisUrl)) {
+        console.warn(`⚠️ Redis URL looks like a placeholder (${redisUrlSource || 'unknown'}), caching will be disabled until fixed`);
+        return null;
+    }
+
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+    const isProduction = process.env.NODE_ENV === 'production' || isRailway;
+
+    if (isProduction && /redis:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(redisUrl)) {
+        console.warn('⚠️ Redis URL points to localhost in production; caching will fail unless Redis runs in the same container');
+    }
+
     try {
-        redis = new Redis(redisUrl, {
-            maxRetriesPerRequest: 3,
+        const family = readIntEnv('REDIS_FAMILY', undefined);
+        const connectTimeout = readIntEnv('REDIS_CONNECT_TIMEOUT_MS', isProduction ? 15000 : 5000);
+        const enableReadyCheck = readBoolEnv('REDIS_ENABLE_READY_CHECK', true);
+        const baseDelay = readIntEnv('REDIS_RETRY_BASE_DELAY_MS', 250);
+        const maxDelay = readIntEnv('REDIS_RETRY_MAX_DELAY_MS', 5000);
+        const maxConnectAttempts = readIntEnv('REDIS_MAX_CONNECT_ATTEMPTS', isProduction ? 30 : 15);
+
+        let maxRetriesPerRequest = process.env.REDIS_MAX_RETRIES_PER_REQUEST;
+        if (maxRetriesPerRequest !== undefined) {
+            const v = String(maxRetriesPerRequest).trim().toLowerCase();
+            if (v === 'null' || v === 'none' || v === 'disabled') {
+                maxRetriesPerRequest = null;
+            } else {
+                const n = Number.parseInt(v, 10);
+                maxRetriesPerRequest = Number.isFinite(n) ? n : (isProduction ? 5 : 3);
+            }
+        } else {
+            maxRetriesPerRequest = isProduction ? 5 : 3;
+        }
+
+        let parsed;
+        try {
+            parsed = new URL(redisUrl);
+        } catch {
+            parsed = undefined;
+        }
+
+        const tlsForced = process.env.REDIS_TLS !== undefined;
+        const portSuggestsTls = parsed?.port === '6380';
+        const tlsEnabled = tlsForced
+            ? readBoolEnv('REDIS_TLS', false)
+            : parsed?.protocol === 'rediss:' || portSuggestsTls;
+        const tlsRejectUnauthorized = readBoolEnv('REDIS_TLS_REJECT_UNAUTHORIZED', true);
+
+        const options = {
+            connectTimeout,
+            enableReadyCheck,
+            maxRetriesPerRequest,
             retryStrategy: (times) => {
-                const delay = Math.min(times * 50, 2000);
+                if (maxConnectAttempts && times > maxConnectAttempts) return null;
+                const delay = Math.min(baseDelay * Math.max(1, times), maxDelay);
                 return delay;
             },
             reconnectOnError: (err) => {
                 const targetError = 'READONLY';
-                if (err.message.includes(targetError)) {
-                    // Reconnect on READONLY error
-                    return true;
-                }
-                return false;
+                return typeof err?.message === 'string' && err.message.includes(targetError);
             },
-        });
+        };
+
+        if (family === 4 || family === 6) {
+            options.family = family;
+        } else if (isRailway) {
+            // Railway internal DNS sometimes resolves AAAA first; forcing IPv4 avoids ETIMEDOUT on some deployments.
+            options.family = 4;
+        }
+
+        if (tlsEnabled) {
+            options.tls = { rejectUnauthorized: tlsRejectUnauthorized };
+        }
+
+        console.log(
+            `🔌 Redis connecting to ${getRedisTargetForLogs(redisUrl, tlsEnabled)}${tlsEnabled ? ' (TLS)' : ''}` +
+            (redisUrlSource ? ` [${redisUrlSource}]` : '')
+        );
+
+        redis = new Redis(redisUrl, options);
 
         redis.on('connect', () => {
             console.log('✅ Redis connected');
@@ -59,12 +215,18 @@ function initRedis() {
         });
 
         redis.on('error', (err) => {
-            console.error('❌ Redis error:', err.message);
+            const code = err?.code ? ` (${err.code})` : '';
+            console.error(`❌ Redis error${code}:`, err?.message || String(err));
             isRedisAvailable = false;
         });
 
         redis.on('close', () => {
             console.warn('⚠️ Redis connection closed');
+            isRedisAvailable = false;
+        });
+
+        redis.on('reconnecting', () => {
+            console.warn('🔁 Redis reconnecting...');
             isRedisAvailable = false;
         });
 
