@@ -22,6 +22,9 @@ describe('membership', () => {
 
   it('extracts orderCode from transfer content', () => {
     expect(extractOrderCodeFromContent('Thanh toan CHUB-ABC1234567')).toBe('CHUB-ABC1234567');
+    expect(extractOrderCodeFromContent('Thanh toan CHUB ABC1234567')).toBe('CHUB-ABC1234567');
+    expect(extractOrderCodeFromContent('Thanh toan CHUB_ABC1234567')).toBe('CHUB-ABC1234567');
+    expect(extractOrderCodeFromContent('Thanh toan CHUBABC1234567')).toBe('CHUB-ABC1234567');
     expect(extractOrderCodeFromContent('no code here')).toBe(null);
   });
 

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import crypto from 'crypto';
 import net from 'node:net';
 import { ObjectId } from '../lib/objectId.js';
@@ -30,6 +30,87 @@ function parseSepayApiKey(authorizationHeader) {
     if (lower.startsWith('bearer ')) return header.slice(7).trim();
     // Some clients may send the raw key without prefix
     return header;
+}
+
+function tryParseJson(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text) return null;
+    if (!text.startsWith('{') && !text.startsWith('[')) return null;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+}
+
+function tryParseUrlEncoded(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text || !text.includes('=')) return null;
+
+    try {
+        const params = new URLSearchParams(text);
+        const obj = {};
+        for (const [key, value] of params.entries()) {
+            obj[key] = value;
+        }
+        return Object.keys(obj).length > 0 ? obj : null;
+    } catch {
+        return null;
+    }
+}
+
+function coerceSepayRequestBody(body) {
+    if (body && typeof body === 'object') {
+        return { parsed: body, rawForStorage: body };
+    }
+
+    if (typeof body === 'string') {
+        const trimmed = body.trim();
+        if (!trimmed) return { parsed: {}, rawForStorage: '' };
+        const parsed = tryParseJson(trimmed) || tryParseUrlEncoded(trimmed) || {};
+        return { parsed, rawForStorage: trimmed };
+    }
+
+    return { parsed: {}, rawForStorage: body ?? null };
+}
+
+function unwrapSepayTransaction(body) {
+    let cursor = body;
+
+    for (let depth = 0; depth < 5; depth++) {
+        if (Array.isArray(cursor)) {
+            cursor = cursor[0];
+            continue;
+        }
+
+        if (!cursor || typeof cursor !== 'object') return {};
+
+        const next =
+            cursor.data ??
+            cursor.transaction ??
+            cursor.tx ??
+            cursor.payload ??
+            cursor.result ??
+            cursor.event ??
+            cursor.body;
+
+        if (next && typeof next === 'object') {
+            cursor = next;
+            continue;
+        }
+
+        if (typeof next === 'string') {
+            const parsed = tryParseJson(next);
+            if (parsed && typeof parsed === 'object') {
+                cursor = parsed;
+                continue;
+            }
+        }
+
+        break;
+    }
+
+    return cursor && typeof cursor === 'object' ? cursor : {};
 }
 
 function normalizeIp(ip) {
@@ -109,10 +190,22 @@ function requireSepayAuth(req, res) {
         return false;
     }
 
+    const allowQueryKey = String(process.env.SEPAY_WEBHOOK_ALLOW_QUERY_KEY || 'false').toLowerCase() === 'true';
+    const queryProvided = allowQueryKey
+        ? parseSepayApiKey(
+            req.query.apiKey ??
+            req.query.api_key ??
+            req.query.key ??
+            req.query.token ??
+            req.query.sepay_api_key
+        )
+        : null;
+
     const provided =
         parseSepayApiKey(req.headers.authorization) ||
         parseSepayApiKey(req.headers['x-api-key']) ||
-        parseSepayApiKey(req.headers['x-sepay-api-key']);
+        parseSepayApiKey(req.headers['x-sepay-api-key']) ||
+        queryProvided;
 
     const isAuthorized =
         Boolean(provided) &&
@@ -130,23 +223,124 @@ function requireSepayAuth(req, res) {
     return true;
 }
 
+function parseVndAmount(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+
+    const text = String(value ?? '').trim();
+    if (!text) return 0;
+
+    const sign = text.includes('-') ? -1 : 1;
+    const digits = text.replace(/\D/g, '');
+    if (!digits) return 0;
+
+    const parsed = Number.parseInt(digits, 10);
+    if (Number.isNaN(parsed)) return 0;
+    return sign * parsed;
+}
+
+function normalizeSepayTransferType(value) {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw) return null;
+
+    // Accept common inbound/outbound synonyms used by gateways.
+    if (['in', 'credit', 'incoming', 'receive', 'received', 'deposit'].includes(raw)) return 'in';
+    if (['out', 'debit', 'outgoing', 'send', 'sent', 'withdraw', 'withdrawal'].includes(raw)) return 'out';
+
+    return raw;
+}
+
 function normalizeSepayPayload(body) {
-    const raw = body && typeof body === 'object' ? body : {};
-    const providerTransactionId = raw.id ?? raw.transactionId ?? raw.transaction_id;
+    const coerced = coerceSepayRequestBody(body);
+    const tx = unwrapSepayTransaction(coerced.parsed);
+
+    const providerTransactionIdCandidate =
+        tx.id ??
+        tx.transactionId ??
+        tx.transaction_id ??
+        tx.transId ??
+        tx.trans_id ??
+        tx.txId ??
+        tx.tx_id ??
+        tx.providerTransactionId ??
+        tx.provider_transaction_id ??
+        tx.referenceCode ??
+        tx.reference_code ??
+        tx.refCode ??
+        tx.ref_code;
+
+    let providerTransactionId =
+        providerTransactionIdCandidate === undefined || providerTransactionIdCandidate === null
+            ? null
+            : String(providerTransactionIdCandidate).trim();
+
+    const transferAmount = parseVndAmount(
+        tx.transferAmount ??
+        tx.transfer_amount ??
+        tx.amount ??
+        tx.amountVnd ??
+        tx.amount_vnd ??
+        tx.transferAmountVnd ??
+        tx.transfer_amount_vnd
+    );
+
+    if (!providerTransactionId) {
+        const fingerprintParts = [
+            tx.gateway ?? '',
+            tx.transactionDate ?? tx.transaction_date ?? tx.transactionTime ?? tx.transaction_time ?? '',
+            tx.accountNumber ?? tx.account_number ?? '',
+            String(transferAmount || 0),
+            tx.referenceCode ?? tx.reference_code ?? tx.refCode ?? tx.ref_code ?? tx.code ?? '',
+            tx.content ?? tx.transferContent ?? tx.transfer_content ?? tx.description ?? '',
+        ]
+            .map((v) => String(v || '').trim())
+            .filter(Boolean);
+
+        if (fingerprintParts.length > 0) {
+            providerTransactionId = crypto
+                .createHash('sha256')
+                .update(fingerprintParts.join('|'))
+                .digest('hex')
+                .slice(0, 32);
+        }
+    }
+
+    const content =
+        tx.content ??
+        tx.transferContent ??
+        tx.transfer_content ??
+        tx.contentText ??
+        tx.content_text ??
+        tx.description ??
+        tx.note ??
+        '';
+
     return {
-        providerTransactionId: providerTransactionId === undefined ? null : String(providerTransactionId),
-        gateway: raw.gateway || null,
-        transactionDate: raw.transactionDate || raw.transaction_date || null,
-        accountNumber: raw.accountNumber || raw.account_number || null,
-        code: raw.code || null,
-        content: raw.content || '',
-        transferType: raw.transferType || raw.transfer_type || null,
-        transferAmount: Number(raw.transferAmount ?? raw.transfer_amount ?? 0),
-        accumulated: raw.accumulated ?? null,
-        subAccount: raw.subAccount ?? null,
-        referenceCode: raw.referenceCode ?? null,
-        description: raw.description ?? null,
-        raw,
+        providerTransactionId: providerTransactionId || null,
+        gateway: tx.gateway ?? tx.bank ?? tx.bankCode ?? tx.bank_code ?? null,
+        transactionDate:
+            tx.transactionDate ??
+            tx.transaction_date ??
+            tx.transactionTime ??
+            tx.transaction_time ??
+            null,
+        accountNumber:
+            tx.accountNumber ??
+            tx.account_number ??
+            tx.bankAccountNumber ??
+            tx.bank_account_number ??
+            tx.account ??
+            null,
+        code: tx.code ?? null,
+        content: String(content || ''),
+        transferType: normalizeSepayTransferType(
+            tx.transferType ?? tx.transfer_type ?? tx.type ?? tx.transactionType ?? tx.transaction_type ?? tx.direction
+        ),
+        transferAmount,
+        accumulated: tx.accumulated ?? null,
+        subAccount: tx.subAccount ?? tx.sub_account ?? null,
+        referenceCode: tx.referenceCode ?? tx.reference_code ?? tx.refCode ?? tx.ref_code ?? null,
+        description: tx.description ?? tx.note ?? tx.message ?? null,
+        raw: coerced.rawForStorage,
     };
 }
 
@@ -183,8 +377,11 @@ const PAYMENT_AMOUNT_TOLERANCE_VND = Math.max(
     Number.parseInt(process.env.PAYMENT_AMOUNT_TOLERANCE_VND || '0', 10) || 0
 );
 
+const SEPAY_WEBHOOK_BODY_LIMIT = process.env.SEPAY_WEBHOOK_BODY_LIMIT || process.env.JSON_BODY_LIMIT || '10mb';
+const sepayWebhookBodyParser = express.text({ type: '*/*', limit: SEPAY_WEBHOOK_BODY_LIMIT });
+
 // POST /api/payments/sepay/webhook
-router.post('/sepay/webhook', async (req, res, next) => {
+router.post('/sepay/webhook', sepayWebhookBodyParser, async (req, res, next) => {
     try {
         if (!requireSepayAuth(req, res)) return;
         if (!requireSepayAllowlistedIp(req, res)) return;

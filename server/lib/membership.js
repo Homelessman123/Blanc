@@ -182,9 +182,11 @@ export function extractOrderCodeFromContent(content) {
         .replace(/[^A-Z0-9]/g, '')
         .slice(0, 8) || 'CHUB';
 
-    const regex = new RegExp(`\\b${prefix}-[A-Z0-9]{6,20}\\b`, 'i');
+    // Banks/gateways may strip or replace separators in transfer descriptions.
+    // Accept: CHUB-XXXX, CHUB XXXX, CHUB_XXXX, CHUB:XXXX, CHUBXXXX and normalize to CHUB-XXXX.
+    const regex = new RegExp(`(?:^|[^A-Z0-9])${prefix}[^A-Z0-9]*([A-Z0-9]{6,20})(?:$|[^A-Z0-9])`, 'i');
     const match = text.match(regex);
-    return match ? match[0].toUpperCase() : null;
+    return match ? `${prefix}-${match[1].toUpperCase()}` : null;
 }
 
 export function buildVietQrUrl({ bankCode, accountNumber, accountName, amountVnd, addInfo }) {
