@@ -239,10 +239,9 @@ function initRedis() {
         };
 
         if (family === 4 || family === 6) {
+            // Only force a DNS/IP family when explicitly configured.
+            // Some Railway regions/providers prefer IPv6; forcing IPv4 can cause ETIMEDOUT (and vice-versa).
             options.family = family;
-        } else if (isRailway) {
-            // Railway internal DNS sometimes resolves AAAA first; forcing IPv4 avoids ETIMEDOUT on some deployments.
-            options.family = 4;
         }
 
         if (tlsEnabled) {

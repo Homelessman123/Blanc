@@ -1,17 +1,62 @@
 import { Router } from 'express';
 import { connectToDatabase, getDb } from '../lib/db.js';
 import { checkRedisHealth, getRedisEnvSummary, getRedisRuntimeSummary, isAvailable as isRedisAvailable } from '../lib/cache.js';
+import dns from 'node:dns';
+import net from 'node:net';
 
 const router = Router();
 
+function isTruthy(value) {
+  if (value === undefined || value === null) return false;
+  const v = String(value).trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'on'].includes(v);
+}
+
+async function probeTcp(host, port, timeoutMs) {
+  return await new Promise((resolve) => {
+    const startedAt = Date.now();
+    const socket = new net.Socket();
+
+    const done = (result) => {
+      try { socket.destroy(); } catch { /* ignore */ }
+      resolve({ ...result, elapsedMs: Date.now() - startedAt });
+    };
+
+    socket.setTimeout(timeoutMs);
+
+    socket.once('connect', () => done({ ok: true }));
+    socket.once('timeout', () => done({ ok: false, error: 'timeout' }));
+    socket.once('error', (err) => done({ ok: false, error: err?.code || err?.message || String(err) }));
+
+    try {
+      socket.connect(port, host);
+    } catch (err) {
+      done({ ok: false, error: err?.message || String(err) });
+    }
+  });
+}
+
 // Debug endpoint - REMOVE AFTER TROUBLESHOOTING
 router.get('/debug-env', (_req, res) => {
-  const redisSummary = getRedisEnvSummary();
-
   const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
   const isProduction = process.env.NODE_ENV === 'production' || isRailway;
 
-  res.json({
+  // Protect debug endpoint in production.
+  // Set HEALTH_DEBUG_TOKEN and call with header: x-health-debug-token: <token>
+  if (isProduction) {
+    const token = process.env.HEALTH_DEBUG_TOKEN;
+    const provided = _req.get('x-health-debug-token');
+    if (!token || !provided || provided !== token) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+  }
+
+  const redisSummary = getRedisEnvSummary();
+
+  const enableProbes = isTruthy(process.env.HEALTH_DEBUG_PROBES);
+  const probeTimeoutMs = Number.parseInt(String(process.env.HEALTH_DEBUG_PROBE_TIMEOUT_MS || '2000'), 10) || 2000;
+
+  const payload = {
     hasDATABASE_URL: !!process.env.DATABASE_URL,
     hasPOSTGRES_URL: !!process.env.POSTGRES_URL,
     hasREDIS_URL: !!process.env.REDIS_URL,
@@ -61,7 +106,36 @@ router.get('/debug-env', (_req, res) => {
     },
     databaseUrlLength: process.env.DATABASE_URL?.length || 0,
     databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 20) || 'not_set',
-  });
+  };
+
+  // Optional probes: DNS lookup + TCP connect. Useful on Railway when Redis is sleeping or private networking is broken.
+  // Enable by setting HEALTH_DEBUG_PROBES=true.
+  if (enableProbes && redisSummary.host && redisSummary.port) {
+    const port = Number.parseInt(String(redisSummary.port), 10) || 6379;
+
+    Promise.resolve()
+      .then(async () => {
+        const lookup = await dns.promises.lookup(redisSummary.host, { all: true });
+        return lookup.map((x) => ({ address: x.address, family: x.family }));
+      })
+      .then(async (addresses) => {
+        payload.redisDiagnostics.probes = {
+          dns: { ok: true, addresses },
+        };
+        const tcp = await probeTcp(redisSummary.host, port, probeTimeoutMs);
+        payload.redisDiagnostics.probes.tcp = tcp;
+      })
+      .catch((err) => {
+        payload.redisDiagnostics.probes = {
+          dns: { ok: false, error: err?.code || err?.message || String(err) },
+        };
+      })
+      .finally(() => res.json(payload));
+
+    return;
+  }
+
+  res.json(payload);
 });
 
 router.get('/', async (_req, res) => {
