@@ -43,6 +43,17 @@ function readIntEnv(name, defaultValue) {
     return Number.isFinite(n) ? n : defaultValue;
 }
 
+function isInternalRedisHost(hostname) {
+    if (!hostname) return false;
+    const h = String(hostname).toLowerCase();
+    return (
+        h === 'localhost' ||
+        h === '127.0.0.1' ||
+        h === '::1' ||
+        /(^|\.)railway\.internal$/i.test(h)
+    );
+}
+
 function getRedisUrlFromEnvWithSource() {
     const candidates = [
         'REDIS_URL',
@@ -144,7 +155,9 @@ function initRedis() {
     try {
         const family = readIntEnv('REDIS_FAMILY', undefined);
         const connectTimeout = readIntEnv('REDIS_CONNECT_TIMEOUT_MS', isProduction ? 15000 : 5000);
+        const commandTimeout = readIntEnv('REDIS_COMMAND_TIMEOUT_MS', isProduction ? 5000 : 3000);
         const enableReadyCheck = readBoolEnv('REDIS_ENABLE_READY_CHECK', true);
+        const enableOfflineQueue = readBoolEnv('REDIS_ENABLE_OFFLINE_QUEUE', !isProduction);
         const baseDelay = readIntEnv('REDIS_RETRY_BASE_DELAY_MS', 250);
         const maxDelay = readIntEnv('REDIS_RETRY_MAX_DELAY_MS', 5000);
         const maxConnectAttempts = readIntEnv('REDIS_MAX_CONNECT_ATTEMPTS', isProduction ? 30 : 15);
@@ -176,10 +189,30 @@ function initRedis() {
             : parsed?.protocol === 'rediss:' || portSuggestsTls;
         const tlsRejectUnauthorized = readBoolEnv('REDIS_TLS_REJECT_UNAUTHORIZED', true);
 
+        const requireTlsForced = process.env.REDIS_REQUIRE_TLS_IN_PROD !== undefined;
+        const requireTlsInProd = requireTlsForced
+            ? readBoolEnv('REDIS_REQUIRE_TLS_IN_PROD', true)
+            : true;
+
+        const redisHost = parsed?.hostname;
+        const internalHost = isInternalRedisHost(redisHost);
+
+        if (isProduction && requireTlsInProd && !internalHost && !tlsEnabled) {
+            console.warn(
+                `⚠️ Redis TLS is required in production but disabled (host=${redisHost || 'unknown'}). ` +
+                'Set REDIS_URL to rediss://... or set REDIS_TLS=true.'
+            );
+            return null;
+        }
+
         const options = {
             connectTimeout,
+            commandTimeout,
             enableReadyCheck,
+            enableOfflineQueue,
             maxRetriesPerRequest,
+            autoResubscribe: false,
+            autoResendUnfulfilledCommands: false,
             retryStrategy: (times) => {
                 if (maxConnectAttempts && times > maxConnectAttempts) return null;
                 const delay = Math.min(baseDelay * Math.max(1, times), maxDelay);
@@ -199,7 +232,13 @@ function initRedis() {
         }
 
         if (tlsEnabled) {
-            options.tls = { rejectUnauthorized: tlsRejectUnauthorized };
+            const servername =
+                sanitizeRedisUrl(process.env.REDIS_TLS_SERVERNAME) ||
+                (redisHost ? String(redisHost) : undefined);
+            options.tls = {
+                rejectUnauthorized: tlsRejectUnauthorized,
+                ...(servername ? { servername } : {}),
+            };
         }
 
         console.log(
@@ -211,6 +250,12 @@ function initRedis() {
 
         redis.on('connect', () => {
             console.log('✅ Redis connected');
+            // TCP connected does not mean AUTH/ready yet
+            isRedisAvailable = false;
+        });
+
+        redis.on('ready', () => {
+            console.log('✅ Redis ready');
             isRedisAvailable = true;
         });
 
@@ -222,6 +267,11 @@ function initRedis() {
 
         redis.on('close', () => {
             console.warn('⚠️ Redis connection closed');
+            isRedisAvailable = false;
+        });
+
+        redis.on('end', () => {
+            console.warn('⚠️ Redis connection ended');
             isRedisAvailable = false;
         });
 
@@ -354,8 +404,9 @@ export async function checkRedisHealth(timeoutMs = 5000) {
     if (!client) return false;
 
     try {
+        const effectiveTimeoutMs = readIntEnv('REDIS_HEALTHCHECK_TIMEOUT_MS', timeoutMs);
         const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), timeoutMs)
+            setTimeout(() => reject(new Error('timeout')), effectiveTimeoutMs)
         );
         await Promise.race([client.ping(), timeoutPromise]);
         return isRedisAvailable;
