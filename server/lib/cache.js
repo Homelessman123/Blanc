@@ -191,7 +191,9 @@ function parseRedisFamily(value) {
 function initRedis() {
     if (redis) return redis;
 
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Railway deployments often run with NODE_ENV unset/"development".
+    // Treat Railway as production for more conservative timeouts/retries.
+    const isProduction = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
 
     const redisUrl = coerceRedisUrl(process.env.REDIS_URL || process.env.REDIS_URI);
 
@@ -339,6 +341,15 @@ async function waitForRedisReady(client, timeoutMs) {
 }
 
 export async function checkRedisHealth(timeoutMs = 5000) {
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+    const timeoutOverrideMsRaw = Number(process.env.REDIS_HEALTHCHECK_TIMEOUT_MS || '');
+    const timeoutOverrideMs = Number.isFinite(timeoutOverrideMsRaw) && timeoutOverrideMsRaw > 0
+        ? timeoutOverrideMsRaw
+        : undefined;
+
+    // Default to a longer timeout on Railway to survive cold starts.
+    timeoutMs = timeoutOverrideMs ?? timeoutMs ?? (isRailway ? 12000 : 5000);
+
     const client = initRedis();
     if (!client) return false;
 
