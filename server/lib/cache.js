@@ -216,7 +216,8 @@ function initRedis() {
         const enableReadyCheckEnv = parseBoolean(process.env.REDIS_ENABLE_READY_CHECK);
         const enableReadyCheck = enableReadyCheckEnv ?? true;
 
-        const maxConnectAttemptsEnv = Number(process.env.REDIS_MAX_CONNECT_ATTEMPTS || '');
+        const maxConnectAttemptsRaw = String(process.env.REDIS_MAX_CONNECT_ATTEMPTS ?? '').trim();
+        const maxConnectAttemptsEnv = maxConnectAttemptsRaw === '' ? Number.NaN : Number(maxConnectAttemptsRaw);
         const maxConnectAttempts = Number.isFinite(maxConnectAttemptsEnv) && maxConnectAttemptsEnv >= 0
             ? maxConnectAttemptsEnv
             : (isProduction ? 10 : 3); // Limit to 10 in prod to avoid infinite loops
@@ -340,7 +341,7 @@ async function waitForRedisReady(client, timeoutMs) {
     ]);
 }
 
-export async function checkRedisHealth(timeoutMs = 5000) {
+export async function checkRedisHealth(timeoutMs) {
     const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
     const timeoutOverrideMsRaw = Number(process.env.REDIS_HEALTHCHECK_TIMEOUT_MS || '');
     const timeoutOverrideMs = Number.isFinite(timeoutOverrideMsRaw) && timeoutOverrideMsRaw > 0
@@ -348,7 +349,8 @@ export async function checkRedisHealth(timeoutMs = 5000) {
         : undefined;
 
     // Default to a longer timeout on Railway to survive cold starts.
-    timeoutMs = timeoutOverrideMs ?? timeoutMs ?? (isRailway ? 12000 : 5000);
+    const timeoutMsSanitized = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : undefined;
+    timeoutMs = timeoutOverrideMs ?? timeoutMsSanitized ?? (isRailway ? 12000 : 5000);
 
     const client = initRedis();
     if (!client) return false;
