@@ -237,7 +237,7 @@ function initRedis() {
         const host = String(parsedUrl?.hostname || '');
         const isRailwayInternalHost = /(^|\.)railway\.internal$/i.test(host);
         const family = envFamily ?? (isRailwayInternalHost ? 4 : undefined);
-        
+
         if (family) {
             console.log(`🔧 Redis: using IPv${family} (host: ${host})`);
         }
@@ -543,9 +543,30 @@ export function isAvailable() {
  */
 export async function disconnect() {
     if (redis) {
-        await redis.quit();
-        redis = null;
-        isRedisAvailable = false;
+        try {
+            // Only attempt quit if connection is in a valid state
+            const status = redis.status;
+            if (status === 'ready' || status === 'connect' || status === 'connecting') {
+                await Promise.race([
+                    redis.quit(),
+                    new Promise((resolve) => setTimeout(resolve, 2000)) // 2s timeout for quit
+                ]);
+            } else {
+                // Connection already closed/closing, just disconnect
+                redis.disconnect();
+            }
+        } catch (err) {
+            // Ignore errors during shutdown - connection may already be closed
+            console.warn('⚠️ Redis disconnect warning (non-fatal):', err.message);
+            try {
+                redis.disconnect();
+            } catch {
+                // Ignore secondary errors
+            }
+        } finally {
+            redis = null;
+            isRedisAvailable = false;
+        }
     }
 
     memoryCache.clear();
