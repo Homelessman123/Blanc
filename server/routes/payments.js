@@ -259,6 +259,8 @@ function normalizeSepayPayload(body) {
         tx.transaction_id ??
         tx.transId ??
         tx.trans_id ??
+        tx.txnId ??
+        tx.txn_id ??
         tx.txId ??
         tx.tx_id ??
         tx.providerTransactionId ??
