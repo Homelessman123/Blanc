@@ -194,6 +194,7 @@ function requireSepayAuth(req, res) {
     const queryProvided = allowQueryKey
         ? parseSepayApiKey(
             req.query.apiKey ??
+            req.query.apikey ??
             req.query.api_key ??
             req.query.key ??
             req.query.token ??
