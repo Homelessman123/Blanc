@@ -220,7 +220,7 @@ function initRedis() {
         const maxConnectAttemptsEnv = maxConnectAttemptsRaw === '' ? Number.NaN : Number(maxConnectAttemptsRaw);
         const maxConnectAttempts = Number.isFinite(maxConnectAttemptsEnv) && maxConnectAttemptsEnv >= 0
             ? maxConnectAttemptsEnv
-            : (isProduction ? 10 : 3); // Limit to 10 in prod to avoid infinite loops
+            : (isRailway ? 15 : (isProduction ? 10 : 3)); // 15 for Railway to handle cold starts
 
         const retryBaseDelayMs = Number(process.env.REDIS_RETRY_BASE_DELAY_MS || (isProduction ? 250 : 50));
         const retryMaxDelayMs = Number(process.env.REDIS_RETRY_MAX_DELAY_MS || (isProduction ? 30_000 : 2_000));
@@ -232,14 +232,19 @@ function initRedis() {
         const passwordOverride = !urlHasPassword ? normalizeRedisUrl(process.env.REDIS_PASSWORD) : '';
 
         // Railway internal DNS can resolve to IPv6 and cause intermittent timeouts.
-        // Default to IPv4 when on Railway + using railway.internal, unless explicitly overridden.
+        // ALWAYS force IPv4 for railway.internal hosts to avoid ETIMEDOUT.
         const envFamily = parseRedisFamily(process.env.REDIS_FAMILY);
         const host = String(parsedUrl?.hostname || '');
-        const family = envFamily ?? (isRailway && /(^|\.)railway\.internal$/i.test(host) ? 4 : undefined);
+        const isRailwayInternalHost = /(^|\.)railway\.internal$/i.test(host);
+        const family = envFamily ?? (isRailwayInternalHost ? 4 : undefined);
+        
+        if (family) {
+            console.log(`🔧 Redis: using IPv${family} (host: ${host})`);
+        }
 
         redis = new Redis(redisUrl, {
             maxRetriesPerRequest: Number(process.env.REDIS_MAX_RETRIES_PER_REQUEST || 3),
-            connectTimeout: isProduction ? 10000 : 5000, // 10s for prod, 5s for dev
+            connectTimeout: isRailway ? 15000 : (isProduction ? 10000 : 5000), // 15s for Railway
             commandTimeout: isProduction ? 5000 : 3000,  // 5s for prod, 3s for dev
             retryStrategy: (times) => {
                 // Limit retry attempts to avoid infinite loops on persistent failures
@@ -292,6 +297,9 @@ function initRedis() {
         // Try to connect once, but don't block if it fails
         redis.connect().catch((err) => {
             console.warn('⚠️ Redis initial connection failed, caching disabled:', err.message);
+            if (isRailway) {
+                console.warn('💡 Railway Redis tips: Ensure Redis plugin is in same environment, Private Networking enabled');
+            }
             isRedisAvailable = false;
         });
 
