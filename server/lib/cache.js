@@ -22,6 +22,8 @@ import Redis from 'ioredis';
 
 let redis = null;
 let isRedisAvailable = false;
+let lastRedisError = null;
+let lastRedisInitBlockReason = null;
 
 function sanitizeRedisUrl(value) {
     return value ? String(value).trim().replace(/^['"]|['"]$/g, '') : '';
@@ -127,6 +129,15 @@ export function getRedisEnvSummary() {
     };
 }
 
+export function getRedisRuntimeSummary() {
+    return {
+        available: isRedisAvailable,
+        hasClient: Boolean(redis),
+        lastError: lastRedisError,
+        initBlockedReason: lastRedisInitBlockReason,
+    };
+}
+
 /**
  * Initialize Redis connection
  */
@@ -137,11 +148,13 @@ function initRedis() {
 
     if (!redisUrl) {
         console.warn('⚠️ Redis URL not configured, caching will be disabled');
+        lastRedisInitBlockReason = 'redis_url_missing';
         return null;
     }
 
     if (looksLikePlaceholder(redisUrl)) {
         console.warn(`⚠️ Redis URL looks like a placeholder (${redisUrlSource || 'unknown'}), caching will be disabled until fixed`);
+        lastRedisInitBlockReason = 'redis_url_placeholder';
         return null;
     }
 
@@ -202,6 +215,7 @@ function initRedis() {
                 `⚠️ Redis TLS is required in production but disabled (host=${redisHost || 'unknown'}). ` +
                 'Set REDIS_URL to rediss://... or set REDIS_TLS=true.'
             );
+            lastRedisInitBlockReason = 'tls_required_in_prod';
             return null;
         }
 
@@ -246,6 +260,10 @@ function initRedis() {
             (redisUrlSource ? ` [${redisUrlSource}]` : '')
         );
 
+        // reset diagnostics on new init
+        lastRedisError = null;
+        lastRedisInitBlockReason = null;
+
         redis = new Redis(redisUrl, options);
 
         redis.on('connect', () => {
@@ -262,6 +280,11 @@ function initRedis() {
         redis.on('error', (err) => {
             const code = err?.code ? ` (${err.code})` : '';
             console.error(`❌ Redis error${code}:`, err?.message || String(err));
+            lastRedisError = {
+                at: new Date().toISOString(),
+                code: err?.code,
+                message: err?.message || String(err),
+            };
             isRedisAvailable = false;
         });
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { connectToDatabase, getDb } from '../lib/db.js';
-import { checkRedisHealth, getRedisEnvSummary, isAvailable as isRedisAvailable } from '../lib/cache.js';
+import { checkRedisHealth, getRedisEnvSummary, getRedisRuntimeSummary, isAvailable as isRedisAvailable } from '../lib/cache.js';
 
 const router = Router();
 
@@ -94,13 +94,8 @@ router.get('/', async (_req, res) => {
     // ignore parsing errors
   }
 
-  const rawRedisUrl = process.env.REDIS_URL || process.env.REDIS_URI || '';
-  const sanitizedRedisUrl = rawRedisUrl
-    ? String(rawRedisUrl)
-      .trim()
-      .replace(/^["']|["']$/g, '')
-      .replace(/:\/\/([^@]+)@/i, '://***@')
-    : '';
+  const redisEnv = getRedisEnvSummary();
+  const redisRuntime = getRedisRuntimeSummary();
 
   const health = {
     status: 'ok',
@@ -112,9 +107,15 @@ router.get('/', async (_req, res) => {
     },
     databaseConfig,
     redisConfig: {
-      configured: Boolean(rawRedisUrl),
-      url: sanitizedRedisUrl || undefined,
+      configured: redisEnv.configured,
+      source: redisEnv.source || undefined,
+      protocol: redisEnv.protocol,
+      host: redisEnv.host,
+      port: redisEnv.port,
+      isRailwayInternalHost: redisEnv.isRailwayInternalHost,
+      looksLikePlaceholder: redisEnv.looksLikePlaceholder,
     },
+    redisRuntime,
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
       total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
@@ -142,6 +143,12 @@ router.get('/', async (_req, res) => {
     health.services.redis = ok || isRedisAvailable() ? 'healthy' : 'unavailable';
   } catch (err) {
     health.services.redis = 'error';
+  }
+
+  // If Redis is configured but init is blocked, surface it as misconfigured.
+  if (health.redisConfig.configured && health.redisRuntime?.initBlockedReason) {
+    health.services.redis = 'misconfigured';
+    health.status = 'degraded';
   }
 
   // Always return 200 for health checks to allow container orchestration (Railway/K8s)
