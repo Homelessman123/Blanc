@@ -4,6 +4,7 @@ import { X, Users, Edit2, Save, Trash2, AlertCircle, Check, Loader2, UserMinus, 
 import { Button, Badge, Dropdown } from './ui/Common';
 import { TeamPost } from '../types';
 import { api } from '../lib/api';
+import { useI18n } from '../contexts/I18nContext';
 
 interface TeamMembersManagerProps {
     isOpen: boolean;
@@ -60,6 +61,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
     post,
     onUpdate
 }) => {
+    const { t } = useI18n();
     const [members, setMembers] = useState<MemberEdit[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -92,13 +94,13 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                 task: member.task
             });
 
-            setSuccess('Đã cập nhật thành công!');
+            setSuccess(t('teamMembers.toast.updateSuccess'));
             setEditingId(null);
             onUpdate?.();
 
             setTimeout(() => setSuccess(null), 2000);
         } catch (err: any) {
-            setError(err.message || 'Không thể cập nhật. Vui lòng thử lại.');
+            setError(err.message || t('teamMembers.toast.updateFailed'));
         } finally {
             setIsSaving(false);
         }
@@ -107,20 +109,20 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
     const handleRemoveMember = async (memberId: string) => {
         if (!post) return;
 
-        const memberName = post.members.find(m => m.id === memberId)?.name || 'thành viên này';
-        if (!confirm(`Bạn có chắc muốn xóa ${memberName} khỏi nhóm?`)) return;
+        const memberName = post.members.find(m => m.id === memberId)?.name || t('teamMembers.memberFallback');
+        if (!confirm(t('teamMembers.confirmRemove', { name: memberName }))) return;
 
         setIsSaving(true);
         setError(null);
 
         try {
             await api.delete(`/teams/${post.id}/members/${memberId}`);
-            setSuccess('Đã xóa thành viên!');
+            setSuccess(t('teamMembers.toast.removedSuccess'));
             onUpdate?.();
 
             setTimeout(() => setSuccess(null), 2000);
         } catch (err: any) {
-            setError(err.message || 'Không thể xóa thành viên. Vui lòng thử lại.');
+            setError(err.message || t('teamMembers.toast.removedFailed'));
         } finally {
             setIsSaving(false);
         }
@@ -159,15 +161,15 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                 <Users className="w-5 h-5 text-primary-600" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-slate-900">Quản lý thành viên</h2>
-                                <p className="text-sm text-slate-500">Gán vai trò và nhiệm vụ cho từng thành viên</p>
+                                <h2 className="text-xl font-bold text-slate-900">{t('teamMembers.title')}</h2>
+                                <p className="text-sm text-slate-500">{t('teamMembers.subtitle')}</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
                             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                            aria-label="Đóng"
-                            title="Đóng"
+                            aria-label={t('teamMembers.actions.close')}
+                            title={t('teamMembers.actions.close')}
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -208,7 +210,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                             <Link
                                                 to={`/user/${member.id}`}
                                                 className="w-12 h-12 rounded-full bg-linear-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-semibold overflow-hidden shrink-0 hover:ring-2 hover:ring-primary-300 transition-all"
-                                                title={`Xem hồ sơ của ${member.name}`}
+                                                title={t('teamMembers.viewProfileTitle', { name: member.name })}
                                             >
                                                 {member.avatar ? (
                                                     <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
@@ -227,7 +229,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                     {isLeader && (
                                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
                                                             <Crown className="w-3 h-3" />
-                                                            Trưởng nhóm
+                                                            {t('teamMembers.leader')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -252,7 +254,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                             ) : (
                                                                 <>
                                                                     <Save className="w-4 h-4 mr-1" />
-                                                                    Lưu
+                                                                    {t('teamMembers.actions.save')}
                                                                 </>
                                                             )}
                                                         </Button>
@@ -261,7 +263,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                             variant="ghost"
                                                             onClick={() => setEditingId(null)}
                                                         >
-                                                            Hủy
+                                                            {t('teamMembers.actions.cancel')}
                                                         </Button>
                                                     </>
                                                 ) : (
@@ -269,8 +271,8 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                         <button
                                                             onClick={() => setEditingId(member.id)}
                                                             className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                                                            title="Chỉnh sửa"
-                                                            aria-label={`Chỉnh sửa ${member.name}`}
+                                                            title={t('teamMembers.actions.edit')}
+                                                            aria-label={t('teamMembers.actions.editMember', { name: member.name })}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
@@ -278,8 +280,8 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                             <button
                                                                 onClick={() => handleRemoveMember(member.id)}
                                                                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Xóa khỏi nhóm"
-                                                                aria-label={`Xóa ${member.name} khỏi nhóm`}
+                                                                title={t('teamMembers.actions.remove')}
+                                                                aria-label={t('teamMembers.actions.removeMember', { name: member.name })}
                                                             >
                                                                 <UserMinus className="w-4 h-4" />
                                                             </button>
@@ -295,7 +297,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                 {/* Role Selection */}
                                                 <div>
                                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                                        Vai trò trong nhóm
+                                                        {t('teamMembers.roleLabel')}
                                                     </label>
                                                     <div className="flex flex-wrap gap-2">
                                                         {ROLES.map(role => (
@@ -317,17 +319,17 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                                 {/* Task Assignment */}
                                                 <div>
                                                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                                                        Nhiệm vụ cụ thể
+                                                        {t('teamMembers.taskLabel')}
                                                     </label>
                                                     <textarea
                                                         value={memberEdit.task}
                                                         onChange={e => updateMember(member.id, 'task', e.target.value)}
-                                                        placeholder="VD: Phát triển trang Dashboard, tích hợp API thanh toán..."
+                                                        placeholder={t('teamMembers.taskPlaceholder')}
                                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none resize-none"
                                                         rows={3}
                                                         maxLength={500}
                                                     />
-                                                    <p className="mt-1 text-xs text-slate-400">{memberEdit.task.length}/500 ký tự</p>
+                                                    <p className="mt-1 text-xs text-slate-400">{t('teamMembers.taskChars', { count: memberEdit.task.length })}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -335,7 +337,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                                         {/* Show task when not editing */}
                                         {!isEditing && memberEdit?.task && (
                                             <div className="px-4 pb-4 bg-slate-50">
-                                                <p className="text-xs font-medium text-slate-500 mb-1">Nhiệm vụ:</p>
+                                                <p className="text-xs font-medium text-slate-500 mb-1">{t('teamMembers.taskLabelShort')}</p>
                                                 <p className="text-sm text-slate-700">{memberEdit.task}</p>
                                             </div>
                                         )}
@@ -348,7 +350,7 @@ const TeamMembersManager: React.FC<TeamMembersManagerProps> = ({
                     {/* Footer */}
                     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
                         <Button variant="secondary" onClick={onClose}>
-                            Đóng
+                            {t('teamMembers.actions.close')}
                         </Button>
                     </div>
                 </div>

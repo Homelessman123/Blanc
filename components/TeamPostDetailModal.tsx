@@ -5,6 +5,7 @@ import { Button, Badge } from './ui/Common';
 import UserAvatar from './UserAvatar';
 import { TeamPost, RoleSlot } from '../types';
 import { api } from '../lib/api';
+import { useI18n } from '../contexts/I18nContext';
 
 interface TeamPostDetailModalProps {
     isOpen: boolean;
@@ -41,6 +42,8 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
     onManageMembers,
     currentUserId
 }) => {
+    const { t, locale } = useI18n();
+    const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
     const [isRequesting, setIsRequesting] = useState(false);
     const [requestSent, setRequestSent] = useState(false);
     const [message, setMessage] = useState('');
@@ -73,7 +76,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
     };
 
     const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('vi-VN', {
+        return new Date(dateStr).toLocaleDateString(dateLocale, {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
@@ -86,9 +89,9 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
         const diffMs = now.getTime() - date.getTime();
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 0) return 'Hôm nay';
-        if (diffDays === 1) return 'Hôm qua';
-        if (diffDays < 7) return `${diffDays} ngày trước`;
+        if (diffDays === 0) return t('teamPostDetail.time.today');
+        if (diffDays === 1) return t('teamPostDetail.time.yesterday');
+        if (diffDays < 7) return t('teamPostDetail.time.daysAgo', { count: diffDays });
         return formatDate(dateStr);
     };
 
@@ -105,7 +108,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
             onJoinRequest?.(post.id);
         } catch (err: any) {
             console.error('Failed to send join request:', err);
-            const errorMessage = err.response?.data?.error || 'Không thể gửi yêu cầu. Vui lòng thử lại sau.';
+            const errorMessage = err.response?.data?.error || t('teamPostDetail.toast.sendFailed');
             alert(errorMessage);
         } finally {
             setIsRequesting(false);
@@ -131,8 +134,8 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                         <button
                             onClick={onClose}
                             className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                            title="Đóng"
-                            aria-label="Đóng"
+                            title={t('teamPostDetail.close')}
+                            aria-label={t('teamPostDetail.close')}
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -156,7 +159,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                 <div className="flex items-center gap-4 mt-2 text-white/70 text-sm">
                                     <span className="flex items-center gap-1">
                                         <Users className="w-4 h-4" />
-                                        {post.currentMembers}/{post.maxMembers} thành viên
+                                        {t('teamPostDetail.membersCount', { current: post.currentMembers, max: post.maxMembers })}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <Clock className="w-4 h-4" />
@@ -176,8 +179,8 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                     <Users className="w-5 h-5 text-orange-600" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-orange-800">Đội đã đủ thành viên</p>
-                                    <p className="text-sm text-orange-600">Bạn vẫn có thể gửi yêu cầu để được xem xét khi có slot trống</p>
+                                    <p className="font-medium text-orange-800">{t('teamPostDetail.status.full.title')}</p>
+                                    <p className="text-sm text-orange-600">{t('teamPostDetail.status.full.description')}</p>
                                 </div>
                             </div>
                         ) : (
@@ -186,8 +189,8 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                     <UserPlus className="w-5 h-5 text-green-600" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-green-800">Đang tuyển thành viên</p>
-                                    <p className="text-sm text-green-600">Còn {spotsLeft} vị trí trống trong đội</p>
+                                    <p className="font-medium text-green-800">{t('teamPostDetail.status.open.title')}</p>
+                                    <p className="text-sm text-green-600">{t('teamPostDetail.status.open.description', { count: spotsLeft })}</p>
                                 </div>
                             </div>
                         )}
@@ -196,7 +199,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                         <div>
                             <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
                                 <Briefcase className="w-4 h-4 text-slate-400" />
-                                Mô tả
+                                {t('teamPostDetail.sections.description')}
                             </h3>
                             <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">
                                 {post.description}
@@ -207,7 +210,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                         <div>
                             <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                                 <Users className="w-4 h-4 text-slate-400" />
-                                Vị trí cần tuyển
+                                {t('teamPostDetail.sections.rolesNeeded')}
                             </h3>
 
                             {/* Role details with slots */}
@@ -224,14 +227,18 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                                     onClick={() => hasDetails && toggleRoleExpanded(slot.role)}
                                                     className={`w-full flex items-center justify-between p-3 ${hasDetails ? 'hover:bg-slate-50 cursor-pointer' : 'cursor-default'} transition-colors`}
                                                     disabled={!hasDetails}
-                                                    aria-label={hasDetails ? `${isExpanded ? 'Thu gọn' : 'Mở rộng'} chi tiết ${slot.role}` : slot.role}
+                                                    aria-label={hasDetails
+                                                        ? (isExpanded
+                                                            ? t('teamPostDetail.role.collapseDetails', { role: slot.role })
+                                                            : t('teamPostDetail.role.expandDetails', { role: slot.role }))
+                                                        : slot.role}
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <Badge className={`${ROLE_COLORS[slot.role] || ROLE_COLORS['Other']} px-3 py-1 text-sm border`}>
                                                             {slot.role}
                                                         </Badge>
                                                         <span className="text-sm text-slate-500">
-                                                            Cần {slot.count} người
+                                                            {t('teamPostDetail.role.needCount', { count: slot.count })}
                                                         </span>
                                                     </div>
                                                     {hasDetails && (
@@ -247,13 +254,13 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                                     <div className="px-4 pb-4 pt-2 bg-slate-50 border-t border-slate-100 space-y-3">
                                                         {slot.description && (
                                                             <div>
-                                                                <p className="text-xs font-medium text-slate-500 mb-1">Nhiệm vụ:</p>
+                                                                <p className="text-xs font-medium text-slate-500 mb-1">{t('teamPostDetail.role.tasksLabel')}</p>
                                                                 <p className="text-sm text-slate-700">{slot.description}</p>
                                                             </div>
                                                         )}
                                                         {slot.skills && slot.skills.length > 0 && (
                                                             <div>
-                                                                <p className="text-xs font-medium text-slate-500 mb-1">Kỹ năng yêu cầu:</p>
+                                                                <p className="text-xs font-medium text-slate-500 mb-1">{t('teamPostDetail.role.skillsLabel')}</p>
                                                                 <div className="flex flex-wrap gap-1.5">
                                                                     {slot.skills.map(skill => (
                                                                         <span key={skill} className="inline-flex items-center px-2 py-0.5 bg-primary-50 text-primary-700 rounded-md text-xs">
@@ -288,7 +295,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                             <div>
                                 <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                                     <Tag className="w-4 h-4 text-slate-400" />
-                                    Kỹ năng chung cần thiết
+                                    {t('teamPostDetail.sections.generalSkills')}
                                 </h3>
                                 <div className="flex flex-wrap gap-2">
                                     {post.skills.map(skill => (
@@ -310,7 +317,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                     <Calendar className="w-5 h-5 text-amber-600" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-amber-800">Hạn chót đăng ký</p>
+                                    <p className="font-medium text-amber-800">{t('teamPostDetail.deadline.title')}</p>
                                     <p className="text-sm text-amber-600">{formatDate(post.deadline)}</p>
                                 </div>
                             </div>
@@ -321,16 +328,16 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                                     <Users className="w-4 h-4 text-slate-400" />
-                                    Thành viên hiện tại ({post.members.length})
+                                    {t('teamPostDetail.members.title', { count: post.members.length })}
                                 </h3>
                                 {isOwner && onManageMembers && (
                                     <button
                                         onClick={onManageMembers}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
-                                        title="Quản lý thành viên"
+                                        title={t('teamPostDetail.members.manageTitle')}
                                     >
                                         <Settings className="w-4 h-4" />
-                                        Quản lý
+                                        {t('teamPostDetail.members.manage')}
                                     </button>
                                 )}
                             </div>
@@ -341,7 +348,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                             <Link
                                                 to={`/user/${member.id}`}
                                                 className="w-10 h-10 rounded-full bg-linear-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-semibold text-sm overflow-hidden shrink-0 hover:ring-2 hover:ring-primary-300 transition-all"
-                                                title={`Xem hồ sơ của ${member.name}`}
+                                                title={t('teamPostDetail.members.viewProfileTitle', { name: member.name })}
                                             >
                                                 {member.avatar ? (
                                                     <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-full" />
@@ -364,7 +371,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                                     )}
                                                 </div>
                                                 <p className="text-xs text-slate-500">
-                                                    {index === 0 ? 'Trưởng nhóm' : 'Thành viên'}
+                                                    {index === 0 ? t('teamPostDetail.members.leader') : t('teamPostDetail.members.member')}
                                                 </p>
                                             </div>
                                             {member.role && (
@@ -375,8 +382,8 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                         </div>
                                         {/* Show task if available */}
                                         {member.task && (
-                                            <div className="mt-2 ml-13 pl-[52px]">
-                                                <p className="text-xs font-medium text-slate-500">Nhiệm vụ:</p>
+                                            <div className="mt-2 ml-13 pl-13">
+                                                <p className="text-xs font-medium text-slate-500">{t('teamPostDetail.role.tasksLabel')}</p>
                                                 <p className="text-sm text-slate-600 mt-0.5">{member.task}</p>
                                             </div>
                                         )}
@@ -390,7 +397,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                             <div>
                                 <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                                     <UserPlus className="w-4 h-4 text-slate-400" />
-                                    Đã mời ({post.invitedMembers.length})
+                                    {t('teamPostDetail.invited.title', { count: post.invitedMembers.length })}
                                 </h3>
                                 <div className="flex flex-wrap gap-2">
                                     {post.invitedMembers.map((member) => (
@@ -413,7 +420,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                                 </div>
                                             )}
                                             <span className="text-sm font-medium text-amber-800">{member.name}</span>
-                                            <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">Đang chờ</span>
+                                            <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">{t('teamPostDetail.invited.pending')}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -425,12 +432,12 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                             <div className="bg-slate-50 rounded-xl p-4 space-y-4">
                                 <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                                     <MessageCircle className="w-4 h-4 text-slate-400" />
-                                    Gửi yêu cầu tham gia
+                                    {t('teamPostDetail.join.title')}
                                 </h3>
                                 <textarea
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    placeholder="Giới thiệu bản thân và lý do muốn tham gia đội..."
+                                    placeholder={t('teamPostDetail.join.placeholder')}
                                     className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
                                     rows={3}
                                 />
@@ -441,11 +448,11 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                         className="flex-1"
                                     >
                                         {isRequesting ? (
-                                            <>Đang gửi...</>
+                                            <>{t('teamPostDetail.join.sending')}</>
                                         ) : (
                                             <>
                                                 <UserPlus className="w-4 h-4 mr-2" />
-                                                Gửi yêu cầu tham gia
+                                                {t('teamPostDetail.join.send')}
                                             </>
                                         )}
                                     </Button>
@@ -455,16 +462,16 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                             // Open email client to contact post creator
                                             const email = post.createdBy.email;
                                             if (email) {
-                                                const subject = encodeURIComponent(`[Blanc] Về bài đăng: ${post.title}`);
-                                                const body = encodeURIComponent(`Xin chào ${post.createdBy.name},\n\nTôi quan tâm đến bài đăng tuyển thành viên "${post.title}" của bạn.\n\n`);
+                                                const subject = encodeURIComponent(t('teamPostDetail.contact.subject', { title: post.title }));
+                                                const body = encodeURIComponent(t('teamPostDetail.contact.body', { name: post.createdBy.name, title: post.title }));
                                                 window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
                                             } else {
-                                                alert('Người đăng chưa cung cấp email liên hệ. Vui lòng gửi yêu cầu tham gia để liên lạc.');
+                                                alert(t('teamPostDetail.join.contactMissingEmail'));
                                             }
                                         }}
                                     >
                                         <Mail className="w-4 h-4 mr-2" />
-                                        Liên hệ
+                                        {t('teamPostDetail.join.contact')}
                                     </Button>
                                 </div>
                             </div>
@@ -473,9 +480,9 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                                 <div className="w-12 h-12 mx-auto mb-3 bg-green-100 rounded-full flex items-center justify-center">
                                     <UserPlus className="w-6 h-6 text-green-600" />
                                 </div>
-                                <h4 className="font-semibold text-green-800 mb-1">Đã gửi yêu cầu!</h4>
+                                <h4 className="font-semibold text-green-800 mb-1">{t('teamPostDetail.join.sentTitle')}</h4>
                                 <p className="text-sm text-green-600">
-                                    Trưởng nhóm sẽ xem xét và phản hồi yêu cầu của bạn sớm nhất.
+                                    {t('teamPostDetail.join.sentDescription')}
                                 </p>
                             </div>
                         )}
@@ -484,7 +491,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                     {/* Footer */}
                     <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
                         <div className="text-sm text-slate-500 flex items-center gap-2">
-                            Đăng bởi{' '}
+                            {t('teamPostDetail.footer.postedBy')}{' '}
                             <UserAvatar
                                 userId={post.createdBy.id}
                                 name={post.createdBy.name}
@@ -494,7 +501,7 @@ const TeamPostDetailModal: React.FC<TeamPostDetailModalProps> = ({
                             />
                         </div>
                         <Button variant="secondary" onClick={onClose}>
-                            Đóng
+                            {t('teamPostDetail.close')}
                         </Button>
                     </div>
                 </div>

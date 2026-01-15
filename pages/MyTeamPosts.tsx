@@ -25,6 +25,7 @@ import TeamPostDetailModal from '../components/TeamPostDetailModal';
 import TeamMembersManager from '../components/TeamMembersManager';
 import { api } from '../lib/api';
 import { TeamPost } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 
 // Types
 interface MyTeamPostsStats {
@@ -54,14 +55,23 @@ const STATUS_COLORS: Record<string, string> = {
   full: 'bg-blue-50 text-blue-700 border-blue-200',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  open: 'Đang tuyển',
-  closed: 'Đã đóng',
-  full: 'Đã đủ',
-};
-
 const MyTeamPosts: React.FC = () => {
   const navigate = useNavigate();
+  const { t, locale } = useI18n();
+  const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+
+  const getStatusLabel = (status: StatusFilter) => {
+    switch (status) {
+      case 'open':
+        return t('teamPosts.status.open');
+      case 'closed':
+        return t('teamPosts.status.closed');
+      case 'full':
+        return t('teamPosts.status.full');
+      default:
+        return t('teamPosts.filters.allStatuses');
+    }
+  };
 
   // Check authentication
   const isLoggedIn = !!localStorage.getItem('user');
@@ -128,7 +138,7 @@ const MyTeamPosts: React.FC = () => {
       });
     } catch (err) {
       console.error('Failed to fetch my posts:', err);
-      setError(err instanceof Error ? err.message : 'Không thể tải bài đăng');
+      setError(err instanceof Error ? err.message : t('teamPosts.toast.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +157,7 @@ const MyTeamPosts: React.FC = () => {
   // Toggle post status
   const handleToggleStatus = async (post: TeamPost & { isDeleted: boolean }) => {
     if (post.isDeleted) {
-      showToast('error', 'Không thể thay đổi trạng thái bài đăng đã xóa');
+      showToast('error', t('teamPosts.toast.statusChangeDeleted'));
       return;
     }
 
@@ -156,10 +166,10 @@ const MyTeamPosts: React.FC = () => {
 
     try {
       await api.patch(`/teams/${post.id}/status`, { status: newStatus });
-      showToast('success', `Đã ${newStatus === 'open' ? 'mở' : 'đóng'} bài đăng`);
+      showToast('success', newStatus === 'open' ? t('teamPosts.toast.statusOpened') : t('teamPosts.toast.statusClosed'));
       fetchMyPosts(pagination.page);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Không thể thay đổi trạng thái');
+      showToast('error', err instanceof Error ? err.message : t('teamPosts.toast.statusChangeFailed'));
     } finally {
       setActionLoadingId(null);
       setActionMenuOpenId(null);
@@ -170,7 +180,7 @@ const MyTeamPosts: React.FC = () => {
   const handleSoftDelete = async (post: TeamPost & { isDeleted: boolean }) => {
     if (post.isDeleted) return;
 
-    if (!window.confirm('Bạn có chắc chắn muốn xóa bài đăng này? Bạn có thể khôi phục sau.')) {
+    if (!window.confirm(t('teamPosts.confirmDelete'))) {
       return;
     }
 
@@ -178,10 +188,10 @@ const MyTeamPosts: React.FC = () => {
 
     try {
       await api.delete(`/teams/${post.id}/soft`);
-      showToast('success', 'Đã xóa bài đăng');
+      showToast('success', t('teamPosts.toast.deleted'));
       fetchMyPosts(pagination.page);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Không thể xóa bài đăng');
+      showToast('error', err instanceof Error ? err.message : t('teamPosts.toast.deleteFailed'));
     } finally {
       setActionLoadingId(null);
       setActionMenuOpenId(null);
@@ -196,10 +206,10 @@ const MyTeamPosts: React.FC = () => {
 
     try {
       await api.patch(`/teams/${post.id}/restore`, {});
-      showToast('success', 'Đã khôi phục bài đăng');
+      showToast('success', t('teamPosts.toast.restored'));
       fetchMyPosts(pagination.page);
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Không thể khôi phục bài đăng');
+      showToast('error', err instanceof Error ? err.message : t('teamPosts.toast.restoreFailed'));
     } finally {
       setActionLoadingId(null);
       setActionMenuOpenId(null);
@@ -218,7 +228,7 @@ const MyTeamPosts: React.FC = () => {
     setIsCreateModalOpen(false);
     setEditingPost(null);
     fetchMyPosts(1);
-    showToast('success', 'Bài đăng đã được tạo thành công');
+    showToast('success', t('teamPosts.toast.created'));
   };
 
   // Render loading state
@@ -227,7 +237,7 @@ const MyTeamPosts: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-          <p className="text-gray-600">Đang tải bài đăng...</p>
+          <p className="text-gray-600">{t('teamPosts.loading')}</p>
         </div>
       </div>
     );
@@ -239,15 +249,15 @@ const MyTeamPosts: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Quản lý bài đăng tìm đội</h1>
-            <p className="text-gray-600 mt-1">Quản lý các bài đăng tuyển thành viên của bạn</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('teamPosts.title')}</h1>
+            <p className="text-gray-600 mt-1">{t('teamPosts.subtitle')}</p>
           </div>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Tạo bài đăng mới
+            {t('teamPosts.actions.create')}
           </Button>
         </div>
 
@@ -260,7 +270,7 @@ const MyTeamPosts: React.FC = () => {
                   <Users className="w-5 h-5 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Tổng bài đăng</p>
+                  <p className="text-sm text-gray-500">{t('teamPosts.stats.totalPosts')}</p>
                   <p className="text-xl font-bold text-gray-900">{stats.totalPosts}</p>
                 </div>
               </div>
@@ -272,7 +282,7 @@ const MyTeamPosts: React.FC = () => {
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Đang mở</p>
+                  <p className="text-sm text-gray-500">{t('teamPosts.stats.open')}</p>
                   <p className="text-xl font-bold text-green-600">{stats.openPosts}</p>
                 </div>
               </div>
@@ -284,7 +294,7 @@ const MyTeamPosts: React.FC = () => {
                   <XCircle className="w-5 h-5 text-gray-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Đã đóng</p>
+                  <p className="text-sm text-gray-500">{t('teamPosts.stats.closed')}</p>
                   <p className="text-xl font-bold text-gray-600">{stats.closedPosts}</p>
                 </div>
               </div>
@@ -296,7 +306,7 @@ const MyTeamPosts: React.FC = () => {
                   <Users className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Đã đủ</p>
+                  <p className="text-sm text-gray-500">{t('teamPosts.stats.full')}</p>
                   <p className="text-xl font-bold text-blue-600">{stats.fullPosts}</p>
                 </div>
               </div>
@@ -308,7 +318,7 @@ const MyTeamPosts: React.FC = () => {
                   <Users className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Thành viên</p>
+                  <p className="text-sm text-gray-500">{t('teamPosts.stats.members')}</p>
                   <p className="text-xl font-bold text-emerald-600">{stats.totalMembers}</p>
                 </div>
               </div>
@@ -324,7 +334,7 @@ const MyTeamPosts: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm bài đăng..."
+                placeholder={t('teamPosts.search.placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -339,7 +349,7 @@ const MyTeamPosts: React.FC = () => {
               >
                 <Filter className="w-5 h-5 text-gray-500" />
                 <span className="text-gray-700">
-                  {statusFilter === 'all' ? 'Tất cả trạng thái' : STATUS_LABELS[statusFilter]}
+                  {statusFilter === 'all' ? t('teamPosts.filters.allStatuses') : getStatusLabel(statusFilter)}
                 </span>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
@@ -356,7 +366,7 @@ const MyTeamPosts: React.FC = () => {
                       className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${statusFilter === status ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
                         }`}
                     >
-                      {status === 'all' ? 'Tất cả trạng thái' : STATUS_LABELS[status]}
+                      {status === 'all' ? t('teamPosts.filters.allStatuses') : getStatusLabel(status)}
                     </button>
                   ))}
                 </div>
@@ -371,7 +381,7 @@ const MyTeamPosts: React.FC = () => {
                 onChange={(e) => setShowDeleted(e.target.checked)}
                 className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
               />
-              <span className="text-gray-700 text-sm">Hiển thị đã xóa</span>
+              <span className="text-gray-700 text-sm">{t('teamPosts.filters.showDeleted')}</span>
             </label>
           </div>
         </div>
@@ -385,7 +395,7 @@ const MyTeamPosts: React.FC = () => {
               onClick={() => fetchMyPosts(1)}
               className="ml-auto text-red-700 hover:text-red-800 font-medium"
             >
-              Thử lại
+              {t('teamPosts.error.retry')}
             </button>
           </div>
         )}
@@ -396,18 +406,18 @@ const MyTeamPosts: React.FC = () => {
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {searchQuery || statusFilter !== 'all'
-                ? 'Không tìm thấy bài đăng phù hợp'
-                : 'Bạn chưa có bài đăng nào'}
+                ? t('teamPosts.empty.filteredTitle')
+                : t('teamPosts.empty.defaultTitle')}
             </h3>
             <p className="text-gray-500 mb-6">
               {searchQuery || statusFilter !== 'all'
-                ? 'Thử thay đổi bộ lọc để xem thêm kết quả'
-                : 'Tạo bài đăng đầu tiên để tìm kiếm đồng đội!'}
+                ? t('teamPosts.empty.filteredDescription')
+                : t('teamPosts.empty.defaultDescription')}
             </p>
             {!searchQuery && statusFilter === 'all' && (
               <Button onClick={() => setIsCreateModalOpen(true)}>
                 <Plus className="w-5 h-5 mr-2" />
-                Tạo bài đăng
+                {t('teamPosts.empty.createButton')}
               </Button>
             )}
           </Card>
@@ -430,16 +440,16 @@ const MyTeamPosts: React.FC = () => {
                         {post.title}
                       </h3>
                       <Badge className={`${STATUS_COLORS[post.status]} border`}>
-                        {STATUS_LABELS[post.status]}
+                        {getStatusLabel(post.status)}
                       </Badge>
                       {post.isDeleted && (
                         <Badge className="bg-red-100 text-red-700 border-red-200">
-                          Đã xóa
+                          {t('teamPosts.badge.deleted')}
                         </Badge>
                       )}
                       {post.pendingRequests > 0 && (
                         <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-                          {post.pendingRequests} yêu cầu
+                          {t('teamPosts.badge.pendingRequests', { count: post.pendingRequests })}
                         </Badge>
                       )}
                     </div>
@@ -451,11 +461,11 @@ const MyTeamPosts: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1.5">
                         <Users className="w-4 h-4" />
-                        {post.currentMembers || 1}/{post.maxMembers} thành viên
+                        {t('teamPosts.meta.membersCount', { current: post.currentMembers || 1, max: post.maxMembers })}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-4 h-4" />
-                        {new Date(post.createdAt).toLocaleDateString('vi-VN')}
+                        {new Date(post.createdAt).toLocaleDateString(dateLocale)}
                       </span>
                       {post.contestTitle && (
                         <span className="text-emerald-600 font-medium">
@@ -474,7 +484,7 @@ const MyTeamPosts: React.FC = () => {
                         setIsDetailModalOpen(true);
                       }}
                       className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Xem chi tiết"
+                      title={t('teamPosts.actions.viewDetails')}
                     >
                       <Eye className="w-5 h-5" />
                     </button>
@@ -487,7 +497,7 @@ const MyTeamPosts: React.FC = () => {
                             setIsMembersManagerOpen(true);
                           }}
                           className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                          title="Quản lý thành viên"
+                          title={t('teamPosts.actions.manageMembers')}
                         >
                           <Users className="w-5 h-5" />
                         </button>
@@ -498,7 +508,7 @@ const MyTeamPosts: React.FC = () => {
                             setIsCreateModalOpen(true);
                           }}
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
+                          title={t('teamPosts.actions.edit')}
                         >
                           <Edit2 className="w-5 h-5" />
                         </button>
@@ -530,12 +540,12 @@ const MyTeamPosts: React.FC = () => {
                                 {post.status === 'open' ? (
                                   <>
                                     <ToggleLeft className="w-5 h-5 text-gray-500" />
-                                    <span>Đóng bài đăng</span>
+                                    <span>{t('teamPosts.actions.closePost')}</span>
                                   </>
                                 ) : (
                                   <>
                                     <ToggleRight className="w-5 h-5 text-green-500" />
-                                    <span>Mở lại bài đăng</span>
+                                    <span>{t('teamPosts.actions.reopenPost')}</span>
                                   </>
                                 )}
                               </button>
@@ -544,7 +554,7 @@ const MyTeamPosts: React.FC = () => {
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-red-50 text-red-600 last:rounded-b-lg"
                               >
                                 <Trash2 className="w-5 h-5" />
-                                <span>Xóa bài đăng</span>
+                                <span>{t('teamPosts.actions.deletePost')}</span>
                               </button>
                             </>
                           )}
@@ -555,7 +565,7 @@ const MyTeamPosts: React.FC = () => {
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-green-50 text-green-600 rounded-lg"
                             >
                               <RotateCcw className="w-5 h-5" />
-                              <span>Khôi phục bài đăng</span>
+                              <span>{t('teamPosts.actions.restorePost')}</span>
                             </button>
                           )}
                         </div>
@@ -576,17 +586,17 @@ const MyTeamPosts: React.FC = () => {
               disabled={pagination.page === 1 || isLoading}
               className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Trước
+              {t('teamPosts.pagination.previous')}
             </button>
             <span className="text-gray-600">
-              Trang {pagination.page} / {pagination.totalPages}
+              {t('teamPosts.pagination.pageOf', { page: pagination.page, total: pagination.totalPages })}
             </span>
             <button
               onClick={() => fetchMyPosts(pagination.page + 1)}
               disabled={pagination.page === pagination.totalPages || isLoading}
               className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Tiếp
+              {t('teamPosts.pagination.next')}
             </button>
           </div>
         )}

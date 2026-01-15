@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { X, Users, Calendar, MessageSquare, AlertCircle, Loader2, Check, Plus, Minus, ChevronDown, ChevronUp, UserPlus, Search } from 'lucide-react';
 import { Button, Card, Badge, Input, Dropdown, DropdownOption } from './ui/Common';
 import { api } from '../lib/api';
 import { CACHE_TTL, localDrafts } from '../lib/cache';
 import { TeamPostCreate, Contest, RoleSlot, TeamPost } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 
 interface InvitedMember {
     id: string;
@@ -44,12 +45,6 @@ const ROLES = [
     'Content Writer',
     'Marketing',
     'Other'
-];
-
-const CONTACT_METHODS = [
-    { value: 'message', label: 'Nhắn tin trong app' },
-    { value: 'email', label: 'Gửi email' },
-    { value: 'both', label: 'Cả hai' }
 ];
 
 const SKILL_SUGGESTIONS = [
@@ -106,7 +101,17 @@ function isBlankDraft(data: TeamPostCreate): boolean {
 
 const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClose, onSuccess, editingPost = null }) => {
     const isEditMode = !!editingPost;
-    
+    const { t } = useI18n();
+
+    const contactMethodOptions = useMemo(
+        () => [
+            { value: 'message', label: t('teamPostForm.contact.message') },
+            { value: 'email', label: t('teamPostForm.contact.email') },
+            { value: 'both', label: t('teamPostForm.contact.both') }
+        ],
+        [t]
+    );
+
     const [formData, setFormData] = useState<TeamPostCreate>(() => buildEmptyFormData());
     const [contests, setContests] = useState<Contest[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -177,7 +182,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
             } catch (e) {
                 console.error('Error parsing deadline:', e);
             }
-            
+
             setFormData({
                 title: editingPost.title || '',
                 description: editingPost.description || '',
@@ -187,8 +192,8 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                 maxMembers: editingPost.maxMembers || 4,
                 requirements: editingPost.requirements || '',
                 skills: Array.isArray(editingPost.skills) ? editingPost.skills : [],
-                contactMethod: (['message', 'email', 'both'].includes(editingPost.contactMethod) 
-                    ? editingPost.contactMethod 
+                contactMethod: (['message', 'email', 'both'].includes(editingPost.contactMethod)
+                    ? editingPost.contactMethod
                     : 'both') as 'message' | 'email' | 'both',
                 deadline: deadlineValue,
                 invitedMembers: []
@@ -370,15 +375,15 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
 
         // Client-side validation
         if (formData.title.trim().length < 10) {
-            setError('Tiêu đề phải có ít nhất 10 ký tự');
+            setError(t('teamPostForm.validation.titleMin'));
             return;
         }
         if (formData.description.trim().length < 30) {
-            setError('Mô tả phải có ít nhất 30 ký tự');
+            setError(t('teamPostForm.validation.descriptionMin'));
             return;
         }
         if (formData.rolesNeeded.length === 0) {
-            setError('Vui lòng chọn ít nhất một vai trò cần tìm');
+            setError(t('teamPostForm.validation.rolesMin'));
             return;
         }
 
@@ -409,7 +414,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                 onClose();
             }, 1500);
         } catch (err) {
-            setError(err instanceof Error ? err.message : isEditMode ? 'Có lỗi xảy ra khi cập nhật' : 'Có lỗi xảy ra khi đăng tin');
+            setError(err instanceof Error ? err.message : isEditMode ? t('teamPostForm.error.update') : t('teamPostForm.error.create'));
         } finally {
             setIsSubmitting(false);
         }
@@ -440,17 +445,17 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">
-                                {isEditMode ? 'Chỉnh sửa bài đăng' : 'Đăng tin tìm đội'}
+                                {isEditMode ? t('teamPostForm.header.editTitle') : t('teamPostForm.header.createTitle')}
                             </h2>
                             <p className="text-sm text-slate-500">
-                                {isEditMode ? 'Cập nhật thông tin bài đăng của bạn' : 'Tìm đồng đội cho cuộc thi của bạn'}
+                                {isEditMode ? t('teamPostForm.header.editSubtitle') : t('teamPostForm.header.createSubtitle')}
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        aria-label="Đóng"
-                        title="Đóng"
+                        aria-label={t('teamPostForm.actions.close')}
+                        title={t('teamPostForm.actions.close')}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                     >
                         <X className="w-5 h-5" />
@@ -464,12 +469,12 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                             <Check className="w-8 h-8 text-green-600" />
                         </div>
                         <h3 className="text-xl font-bold text-slate-900 mb-2">
-                            {isEditMode ? 'Cập nhật thành công!' : 'Đăng tin thành công!'}
+                            {isEditMode ? t('teamPostForm.success.editTitle') : t('teamPostForm.success.createTitle')}
                         </h3>
                         <p className="text-slate-500">
-                            {isEditMode 
-                                ? 'Bài đăng của bạn đã được cập nhật thành công.' 
-                                : 'Bài đăng của bạn đã được tạo và đang chờ đồng đội tham gia.'}
+                            {isEditMode
+                                ? t('teamPostForm.success.editDescription')
+                                : t('teamPostForm.success.createDescription')}
                         </p>
                     </div>
                 ) : (
@@ -480,7 +485,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl">
                                 <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="font-medium text-red-800">Có lỗi xảy ra</p>
+                                    <p className="font-medium text-red-800">{t('teamPostForm.error.title')}</p>
                                     <p className="text-sm text-red-600 mt-1">{error}</p>
                                 </div>
                             </div>
@@ -489,31 +494,31 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         {/* Title */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Tiêu đề bài đăng <span className="text-red-500">*</span>
+                                {t('teamPostForm.title.label')} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 value={formData.title}
                                 onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                placeholder="VD: Tìm Frontend Dev cho Hackathon 2024"
+                                placeholder={t('teamPostForm.title.placeholder')}
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none"
                                 maxLength={100}
                                 required
                             />
-                            <p className="mt-1 text-xs text-slate-400">{formData.title.length}/100 ký tự</p>
+                            <p className="mt-1 text-xs text-slate-400">{t('teamPostForm.charCount', { count: formData.title.length, max: 100 })}</p>
                         </div>
 
                         {/* Contest Selection & Deadline */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <Dropdown
-                                label="Cuộc thi (không bắt buộc)"
-                                placeholder="-- Chọn cuộc thi --"
-                                headerText="Chọn cuộc thi"
+                                label={t('teamPostForm.contest.label')}
+                                placeholder={t('teamPostForm.contest.placeholder')}
+                                headerText={t('teamPostForm.contest.header')}
                                 value={formData.contestId || ''}
                                 onChange={(value) => setFormData(prev => ({ ...prev, contestId: value }))}
                                 disabled={isLoading}
                                 options={[
-                                    { value: '', label: '-- Không chọn cuộc thi --' },
+                                    { value: '', label: t('teamPostForm.contest.none') },
                                     ...contests.map(contest => ({
                                         value: contest.id,
                                         label: `${contest.title} - ${contest.organizer}`
@@ -525,7 +530,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                 <label htmlFor="deadline-input" className="block text-sm font-medium text-slate-700 mb-2">
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4" />
-                                        Hạn chót tham gia
+                                        {t('teamPostForm.deadline.label')}
                                     </div>
                                 </label>
                                 <input
@@ -534,7 +539,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                     value={formData.deadline || ''}
                                     onChange={e => setFormData(prev => ({ ...prev, deadline: e.target.value }))}
                                     min={minDate}
-                                    title="Chọn hạn chót để đăng ký tham gia"
+                                    title={t('teamPostForm.deadline.title')}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none"
                                 />
                             </div>
@@ -543,25 +548,25 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         {/* Description */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Mô tả chi tiết <span className="text-red-500">*</span>
+                                {t('teamPostForm.description.label')} <span className="text-red-500">*</span>
                             </label>
                             <textarea
                                 value={formData.description}
                                 onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                placeholder="Mô tả về nhóm, mục tiêu, dự án, và những gì bạn đang tìm kiếm ở đồng đội..."
+                                placeholder={t('teamPostForm.description.placeholder')}
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none resize-none"
                                 rows={4}
                                 maxLength={1000}
                                 required
                             />
-                            <p className="mt-1 text-xs text-slate-400">{formData.description.length}/1000 ký tự</p>
+                            <p className="mt-1 text-xs text-slate-400">{t('teamPostForm.charCount', { count: formData.description.length, max: 1000 })}</p>
                         </div>
 
                         {/* Roles Needed */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Vai trò cần tìm <span className="text-red-500">*</span>
-                                <span className="text-slate-400 font-normal ml-2">(Chọn tối đa 5)</span>
+                                {t('teamPostForm.roles.label')} <span className="text-red-500">*</span>
+                                <span className="text-slate-400 font-normal ml-2">{t('teamPostForm.roles.maxHint')}</span>
                             </label>
                             <div className="flex flex-wrap gap-2">
                                 {ROLES.map(role => {
@@ -591,8 +596,8 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         {formData.rolesNeeded.length > 0 && (
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-slate-700">
-                                    Chi tiết từng vị trí
-                                    <span className="text-slate-400 font-normal ml-2">(Nhấn để mở rộng)</span>
+                                    {t('teamPostForm.roles.detailsLabel')}
+                                    <span className="text-slate-400 font-normal ml-2">{t('teamPostForm.roles.detailsHint')}</span>
                                 </label>
                                 <div className="space-y-2">
                                     {formData.rolesNeeded.map(role => {
@@ -606,12 +611,14 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                     type="button"
                                                     onClick={() => toggleRoleExpanded(role)}
                                                     className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
-                                                    aria-label={`${isExpanded ? 'Thu gọn' : 'Mở rộng'} chi tiết ${role}`}
+                                                    aria-label={isExpanded
+                                                        ? t('teamPostForm.roles.collapseDetails', { role })
+                                                        : t('teamPostForm.roles.expandDetails', { role })}
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <span className="font-medium text-slate-700">{role}</span>
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary-700">
-                                                            {slot.count} người
+                                                            {t('teamPostForm.roles.countPeople', { count: slot.count })}
                                                         </span>
                                                     </div>
                                                     {isExpanded ? (
@@ -627,7 +634,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                         {/* Number of people needed */}
                                                         <div>
                                                             <label className="block text-xs font-medium text-slate-600 mb-2">
-                                                                Số lượng cần tuyển
+                                                                {t('teamPostForm.roles.countLabel')}
                                                             </label>
                                                             <div className="flex items-center gap-3">
                                                                 <button
@@ -635,7 +642,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                                     onClick={() => updateRoleSlot(role, { count: Math.max(1, slot.count - 1) })}
                                                                     className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
                                                                     disabled={slot.count <= 1}
-                                                                    aria-label="Giảm số lượng"
+                                                                    aria-label={t('teamPostForm.roles.decreaseCount')}
                                                                 >
                                                                     <Minus className="w-4 h-4" />
                                                                 </button>
@@ -647,7 +654,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                                     onClick={() => updateRoleSlot(role, { count: Math.min(5, slot.count + 1) })}
                                                                     className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
                                                                     disabled={slot.count >= 5}
-                                                                    aria-label="Tăng số lượng"
+                                                                    aria-label={t('teamPostForm.roles.increaseCount')}
                                                                 >
                                                                     <Plus className="w-4 h-4" />
                                                                 </button>
@@ -657,23 +664,23 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                         {/* Task Description */}
                                                         <div>
                                                             <label className="block text-xs font-medium text-slate-600 mb-2">
-                                                                Nhiệm vụ cụ thể
+                                                                {t('teamPostForm.roles.taskLabel')}
                                                             </label>
                                                             <textarea
                                                                 value={slot.description || ''}
                                                                 onChange={e => updateRoleSlot(role, { description: e.target.value })}
-                                                                placeholder={`VD: Phát triển giao diện người dùng với React, tích hợp API...`}
+                                                                placeholder={t('teamPostForm.roles.taskPlaceholder')}
                                                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none resize-none"
                                                                 rows={2}
                                                                 maxLength={300}
                                                             />
-                                                            <p className="mt-1 text-xs text-slate-400">{(slot.description || '').length}/300 ký tự</p>
+                                                            <p className="mt-1 text-xs text-slate-400">{t('teamPostForm.charCount', { count: (slot.description || '').length, max: 300 })}</p>
                                                         </div>
 
                                                         {/* Role-specific skills */}
                                                         <div>
                                                             <label className="block text-xs font-medium text-slate-600 mb-2">
-                                                                Kỹ năng yêu cầu cho vị trí này
+                                                                {t('teamPostForm.roles.skillsLabel')}
                                                             </label>
                                                             <div className="flex flex-wrap gap-1.5">
                                                                 {(slot.skills || []).map(skill => (
@@ -688,7 +695,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                                                 skills: (slot.skills || []).filter(s => s !== skill)
                                                                             })}
                                                                             className="hover:text-primary-900"
-                                                                            aria-label={`Xóa kỹ năng ${skill}`}
+                                                                            aria-label={t('teamPostForm.skills.removeSkill', { skill })}
                                                                         >
                                                                             <X className="w-3 h-3" />
                                                                         </button>
@@ -705,9 +712,9 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                                             }
                                                                         }}
                                                                         className="px-2 py-1 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-600 outline-none"
-                                                                        title="Thêm kỹ năng cho vị trí này"
+                                                                        title={t('teamPostForm.roles.addSkillTitle')}
                                                                     >
-                                                                        <option value="">+ Thêm kỹ năng</option>
+                                                                        <option value="">{t('teamPostForm.roles.addSkillOption')}</option>
                                                                         {SKILL_SUGGESTIONS.filter(s => !(slot.skills || []).includes(s)).slice(0, 15).map(skill => (
                                                                             <option key={skill} value={skill}>{skill}</option>
                                                                         ))}
@@ -727,8 +734,8 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         {/* General Skills */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Kỹ năng chung cần thiết
-                                <span className="text-slate-400 font-normal ml-2">(Tối đa 10)</span>
+                                {t('teamPostForm.skills.label')}
+                                <span className="text-slate-400 font-normal ml-2">{t('teamPostForm.skills.maxHint')}</span>
                             </label>
                             <div className="space-y-2">
                                 {/* Selected Skills */}
@@ -744,7 +751,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                     type="button"
                                                     onClick={() => removeSkill(skill)}
                                                     className="hover:text-primary-900"
-                                                    aria-label={`Xóa kỹ năng ${skill}`}
+                                                    aria-label={t('teamPostForm.skills.removeSkill', { skill })}
                                                 >
                                                     <X className="w-3.5 h-3.5" />
                                                 </button>
@@ -770,7 +777,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                     addSkill(skillInput);
                                                 }
                                             }}
-                                            placeholder="Nhập kỹ năng và nhấn Enter..."
+                                            placeholder={t('teamPostForm.skills.placeholder')}
                                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none"
                                         />
 
@@ -815,9 +822,9 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                             <label className="block text-sm font-medium text-slate-700 mb-2">
                                 <div className="flex items-center gap-2">
                                     <UserPlus className="w-4 h-4" />
-                                    Mời thành viên tham gia
+                                    {t('teamPostForm.invite.label')}
                                 </div>
-                                <span className="text-slate-400 font-normal ml-6 text-xs">Gõ tên hoặc email để tìm kiếm</span>
+                                <span className="text-slate-400 font-normal ml-6 text-xs">{t('teamPostForm.invite.hint')}</span>
                             </label>
 
                             {/* Tagged/Invited Members Display */}
@@ -849,7 +856,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                                 type="button"
                                                 onClick={() => removeInvitedMember(member.id)}
                                                 className="ml-1 p-0.5 hover:bg-primary-200 rounded-full transition-colors"
-                                                aria-label={`Xóa ${member.name} khỏi danh sách mời`}
+                                                aria-label={t('teamPostForm.invite.removeMember', { name: member.name })}
                                             >
                                                 <X className="w-3.5 h-3.5 text-primary-600" />
                                             </button>
@@ -867,7 +874,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                         value={memberSearchQuery}
                                         onChange={e => handleMemberSearchChange(e.target.value)}
                                         onFocus={() => memberSearchQuery.length >= 2 && setShowMemberSuggestions(true)}
-                                        placeholder="Nhập tên hoặc email để tìm kiếm..."
+                                        placeholder={t('teamPostForm.invite.searchPlaceholder')}
                                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none"
                                     />
                                     {isSearchingMembers && (
@@ -881,7 +888,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                         {isSearchingMembers ? (
                                             <div className="px-4 py-3 text-sm text-slate-500 text-center">
                                                 <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                                                Đang tìm kiếm...
+                                                {t('teamPostForm.invite.searching')}
                                             </div>
                                         ) : memberSearchResults.length > 0 ? (
                                             memberSearchResults.map(user => (
@@ -913,7 +920,7 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                             ))
                                         ) : (
                                             <div className="px-4 py-3 text-sm text-slate-500 text-center">
-                                                Không tìm thấy người dùng nào
+                                                {t('teamPostForm.invite.noResults')}
                                             </div>
                                         )}
                                     </div>
@@ -924,40 +931,37 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                         {/* Max Members & Contact Method */}
                         <div className="grid grid-cols-2 gap-4">
                             <Dropdown
-                                label="Số thành viên tối đa"
+                                label={t('teamPostForm.maxMembers.label')}
                                 value={formData.maxMembers.toString()}
                                 onChange={(value) => setFormData(prev => ({ ...prev, maxMembers: parseInt(value, 10) }))}
                                 options={[2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({
                                     value: n.toString(),
-                                    label: `${n} thành viên`
+                                    label: t('teamPostForm.maxMembers.option', { count: n })
                                 }))}
                             />
 
                             <Dropdown
-                                label="Phương thức liên hệ"
+                                label={t('teamPostForm.contact.label')}
                                 value={formData.contactMethod}
                                 onChange={(value) => setFormData(prev => ({ ...prev, contactMethod: value as 'message' | 'email' | 'both' }))}
-                                options={CONTACT_METHODS.map(method => ({
-                                    value: method.value,
-                                    label: method.label
-                                }))}
+                                options={contactMethodOptions}
                             />
                         </div>
 
                         {/* Requirements */}
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Yêu cầu đặc biệt khác (không bắt buộc)
+                                {t('teamPostForm.requirements.label')}
                             </label>
                             <textarea
                                 value={formData.requirements}
                                 onChange={e => setFormData(prev => ({ ...prev, requirements: e.target.value }))}
-                                placeholder="VD: Có thể làm việc fulltime trong 2 tuần, đã từng tham gia hackathon..."
+                                placeholder={t('teamPostForm.requirements.placeholder')}
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all outline-none resize-none"
                                 rows={3}
                                 maxLength={500}
                             />
-                            <p className="mt-1 text-xs text-slate-400">{formData.requirements?.length || 0}/500 ký tự</p>
+                            <p className="mt-1 text-xs text-slate-400">{t('teamPostForm.charCount', { count: formData.requirements?.length || 0, max: 500 })}</p>
                         </div>
 
                         {/* Submit */}
@@ -968,20 +972,20 @@ const CreateTeamPostModal: React.FC<CreateTeamPostModalProps> = ({ isOpen, onClo
                                 onClick={onClose}
                                 disabled={isSubmitting}
                             >
-                                Hủy
+                                {t('teamPostForm.actions.cancel')}
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isSubmitting || formData.rolesNeeded.length === 0}
-                                className="min-w-[140px]"
+                                className="min-w-35"
                             >
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        {isEditMode ? 'Đang cập nhật...' : 'Đang đăng...'}
+                                        {isEditMode ? t('teamPostForm.actions.savingEdit') : t('teamPostForm.actions.savingCreate')}
                                     </>
                                 ) : (
-                                    isEditMode ? 'Cập nhật bài đăng' : 'Đăng tin tìm đội'
+                                    isEditMode ? t('teamPostForm.actions.updatePost') : t('teamPostForm.actions.createPost')
                                 )}
                             </Button>
                         </div>
