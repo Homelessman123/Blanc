@@ -5,6 +5,7 @@ import { Button, Card, Badge, Input, Tabs } from '../components/ui/Common';
 import ScheduleCalendar from '../components/ScheduleCalendar';
 import WorkloadWarningCard from '../components/WorkloadWarningCard';
 import UserSettings from '../components/UserSettings';
+import { useI18n } from '../contexts/I18nContext';
 import { ScheduleEvent, User, CourseEnrollment, MentorBlog } from '../types';
 import { useUserRegistrations, useWorkloadAnalysis, useEnrolledCourses, useStreak } from '../lib/hooks';
 import { api } from '../lib/api';
@@ -26,6 +27,7 @@ function getStoredUser(): User | null {
 }
 
 const Profile: React.FC = () => {
+   const { t } = useI18n();
    const navigate = useNavigate();
    const [searchParams] = useSearchParams();
    const tabFromUrl = searchParams.get('tab') as TabType | null;
@@ -801,7 +803,7 @@ const Profile: React.FC = () => {
                      />
                   </div>
                   <h2 className="text-xl font-bold text-slate-900">{currentUser?.name || 'Người dùng'}</h2>
-                  <p className="text-sm text-slate-500 mb-4">Học viên tích cực</p>
+                  <p className="text-sm text-slate-500 mb-4">{t('profile.sidebar.tagline')}</p>
                   <div className="flex justify-center gap-2 mb-6">
                      {(() => {
                         const tier = currentUser?.membership?.effectiveTier || currentUser?.membership?.tier || 'free';
@@ -822,7 +824,7 @@ const Profile: React.FC = () => {
                                  onClick={() => navigate('/profile?tab=settings&settingsTab=membership')}
                                  className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
                               >
-                                 Quản lý gói đăng ký
+                                 {t('profile.sidebar.manageMembership')}
                               </button>
                            </div>
                         );
@@ -831,17 +833,17 @@ const Profile: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-center">
                      <div>
                         <div className="font-bold text-slate-900 text-lg">{analysis?.workload.activeContests ?? 0}</div>
-                        <div className="text-xs text-slate-500">Cuộc thi</div>
+                        <div className="text-xs text-slate-500">{t('profile.sidebar.contests')}</div>
                      </div>
                      <div>
                         <div className="font-bold text-slate-900 text-lg">{analysis?.workload.activeCourses ?? 0}</div>
-                        <div className="text-xs text-slate-500">Khóa học</div>
+                        <div className="text-xs text-slate-500">{t('profile.sidebar.courses')}</div>
                      </div>
                   </div>
                </Card>
 
                <Card className="p-0 overflow-hidden">
-                  <div className="p-4 border-b border-slate-100 font-semibold text-slate-900">Menu</div>
+                  <div className="p-4 border-b border-slate-100 font-semibold text-slate-900">{t('profile.sidebar.menu')}</div>
                   <nav className="flex flex-col">
                      <button
                         onClick={() => setActiveTab('overview')}
@@ -850,7 +852,7 @@ const Profile: React.FC = () => {
                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent'
                            }`}
                      >
-                        Tổng quan
+                        {t('profile.sidebar.overview')}
                      </button>
                      <button
                         onClick={() => setActiveTab('schedule')}
@@ -860,7 +862,7 @@ const Profile: React.FC = () => {
                            }`}
                      >
                         <span className="flex items-center gap-2">
-                           Lịch thi đấu
+                           {t('profile.sidebar.schedule')}
                            {analysis && analysis.warnings.length > 0 && (
                               <span className="w-2 h-2 rounded-full bg-red-500" />
                            )}
@@ -873,7 +875,7 @@ const Profile: React.FC = () => {
                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent'
                            }`}
                      >
-                        Khóa học của tôi
+                        {t('profile.sidebar.myCourses')}
                      </button>
 
                      {isMentor && (
@@ -884,7 +886,7 @@ const Profile: React.FC = () => {
                               : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent'
                               }`}
                         >
-                           Blog ca nhan
+                           {t('profile.sidebar.personalBlog')}
                         </button>
                      )}
 
@@ -895,7 +897,7 @@ const Profile: React.FC = () => {
                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent'
                            }`}
                      >
-                        Cài đặt
+                        {t('profile.sidebar.settings')}
                      </button>
                   </nav>
                </Card>

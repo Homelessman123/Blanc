@@ -14,20 +14,20 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 function getInitialLocale(): AppLocale {
   try {
-    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-    const fromStorage = normalizeLocale(stored);
-    if (fromStorage) return fromStorage;
-  } catch {
-    // ignore
-  }
-
-  try {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       const fromUser = normalizeLocale(user?.locale);
       if (fromUser) return fromUser;
     }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    const fromStorage = normalizeLocale(stored);
+    if (fromStorage) return fromStorage;
   } catch {
     // ignore
   }
