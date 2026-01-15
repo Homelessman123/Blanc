@@ -24,6 +24,8 @@ const vi = {
   'settings.profile.fullNamePlaceholder': 'Nhập họ và tên',
   'settings.profile.language': 'Ngôn ngữ giao diện',
   'settings.profile.languageHint': 'Chọn ngôn ngữ hiển thị (Anh/Việt).',
+  'settings.profile.languageSaved': 'Đã cập nhật ngôn ngữ.',
+  'settings.profile.languageSaveFailed': 'Không thể cập nhật ngôn ngữ.',
   'settings.profile.emailReadonly': 'Email không thể thay đổi',
   'settings.profile.phone': 'Số điện thoại',
   'settings.profile.phonePlaceholder': 'Nhập số điện thoại',
@@ -43,6 +45,7 @@ const vi = {
 
   'common.saveChanges': 'Lưu thay đổi',
   'common.saveSettings': 'Lưu cài đặt',
+  'common.saving': 'Đang lưu...',
   'common.joinedAt': 'Tham gia từ {{date}}',
   'common.loading': 'Đang tải...',
   'locale.vi': 'Tiếng Việt',
@@ -70,6 +73,8 @@ const en: typeof vi = {
   'settings.profile.fullNamePlaceholder': 'Enter your full name',
   'settings.profile.language': 'Language',
   'settings.profile.languageHint': 'Choose display language (English/Vietnamese).',
+  'settings.profile.languageSaved': 'Language updated.',
+  'settings.profile.languageSaveFailed': 'Unable to update language.',
   'settings.profile.emailReadonly': 'Email cannot be changed',
   'settings.profile.phone': 'Phone number',
   'settings.profile.phonePlaceholder': 'Enter phone number',
@@ -89,6 +94,7 @@ const en: typeof vi = {
 
   'common.saveChanges': 'Save changes',
   'common.saveSettings': 'Save settings',
+  'common.saving': 'Saving...',
   'common.joinedAt': 'Joined on {{date}}',
   'common.loading': 'Loading...',
   'locale.vi': 'Vietnamese',

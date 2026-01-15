@@ -631,6 +631,46 @@ router.patch('/me/profile', authGuard, async (req, res, next) => {
 });
 
 /**
+ * PATCH /api/users/me/locale
+ * Update user locale preference
+ */
+router.patch('/me/locale', authGuard, async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        const userId = req.user.id;
+        const { locale } = req.body || {};
+
+        if (!ObjectId.isValid(userId)) {
+            return res.status(400).json({ error: 'Invalid user ID' });
+        }
+
+        const sanitizedLocale = sanitizeLocale(locale);
+        if (!sanitizedLocale) {
+            return res.status(400).json({ error: 'Invalid locale.' });
+        }
+
+        const users = getCollection('users');
+        const result = await users.updateOne(
+            { _id: new ObjectId(userId) },
+            {
+                $set: {
+                    locale: sanitizedLocale,
+                    updatedAt: new Date(),
+                }
+            }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({ ok: true, locale: sanitizedLocale });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/users/me/change-password
  * Change user password (requires current password)
  */

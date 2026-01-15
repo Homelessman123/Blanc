@@ -2,7 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { clientStorage } from '../lib/cache';
 import { AppLocale, DEFAULT_LOCALE, TranslationKey, normalizeLocale, t as translate } from '../lib/i18n';
 
-const LOCALE_STORAGE_KEY = clientStorage.buildKey('ui', 'locale');
+// Locale should persist across deploys; avoid versioned keys.
+const LOCALE_STORAGE_KEY = 'blanc:locale';
+const LEGACY_LOCALE_STORAGE_KEY = clientStorage.buildKey('ui', 'locale');
 
 type I18nContextValue = {
   locale: AppLocale;
@@ -14,20 +16,28 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 function getInitialLocale(): AppLocale {
   try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    const fromStorage = normalizeLocale(stored);
+    if (fromStorage) return fromStorage;
+  } catch {
+    // ignore
+  }
+
+  try {
+    const legacy = localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
+    const fromLegacy = normalizeLocale(legacy);
+    if (fromLegacy) return fromLegacy;
+  } catch {
+    // ignore
+  }
+
+  try {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       const fromUser = normalizeLocale(user?.locale);
       if (fromUser) return fromUser;
     }
-  } catch {
-    // ignore
-  }
-
-  try {
-    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-    const fromStorage = normalizeLocale(stored);
-    if (fromStorage) return fromStorage;
   } catch {
     // ignore
   }
@@ -48,6 +58,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      localStorage.removeItem(LEGACY_LOCALE_STORAGE_KEY);
     } catch {
       // ignore
     }

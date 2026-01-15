@@ -464,7 +464,9 @@ const UserSettings: React.FC = () => {
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [isTestingNotification, setIsTestingNotification] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [isLocaleSaving, setIsLocaleSaving] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    const localeRequestIdRef = useRef(0);
     const notificationSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const notificationRequestIdRef = useRef(0);
     const privacySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -659,6 +661,46 @@ const UserSettings: React.FC = () => {
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
+    };
+
+    const updateLocalUserLocale = (nextLocale: AppLocale) => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            if (user?.locale === nextLocale) return;
+            user.locale = nextLocale;
+            localStorage.setItem('user', JSON.stringify(user));
+            window.dispatchEvent(new Event('auth-change'));
+        } catch {
+            // ignore
+        }
+    };
+
+    const handleLocaleChange = async (nextLocale: AppLocale) => {
+        const requestId = ++localeRequestIdRef.current;
+        const previousLocale = uiLocale;
+
+        setProfileForm(prev => ({ ...prev, locale: nextLocale }));
+        setUiLocale(nextLocale);
+        updateLocalUserLocale(nextLocale);
+
+        setIsLocaleSaving(true);
+        try {
+            await api.patch('/users/me/locale', { locale: nextLocale });
+            if (requestId !== localeRequestIdRef.current) return;
+            showToast(t('settings.profile.languageSaved'), 'success');
+        } catch (err) {
+            if (requestId !== localeRequestIdRef.current) return;
+            setProfileForm(prev => ({ ...prev, locale: previousLocale }));
+            setUiLocale(previousLocale);
+            updateLocalUserLocale(previousLocale);
+            showToast(err instanceof Error ? err.message : t('settings.profile.languageSaveFailed'), 'error');
+        } finally {
+            if (requestId === localeRequestIdRef.current) {
+                setIsLocaleSaving(false);
+            }
+        }
     };
 
     const saveNotificationSettings = useCallback(async (nextSettings: typeof notificationSettings, options?: { silent?: boolean }) => {
@@ -1309,8 +1351,7 @@ const UserSettings: React.FC = () => {
                                     value={profileForm.locale}
                                     onChange={(value) => {
                                         const next = value === 'en' ? 'en' : 'vi';
-                                        setProfileForm(prev => ({ ...prev, locale: next }));
-                                        setUiLocale(next);
+                                        void handleLocaleChange(next);
                                     }}
                                     placeholder={t('settings.profile.language')}
                                     options={[
@@ -1318,7 +1359,15 @@ const UserSettings: React.FC = () => {
                                         { value: 'en', label: t('locale.en') },
                                     ]}
                                 />
-                                <p className="text-xs text-slate-500 mt-1">{t('settings.profile.languageHint')}</p>
+                                <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                    <span>{t('settings.profile.languageHint')}</span>
+                                    {isLocaleSaving && (
+                                        <span className="inline-flex items-center gap-1 text-slate-400">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            <span>{t('common.saving')}</span>
+                                        </span>
+                                    )}
+                                </p>
                             </div>
 
                             {/* Email (read-only) */}
