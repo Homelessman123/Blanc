@@ -5,6 +5,7 @@ import { Menu, X, Bell, User as UserIcon, LogOut, ChevronDown, Check, Trophy, Us
 import { Button, cn } from './ui/Common';
 import { User, Notification } from '../types';
 import { api } from '../lib/api';
+import { useI18n } from '../contexts/I18nContext';
 import StreakBadge from './StreakBadge';
 import MentorBlogPrompt from './MentorBlogPrompt';
 
@@ -14,6 +15,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
+  const { t } = useI18n();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isLearningOpen, setIsLearningOpen] = useState(false);
@@ -36,19 +38,19 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
   const hideFooter = location.pathname.startsWith('/reports');
 
   const learningItems = [
-    { name: 'Khóa học', path: '/marketplace' },
-    { name: 'Tài liệu', path: '/documents' },
+    { name: t('nav.courses'), path: '/marketplace' },
+    { name: t('nav.documents'), path: '/documents' },
   ];
 
   const communityItems = [
-    { name: 'Cộng đồng', path: '/community' },
-    { name: 'Bản tin', path: '/news' },
+    { name: t('nav.community'), path: '/community' },
+    { name: t('nav.news'), path: '/news' },
   ];
 
   const navItems = [
-    { name: 'Trang chủ', path: '/' },
-    { name: 'Cuộc thi', path: '/contests' },
-    { name: 'Mentor', path: '/mentors' },
+    { name: t('nav.home'), path: '/' },
+    { name: t('nav.contests'), path: '/contests' },
+    { name: t('nav.mentors'), path: '/mentors' },
   ];
 
   const leadingNavItems = navItems.slice(0, 2);
@@ -367,14 +369,14 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   aria-expanded={isLearningOpen}
                   aria-controls="learning-menu"
                 >
-                  <span>Học tập</span>
+                  <span>{t('nav.learning')}</span>
                 </button>
 
                 {isLearningOpen && (
                   <div
                     id="learning-menu"
                     role="menu"
-                    aria-label="Học tập"
+                    aria-label={t('nav.learning')}
                     className="absolute left-1/2 -translate-x-1/2 mt-3 w-52 bg-white rounded-xl shadow-xl border border-slate-100 p-1 animation-fade-in z-50"
                   >
                     {learningItems.map((item) => (
@@ -414,14 +416,14 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   aria-expanded={isCommunityOpen}
                   aria-controls="community-menu"
                 >
-                  <span>Cộng đồng</span>
+                  <span>{t('nav.community')}</span>
                 </button>
 
                 {isCommunityOpen && (
                   <div
                     id="community-menu"
                     role="menu"
-                    aria-label="Cộng đồng"
+                    aria-label={t('nav.community')}
                     className="absolute left-1/2 -translate-x-1/2 mt-3 w-52 bg-white rounded-xl shadow-xl border border-slate-100 p-1 animation-fade-in z-50"
                   >
                     {communityItems.map((item) => (
@@ -625,7 +627,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   aria-expanded={isLearningMobileOpen}
                   aria-controls="learning-menu-mobile"
                 >
-                  <span>Học tập</span>
+                  <span>{t('nav.learning')}</span>
                 </button>
 
                 {isLearningMobileOpen && (
@@ -661,7 +663,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   aria-expanded={isCommunityMobileOpen}
                   aria-controls="community-menu-mobile"
                 >
-                  <span>Cộng đồng</span>
+                  <span>{t('nav.community')}</span>
                 </button>
 
                 {isCommunityMobileOpen && (

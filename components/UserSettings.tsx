@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Button, Input, Card } from './ui/Common';
 import { api, API_BASE_URL } from '../lib/api';
 import { clientStorage } from '../lib/cache';
+import { useI18n } from '../contexts/I18nContext';
+import { AppLocale, DEFAULT_LOCALE, normalizeLocale } from '../lib/i18n';
 import { QrCode } from './QrCode';
 import {
     User, Mail, Lock, Bell, Shield, Eye, EyeOff,
@@ -320,6 +322,7 @@ interface UserProfile {
     name: string;
     email: string;
     avatar?: string;
+    locale?: AppLocale;
     phone?: string;
     bio?: string;
     matchingProfile: MatchingProfile;
@@ -437,6 +440,7 @@ const Toast: React.FC<{
 
 // ============ MAIN SETTINGS COMPONENT ============
 const UserSettings: React.FC = () => {
+    const { locale: uiLocale, setLocale: setUiLocale, t } = useI18n();
     const [searchParams] = useSearchParams();
     const settingsTabFromUrl = searchParams.get('settingsTab') as SettingsTab | null;
 
@@ -487,6 +491,7 @@ const UserSettings: React.FC = () => {
         name: string;
         phone: string;
         bio: string;
+        locale: AppLocale;
         matchingProfile: MatchingProfile;
         contestPreferences: ContestPreferences;
         consents: ProfileConsents;
@@ -494,6 +499,7 @@ const UserSettings: React.FC = () => {
         name: '',
         phone: '',
         bio: '',
+        locale: DEFAULT_LOCALE,
         matchingProfile: createDefaultMatchingProfile(),
         contestPreferences: createDefaultContestPreferences(),
         consents: createDefaultConsents(),
@@ -547,11 +553,13 @@ const UserSettings: React.FC = () => {
         try {
             setIsLoading(true);
             const data = await api.get<UserProfile>('/users/me/settings');
+            const resolvedLocale = normalizeLocale(data.locale) || DEFAULT_LOCALE;
             setProfile(data);
             setProfileForm({
                 name: data.name || '',
                 phone: data.phone || '',
                 bio: data.bio || '',
+                locale: resolvedLocale,
                 matchingProfile: {
                     ...createDefaultMatchingProfile(),
                     ...(data.matchingProfile || {})
@@ -593,6 +601,10 @@ const UserSettings: React.FC = () => {
                 }
                 if (data.avatar && user.avatar !== data.avatar) {
                     user.avatar = data.avatar;
+                    needsUpdate = true;
+                }
+                if (resolvedLocale && user.locale !== resolvedLocale) {
+                    user.locale = resolvedLocale;
                     needsUpdate = true;
                 }
 
@@ -959,6 +971,7 @@ const UserSettings: React.FC = () => {
             if (userStr) {
                 const user = JSON.parse(userStr);
                 user.name = profileForm.name;
+                user.locale = profileForm.locale;
                 localStorage.setItem('user', JSON.stringify(user));
                 window.dispatchEvent(new Event('auth-change'));
             }
@@ -1223,7 +1236,7 @@ const UserSettings: React.FC = () => {
                     <Card className="p-6">
                         <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center">
                             <User className="w-5 h-5 mr-2 text-primary-600" />
-                            Thông tin cá nhân
+                            {t('settings.profile.title')}
                         </h3>
 
                         <form onSubmit={handleSaveProfile} className="space-y-6">
@@ -1265,7 +1278,11 @@ const UserSettings: React.FC = () => {
                                     <p className="text-sm font-medium text-slate-900">{profile?.name}</p>
                                     <p className="text-xs text-slate-500">{profile?.email}</p>
                                     <p className="text-xs text-slate-400 mt-1">
-                                        Tham gia từ {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                                        {t('common.joinedAt', {
+                                            date: profile?.createdAt
+                                                ? new Date(profile.createdAt).toLocaleDateString(uiLocale === 'en' ? 'en-US' : 'vi-VN')
+                                                : 'N/A',
+                                        })}
                                     </p>
                                 </div>
                             </div>
@@ -1282,6 +1299,25 @@ const UserSettings: React.FC = () => {
                                     maxLength={100}
                                 />
                                 <p className="text-xs text-slate-400 mt-1">{profileForm.name.length}/100</p>
+                            </div>
+
+                            {/* Language */}
+                            <div>
+                                <CustomDropdown
+                                    label={t('settings.profile.language')}
+                                    value={profileForm.locale}
+                                    onChange={(value) => {
+                                        const next = value === 'en' ? 'en' : 'vi';
+                                        setProfileForm(prev => ({ ...prev, locale: next }));
+                                        setUiLocale(next);
+                                    }}
+                                    placeholder={t('settings.profile.language')}
+                                    options={[
+                                        { value: 'vi', label: t('locale.vi') },
+                                        { value: 'en', label: t('locale.en') },
+                                    ]}
+                                />
+                                <p className="text-xs text-slate-500 mt-1">{t('settings.profile.languageHint')}</p>
                             </div>
 
                             {/* Email (read-only) */}
@@ -1688,7 +1724,7 @@ const UserSettings: React.FC = () => {
                                     ) : (
                                         <Save className="w-4 h-4 mr-2" />
                                     )}
-                                    Lưu thay đổi
+                                    {t('common.saveChanges')}
                                 </Button>
                             </div>
                         </form>
@@ -2048,7 +2084,7 @@ const UserSettings: React.FC = () => {
                                     ) : (
                                         <Save className="w-4 h-4 mr-2" />
                                     )}
-                                    Lưu cài đặt
+                                    {t('common.saveSettings')}
                                 </Button>
                             </div>
                         </div>
@@ -2104,7 +2140,7 @@ const UserSettings: React.FC = () => {
                                     ) : (
                                         <Save className="w-4 h-4 mr-2" />
                                     )}
-                                    Lưu cài đặt
+                                    {t('common.saveSettings')}
                                 </Button>
                             </div>
                         </div>
@@ -2115,11 +2151,11 @@ const UserSettings: React.FC = () => {
 
     // Tab navigation items
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-        { id: 'membership', label: 'Gói đăng ký', icon: <Crown className="w-4 h-4" /> },
-        { id: 'profile', label: 'Hồ sơ', icon: <User className="w-4 h-4" /> },
-        { id: 'security', label: 'Bảo mật', icon: <Lock className="w-4 h-4" /> },
-        { id: 'notifications', label: 'Thông báo', icon: <Bell className="w-4 h-4" /> },
-        { id: 'privacy', label: 'Quyền riêng tư', icon: <Shield className="w-4 h-4" /> },
+        { id: 'membership', label: t('settings.tabs.membership'), icon: <Crown className="w-4 h-4" /> },
+        { id: 'profile', label: t('settings.tabs.profile'), icon: <User className="w-4 h-4" /> },
+        { id: 'security', label: t('settings.tabs.security'), icon: <Lock className="w-4 h-4" /> },
+        { id: 'notifications', label: t('settings.tabs.notifications'), icon: <Bell className="w-4 h-4" /> },
+        { id: 'privacy', label: t('settings.tabs.privacy'), icon: <Shield className="w-4 h-4" /> },
     ];
 
     return (

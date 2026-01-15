@@ -692,6 +692,7 @@ router.post('/register/complete', async (req, res, next) => {
       password: pending.passwordHash,
       role: 'student',
       avatar: '',
+      locale: 'vi',
       emailVerified: true,
       emailVerifiedAt: pending.otpVerifiedAt || new Date(),
       matchingProfile: {
@@ -1463,6 +1464,7 @@ router.post('/register', async (req, res, next) => {
       password: hashed,
       role: 'student',
       avatar: req.body.avatar || '',
+      locale: 'vi',
       membership: {
         tier: 'free',
         status: 'active',
@@ -1707,6 +1709,13 @@ function isMentorBlogCompleted(user) {
   return Boolean(banner) && Boolean(body);
 }
 
+function normalizeLocale(value) {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (raw.startsWith('en')) return 'en';
+  if (raw.startsWith('vi')) return 'vi';
+  return 'vi';
+}
+
 function sanitizeUser(user) {
   const membership = getMembershipSummary(user?.membership);
   return {
@@ -1715,6 +1724,7 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     avatar: user.avatar,
+    locale: normalizeLocale(user?.locale),
     status: user.status || 'active',
     balance: typeof user.balance === 'number' ? user.balance : 0,
     membership,

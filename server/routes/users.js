@@ -55,6 +55,14 @@ function validatePrivacySettings(settings) {
     return true;
 }
 
+function sanitizeLocale(value) {
+    if (typeof value !== 'string') return null;
+    const raw = value.trim().toLowerCase();
+    if (raw.startsWith('en')) return 'en';
+    if (raw.startsWith('vi')) return 'vi';
+    return null;
+}
+
 // Default shapes for extended profile data
 const DEFAULT_MATCHING_PROFILE = {
     primaryRole: '',
@@ -490,6 +498,7 @@ router.get('/me/settings', authGuard, async (req, res, next) => {
             name: user.name || '',
             email: user.email,
             avatar: user.avatar || '',
+            locale: sanitizeLocale(user.locale) || 'vi',
             phone: user.phone || '',
             bio: user.bio || '',
             matchingProfile: {
@@ -536,6 +545,7 @@ router.patch('/me/profile', authGuard, async (req, res, next) => {
             name,
             phone,
             bio,
+            locale,
             matchingProfile,
             contestPreferences,
             consents,
@@ -566,6 +576,14 @@ router.patch('/me/profile', authGuard, async (req, res, next) => {
         const sanitizedContestPreferences = sanitizeContestPreferences(contestPreferences);
         const sanitizedConsents = sanitizeConsents(consents);
 
+        let sanitizedLocale;
+        if (locale !== undefined) {
+            sanitizedLocale = sanitizeLocale(locale);
+            if (!sanitizedLocale) {
+                return res.status(400).json({ error: 'Invalid locale.' });
+            }
+        }
+
         const users = getCollection('users');
         const updateData = {
             name: sanitizedName,
@@ -574,6 +592,7 @@ router.patch('/me/profile', authGuard, async (req, res, next) => {
             matchingProfile: sanitizedMatchingProfile,
             contestPreferences: sanitizedContestPreferences,
             consents: sanitizedConsents,
+            ...(sanitizedLocale ? { locale: sanitizedLocale } : {}),
             updatedAt: new Date(),
         };
 
@@ -603,6 +622,7 @@ router.patch('/me/profile', authGuard, async (req, res, next) => {
                 matchingProfile: sanitizedMatchingProfile,
                 contestPreferences: sanitizedContestPreferences,
                 consents: sanitizedConsents,
+                ...(sanitizedLocale ? { locale: sanitizedLocale } : {}),
             }
         });
     } catch (error) {

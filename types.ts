@@ -25,6 +25,7 @@ export interface User {
   email: string;
   avatar: string;
   role: 'student' | 'mentor' | 'admin' | 'super_admin';
+  locale?: 'vi' | 'en';
   balance: number;
   status?: 'active' | 'banned';
   membership?: MembershipSummary;
