@@ -4,7 +4,7 @@ import { Button, Input, Card } from './ui/Common';
 import { api, API_BASE_URL } from '../lib/api';
 import { clientStorage } from '../lib/cache';
 import { useI18n } from '../contexts/I18nContext';
-import { AppLocale, DEFAULT_LOCALE, normalizeLocale } from '../lib/i18n';
+import { AppLocale, DEFAULT_LOCALE, normalizeLocale, TranslationKey } from '../lib/i18n';
 import { QrCode } from './QrCode';
 import {
     User, Mail, Lock, Bell, Shield, Eye, EyeOff,
@@ -91,7 +91,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
                 {/* Dropdown Menu */}
                 {isOpen && (
                     <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                        <div className="max-h-[280px] overflow-y-auto p-2">
+                        <div className="max-h-70 overflow-y-auto p-2">
                             {/* Placeholder option */}
                             <button
                                 type="button"
@@ -206,7 +206,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                         setIsOpen(true);
                         inputRef.current?.focus();
                     }}
-                    className={`min-h-[42px] px-3 py-2 bg-white rounded-lg text-sm border cursor-text transition-all flex flex-wrap gap-1.5 items-center ${isOpen
+                    className={`min-h-10.5 px-3 py-2 bg-white rounded-lg text-sm border cursor-text transition-all flex flex-wrap gap-1.5 items-center ${isOpen
                         ? 'ring-2 ring-primary-500 border-primary-500'
                         : 'border-slate-300'
                         }`}
@@ -239,7 +239,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => setIsOpen(true)}
                             placeholder={values.length === 0 ? resolvedPlaceholder : ''}
-                            className="flex-1 min-w-[100px] outline-none bg-transparent text-sm placeholder:text-slate-400"
+                            className="flex-1 min-w-25 outline-none bg-transparent text-sm placeholder:text-slate-400"
                         />
                     )}
                 </div>
@@ -621,7 +621,7 @@ const UserSettings: React.FC = () => {
                 }
             }
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Không thể tải thông tin', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.loadFailed'), 'error');
         } finally {
             setIsLoading(false);
         }
@@ -641,7 +641,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorCode('');
             }
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Khong the tai trang thai 2FA', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.security.twoFactor.loadFailed'), 'error');
         } finally {
             setIsTwoFactorLoading(false);
         }
@@ -721,7 +721,7 @@ const UserSettings: React.FC = () => {
             }
             notificationLastSavedRef.current = nextSettings;
             if (!options?.silent) {
-                showToast('Da cap nhat cai dat thong bao', 'success');
+                showToast(t('settings.notifications.updateSuccess'), 'success');
             }
         } catch (err) {
             if (requestId !== notificationRequestIdRef.current) {
@@ -732,7 +732,7 @@ const UserSettings: React.FC = () => {
                 setNotificationSettings(fallback);
                 notificationPendingRef.current = fallback;
             }
-            showToast(err instanceof Error ? err.message : 'Khong the cap nhat cai dat thong bao', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.notifications.updateFailed'), 'error');
         } finally {
             if (requestId === notificationRequestIdRef.current) {
                 setIsNotificationSaving(false);
@@ -772,7 +772,7 @@ const UserSettings: React.FC = () => {
             }
             privacyLastSavedRef.current = nextSettings;
             if (!options?.silent) {
-                showToast('Da cap nhat cai dat quyen rieng tu', 'success');
+                showToast(t('settings.privacy.updateSuccess'), 'success');
             }
         } catch (err) {
             if (requestId !== privacyRequestIdRef.current) {
@@ -783,7 +783,7 @@ const UserSettings: React.FC = () => {
                 setPrivacySettings(fallback);
                 privacyPendingRef.current = fallback;
             }
-            showToast(err instanceof Error ? err.message : 'Khong the cap nhat cai dat quyen rieng tu', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.privacy.updateFailed'), 'error');
         } finally {
             if (requestId === privacyRequestIdRef.current) {
                 setIsPrivacySaving(false);
@@ -827,19 +827,19 @@ const UserSettings: React.FC = () => {
 
     const validateStringList = (list: string[], label: string, maxItems = 20, maxLength = 60, requireUrl = false) => {
         if (list.length > maxItems) {
-            showToast(`${label} kh�ng du?c vu?t qu� ${maxItems} muc`, 'error');
+            showToast(t('settings.validation.maxItems', { label, max: maxItems }), 'error');
             return false;
         }
         const tooLong = list.find(item => item.length > maxLength);
         if (tooLong) {
-            showToast(`${label} m?i muc kh�ng du?c vu?t ${maxLength} ky t?`, 'error');
+            showToast(t('settings.validation.maxLength', { label, max: maxLength }), 'error');
             return false;
         }
         if (requireUrl) {
             const urlPattern = /^https?:\/\//i;
             const invalid = list.find(item => !urlPattern.test(item));
             if (invalid) {
-                showToast(`${label} c?n ph?i l� URL h?p l? (http/https)`, 'error');
+                showToast(t('settings.validation.urlRequired', { label }), 'error');
                 return false;
             }
         }
@@ -873,13 +873,13 @@ const UserSettings: React.FC = () => {
         // Validate file type
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         if (!allowedTypes.includes(file.type)) {
-            showToast('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)', 'error');
+            showToast(t('settings.avatar.invalidType'), 'error');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            showToast('Kích thước file không được vượt quá 5MB', 'error');
+            showToast(t('settings.avatar.fileTooLarge'), 'error');
             return;
         }
 
@@ -940,10 +940,10 @@ const UserSettings: React.FC = () => {
                 window.dispatchEvent(new Event('auth-change'));
             }
 
-            showToast('Đã cập nhật ảnh đại diện thành công', 'success');
+            showToast(t('settings.avatar.updateSuccess'), 'success');
         } catch (err) {
             console.error('Avatar upload error:', err);
-            showToast(err instanceof Error ? err.message : 'Không thể tải lên ảnh đại diện', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.avatar.uploadFailed'), 'error');
         } finally {
             setIsUploadingAvatar(false);
             // Reset input
@@ -959,53 +959,53 @@ const UserSettings: React.FC = () => {
 
         // Validation
         if (!profileForm.name.trim()) {
-            showToast('Tên không được để trống', 'error');
+            showToast(t('settings.profile.validation.nameRequired'), 'error');
             return;
         }
         if (profileForm.name.length > 100) {
-            showToast('Tên không được quá 100 ký tự', 'error');
+            showToast(t('settings.profile.validation.nameTooLong'), 'error');
             return;
         }
         if (profileForm.bio && profileForm.bio.length > 500) {
-            showToast('Tiểu sử không được quá 500 ký tự', 'error');
+            showToast(t('settings.profile.validation.bioTooLong'), 'error');
             return;
         }
         if (profileForm.phone && !/^[0-9+\-\s]{0,20}$/.test(profileForm.phone)) {
-            showToast('Số điện thoại không hợp lệ', 'error');
+            showToast(t('settings.profile.validation.phoneInvalid'), 'error');
             return;
         }
         const { matchingProfile, contestPreferences } = profileForm;
 
         if (matchingProfile.yearsExperience !== null && (matchingProfile.yearsExperience < 0 || matchingProfile.yearsExperience > 50)) {
-            showToast('Số năm kinh nghiệm phải trong khoảng 0-50', 'error');
+            showToast(t('settings.profile.validation.yearsRange'), 'error');
             return;
         }
-        if (!validateStringList(matchingProfile.skills, 'Kỹ năng chính', 20, 60)) return;
-        if (!validateStringList(matchingProfile.techStack, 'Công nghệ', 20, 60)) return;
-        if (!validateStringList(matchingProfile.languages, 'Ngôn ngữ', 8, 50)) return;
-        if (!validateStringList(matchingProfile.secondaryRoles, 'Vai trò phụ hợp tác', 10, 50)) return;
-        if (!validateStringList(matchingProfile.communicationTools, 'Công cụ giao tiếp', 8, 50)) return;
-        if (!validateStringList(contestPreferences.contestInterests, 'Sở thích cuộc thi', 15, 60)) return;
-        if (!validateStringList(contestPreferences.preferredContestFormats, 'Hình thức cuộc thi', 10, 60)) return;
-        if (!validateStringList(contestPreferences.portfolioLinks, 'Liên kết hồ sơ', 5, 300, true)) return;
+        if (!validateStringList(matchingProfile.skills, t('settings.profile.validation.skills'), 20, 60)) return;
+        if (!validateStringList(matchingProfile.techStack, t('settings.profile.validation.techStack'), 20, 60)) return;
+        if (!validateStringList(matchingProfile.languages, t('settings.profile.validation.languages'), 8, 50)) return;
+        if (!validateStringList(matchingProfile.secondaryRoles, t('settings.profile.validation.secondaryRoles'), 10, 50)) return;
+        if (!validateStringList(matchingProfile.communicationTools, t('settings.profile.validation.communicationTools'), 8, 50)) return;
+        if (!validateStringList(contestPreferences.contestInterests, t('settings.profile.validation.contestInterests'), 15, 60)) return;
+        if (!validateStringList(contestPreferences.preferredContestFormats, t('settings.profile.validation.contestFormats'), 10, 60)) return;
+        if (!validateStringList(contestPreferences.portfolioLinks, t('settings.profile.validation.portfolioLinks'), 5, 300, true)) return;
         if (matchingProfile.availability.length > 200) {
-            showToast('Lịch làm việc không được quá 200 ký tự', 'error');
+            showToast(t('settings.profile.validation.availabilityTooLong'), 'error');
             return;
         }
         if (matchingProfile.collaborationStyle.length > 200) {
-            showToast('Phong cách hợp tác không được quá 200 ký tự', 'error');
+            showToast(t('settings.profile.validation.collaborationTooLong'), 'error');
             return;
         }
         if (contestPreferences.learningGoals.length > 400) {
-            showToast('Mục tiêu học tập không được quá 400 ký tự', 'error');
+            showToast(t('settings.profile.validation.learningGoalsTooLong'), 'error');
             return;
         }
         if (contestPreferences.strengths.length > 400) {
-            showToast('Thói quen/lợi thế không được quá 400 ký tự', 'error');
+            showToast(t('settings.profile.validation.strengthsTooLong'), 'error');
             return;
         }
         if (contestPreferences.achievements.length > 500) {
-            showToast('Thành tích không được quá 500 ký tự', 'error');
+            showToast(t('settings.profile.validation.achievementsTooLong'), 'error');
             return;
         }
 
@@ -1023,9 +1023,9 @@ const UserSettings: React.FC = () => {
                 window.dispatchEvent(new Event('auth-change'));
             }
 
-            showToast('Đã cập nhật hồ sơ thành công', 'success');
+            showToast(t('settings.profile.updateSuccess'), 'success');
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Không thể cập nhật', 'error');
+            showToast(err instanceof Error ? err.message : t('settings.profile.updateFailed'), 'error');
         } finally {
             setIsSaving(false);
         }
@@ -1037,23 +1037,23 @@ const UserSettings: React.FC = () => {
 
         // Validation
         if (!passwordForm.currentPassword) {
-            showToast('Vui lòng nhập mật khẩu hiện tại', 'error');
+            showToast(t('settings.security.validation.currentPasswordRequired'), 'error');
             return;
         }
         if (passwordForm.newPassword.length < 8) {
-            showToast('Mật khẩu mới phải có ít nhất 8 ký tự', 'error');
+            showToast(t('settings.security.validation.newPasswordMin'), 'error');
             return;
         }
         if (passwordForm.newPassword.length > 128) {
-            showToast('Mật khẩu không được quá 128 ký tự', 'error');
+            showToast(t('settings.security.validation.newPasswordMax'), 'error');
             return;
         }
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            showToast('Mật khẩu xác nhận không khớp', 'error');
+            showToast(t('settings.security.validation.confirmMismatch'), 'error');
             return;
         }
         if (passwordForm.currentPassword === passwordForm.newPassword) {
-            showToast('Mật khẩu mới phải khác mật khẩu hiện tại', 'error');
+            showToast(t('settings.security.validation.newPasswordDifferent'), 'error');
             return;
         }
 
@@ -1064,14 +1064,16 @@ const UserSettings: React.FC = () => {
                 newPassword: passwordForm.newPassword,
             });
             setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            showToast('Đã đổi mật khẩu thành công', 'success');
+            showToast(t('settings.security.passwordChangeSuccess'), 'success');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Không thể đổi mật khẩu';
-            const vietnameseErrors: Record<string, string> = {
-                'Current password is incorrect.': 'Mật khẩu hiện tại không đúng.',
-                'Password must be at least 8 characters.': 'Mật khẩu phải có ít nhất 8 ký tự.',
+            const message = err instanceof Error ? err.message : t('settings.security.passwordChangeFailed');
+            const errorMessages: Record<string, string> = {
+                'Current password is incorrect.': t('settings.security.errors.currentPasswordIncorrect'),
+                'Password must be at least 8 characters.': t('settings.security.errors.passwordMin'),
+                'Mật khẩu hiện tại không đúng.': t('settings.security.errors.currentPasswordIncorrect'),
+                'Mật khẩu phải có ít nhất 8 ký tự.': t('settings.security.errors.passwordMin'),
             };
-            showToast(vietnameseErrors[message] || message, 'error');
+            showToast(errorMessages[message] || message, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -1088,14 +1090,14 @@ const UserSettings: React.FC = () => {
         // Start setup (generate secret + QR) or disable: both require password confirmation
         const needsPassword = isDisabling || (isEnabling && !twoFactorSetup);
         if (needsPassword && !twoFactorPassword) {
-            showToast('Vui lòng nhập mật khẩu để cập nhật 2FA.', 'error');
+            showToast(t('settings.security.twoFactor.passwordRequired'), 'error');
             return;
         }
 
         if (isEnabling && twoFactorSetup) {
             const code = twoFactorCode.replace(/[^0-9]/g, '');
             if (!/^\d{6}$/.test(code)) {
-                showToast('Vui lòng nhập mã 6 số từ ứng dụng Authenticator.', 'error');
+                showToast(t('settings.security.twoFactor.codeRequired'), 'error');
                 return;
             }
         }
@@ -1115,7 +1117,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorCode('');
                 setTwoFactorPassword('');
                 setShowTwoFactorPassword(false);
-                showToast(data.message || '2FA đã được tắt.', 'success');
+                showToast(data.message || t('settings.security.twoFactor.disabled'), 'success');
                 return;
             }
 
@@ -1142,7 +1144,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorPendingSetup(true);
                 setTwoFactorPassword('');
                 setShowTwoFactorPassword(false);
-                showToast('Quét QR code bằng Google Authenticator/Authy/1Password, sau đó nhập mã 6 số để xác nhận.', 'success');
+                showToast(t('settings.security.twoFactor.setupInstruction'), 'success');
                 return;
             }
 
@@ -1155,7 +1157,7 @@ const UserSettings: React.FC = () => {
             setTwoFactorPendingSetup(false);
             setTwoFactorSetup(null);
             setTwoFactorCode('');
-            showToast(data.message || (updated ? '2FA đã được bật.' : 'Không thể bật 2FA.'), updated ? 'success' : 'error');
+            showToast(data.message || (updated ? t('settings.security.twoFactor.enabled') : t('settings.security.twoFactor.enableFailed')), updated ? 'success' : 'error');
         } catch (err) {
             const errorCode: string | undefined = (err as any)?.code;
 
@@ -1166,7 +1168,7 @@ const UserSettings: React.FC = () => {
                 setTwoFactorPassword('');
                 setShowTwoFactorPassword(false);
                 showToast(
-                    'Phiên thiết lập 2FA đã hết hạn hoặc đã bị reset. Vui lòng nhập mật khẩu và bấm "Cập nhật 2FA" để tạo QR code mới.',
+                    t('settings.security.twoFactor.setupExpired'),
                     'error'
                 );
                 return;
@@ -1175,26 +1177,32 @@ const UserSettings: React.FC = () => {
             if (errorCode === 'INVALID_TOTP') {
                 const remainingAttempts = Number((err as any)?.data?.remainingAttempts);
                 if (Number.isFinite(remainingAttempts)) {
-                    showToast(`Mã không đúng. Còn ${remainingAttempts} lần thử.`, 'error');
+                    showToast(t('settings.security.twoFactor.invalidCodeRemaining', { count: remainingAttempts }), 'error');
                     return;
                 }
             }
 
             if (errorCode === 'TOTP_NOT_CONFIGURED') {
-                showToast('Hệ thống chưa cấu hình 2FA. Vui lòng liên hệ quản trị viên.', 'error');
+                showToast(t('settings.security.twoFactor.notConfigured'), 'error');
                 return;
             }
 
-            const message = err instanceof Error ? err.message : 'Không thể cập nhật 2FA';
-            const vietnameseErrors: Record<string, string> = {
-                'Password confirmation required.': 'Vui lòng nhập mật khẩu để cập nhật 2FA.',
-                'Invalid password.': 'Mật khẩu không đúng.',
-                'No pending 2FA setup. Start setup first.': 'Chưa có thiết lập 2FA. Vui lòng bắt đầu thiết lập.',
-                '2FA setup expired. Please start again.': 'Phiên thiết lập 2FA đã hết hạn. Vui lòng tạo lại QR code.',
-                'Too many failed attempts. Please start setup again.': 'Bạn nhập sai quá nhiều lần. Vui lòng tạo lại QR code.',
-                'Code must be 6 digits.': 'Mã phải gồm 6 chữ số.',
+            const message = err instanceof Error ? err.message : t('settings.security.twoFactor.updateFailed');
+            const errorMessages: Record<string, string> = {
+                'Password confirmation required.': t('settings.security.twoFactor.passwordRequired'),
+                'Invalid password.': t('settings.security.twoFactor.invalidPassword'),
+                'No pending 2FA setup. Start setup first.': t('settings.security.twoFactor.noPendingSetup'),
+                '2FA setup expired. Please start again.': t('settings.security.twoFactor.setupExpiredShort'),
+                'Too many failed attempts. Please start setup again.': t('settings.security.twoFactor.tooManyAttempts'),
+                'Code must be 6 digits.': t('settings.security.twoFactor.codeDigits'),
+                'Vui lòng nhập mật khẩu để cập nhật 2FA.': t('settings.security.twoFactor.passwordRequired'),
+                'Mật khẩu không đúng.': t('settings.security.twoFactor.invalidPassword'),
+                'Chưa có thiết lập 2FA. Vui lòng bắt đầu thiết lập.': t('settings.security.twoFactor.noPendingSetup'),
+                'Phiên thiết lập 2FA đã hết hạn. Vui lòng tạo lại QR code.': t('settings.security.twoFactor.setupExpiredShort'),
+                'Bạn nhập sai quá nhiều lần. Vui lòng tạo lại QR code.': t('settings.security.twoFactor.tooManyAttempts'),
+                'Mã phải gồm 6 chữ số.': t('settings.security.twoFactor.codeDigits'),
             };
-            showToast(vietnameseErrors[message] || message, 'error');
+            showToast(errorMessages[message] || message, 'error');
         } finally {
             setIsTwoFactorSaving(false);
         }
@@ -1223,9 +1231,9 @@ const UserSettings: React.FC = () => {
         setIsTestingNotification(true);
         try {
             await api.post('/notifications/test', { type: 'announcement' });
-            showToast('✅ Email thử nghiệm đã được gửi! Kiểm tra hộp thư của bạn.', 'success');
+            showToast(t('settings.notifications.testSuccess'), 'success');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Không thể gửi thông báo thử nghiệm';
+            const message = err instanceof Error ? err.message : t('settings.notifications.testFailed');
             showToast(message, 'error');
         } finally {
             setIsTestingNotification(false);
@@ -1298,7 +1306,7 @@ const UserSettings: React.FC = () => {
                                         ) : (
                                             <img
                                                 src={profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileForm.name || 'User')}&background=6366f1&color=fff`}
-                                                alt="Avatar"
+                                                alt={t('settings.profile.avatarAlt')}
                                                 className="w-full h-full object-cover"
                                             />
                                         )}
@@ -1310,13 +1318,13 @@ const UserSettings: React.FC = () => {
                                         onChange={handleAvatarUpload}
                                         className="hidden"
                                         id="avatar-upload"
-                                        aria-label="Chọn ảnh đại diện"
-                                        title="Chọn ảnh đại diện"
+                                        aria-label={t('settings.profile.avatarSelect')}
+                                        title={t('settings.profile.avatarSelect')}
                                     />
                                     <label
                                         htmlFor="avatar-upload"
                                         className={`absolute bottom-0 right-0 p-1.5 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors cursor-pointer ${isUploadingAvatar ? 'opacity-50 pointer-events-none' : ''}`}
-                                        title="Thay đổi avatar"
+                                        title={t('settings.profile.avatarChange')}
                                     >
                                         <Camera className="w-3.5 h-3.5" />
                                     </label>
@@ -1377,7 +1385,7 @@ const UserSettings: React.FC = () => {
                             {/* Email (read-only) */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Email
+                                    {t('settings.profile.email')}
                                 </label>
                                 <div className="relative">
                                     <Input
@@ -1422,35 +1430,35 @@ const UserSettings: React.FC = () => {
 
                             {/* Matching profile - roles */}
                             <div className="border-t border-slate-100 pt-4">
-                                <h4 className="text-sm font-semibold text-slate-900 mb-3">Hồ sơ hợp tác & vai trò</h4>
+                                <h4 className="text-sm font-semibold text-slate-900 mb-3">{t('settings.profile.matching.title')}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <CustomDropdown
-                                            label="Vai trò chính"
+                                            label={t('settings.profile.matching.primaryRole')}
                                             value={profileForm.matchingProfile.primaryRole}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, primaryRole: value }
                                             }))}
-                                            placeholder="Chọn vai trò"
-                                            options={[{ value: '', label: 'Chọn vai trò' }, ...ROLES.map(r => ({ value: r, label: r }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...ROLES.map(r => ({ value: r, label: r }))]}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Vai trò muốn đảm nhiệm trong đội"
+                                            label={t('settings.profile.matching.preferredTeamRole')}
                                             value={profileForm.contestPreferences.preferredTeamRole}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 contestPreferences: { ...prev.contestPreferences, preferredTeamRole: value }
                                             }))}
-                                            placeholder="Chọn vai trò"
-                                            options={[{ value: '', label: 'Chọn vai trò' }, ...ROLES.map(r => ({ value: r, label: r }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...ROLES.map(r => ({ value: r, label: r }))]}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
                                         <MultiSelectTags
-                                            label="Vai trò phụ (có thể đảm nhiệm thêm)"
+                                            label={t('settings.profile.matching.secondaryRoles')}
                                             values={profileForm.matchingProfile.secondaryRoles}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1459,72 +1467,72 @@ const UserSettings: React.FC = () => {
                                             options={ROLES}
                                             maxItems={5}
                                             colorMap={ROLE_COLORS}
-                                            placeholder="Tìm và chọn vai trò..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Cấp độ kinh nghiệm"
+                                            label={t('settings.profile.matching.experienceLevel')}
                                             value={profileForm.matchingProfile.experienceLevel}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, experienceLevel: value }
                                             }))}
-                                            placeholder="Chọn cấp độ"
-                                            options={[{ value: '', label: 'Chọn cấp độ' }, ...EXPERIENCE_LEVELS.map(e => ({ value: e.value, label: e.label }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...EXPERIENCE_LEVELS.map(e => ({ value: e.value, label: e.label }))]}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Số năm kinh nghiệm"
+                                            label={t('settings.profile.matching.yearsExperience')}
                                             value={String(profileForm.matchingProfile.yearsExperience ?? '')}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, yearsExperience: value ? parseInt(value) : null }
                                             }))}
-                                            placeholder="Chọn"
-                                            options={[{ value: '', label: 'Chọn' }, ...YEARS_EXPERIENCE.map(y => ({ value: y.value, label: y.label }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...YEARS_EXPERIENCE.map(y => ({ value: y.value, label: y.label }))]}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Quy mô đội ưa thích"
+                                            label={t('settings.profile.matching.teamSize')}
                                             value={profileForm.contestPreferences.preferredTeamSize}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 contestPreferences: { ...prev.contestPreferences, preferredTeamSize: value }
                                             }))}
-                                            placeholder="Chọn quy mô"
-                                            options={[{ value: '', label: 'Chọn quy mô' }, ...TEAM_SIZES.map(t => ({ value: t.value, label: t.label }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...TEAM_SIZES.map(t => ({ value: t.value, label: t.label }))]}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Địa điểm / khu vực"
+                                            label={t('settings.profile.matching.location')}
                                             value={profileForm.matchingProfile.location}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, location: value }
                                             }))}
-                                            placeholder="Chọn khu vực"
-                                            options={[{ value: '', label: 'Chọn khu vực' }, ...LOCATIONS_VN.map(l => ({ value: l, label: l }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...LOCATIONS_VN.map(l => ({ value: l, label: l }))]}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Múi giờ"
+                                            label={t('settings.profile.matching.timeZone')}
                                             value={profileForm.matchingProfile.timeZone}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, timeZone: value }
                                             }))}
-                                            placeholder="Chọn múi giờ"
-                                            options={[{ value: '', label: 'Chọn múi giờ' }, ...TIMEZONES.map(t => ({ value: t.value, label: t.label }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...TIMEZONES.map(t => ({ value: t.value, label: t.label }))]}
                                         />
                                     </div>
                                     <div>
                                         <MultiSelectTags
-                                            label="Ngôn ngữ giao tiếp"
+                                            label={t('settings.profile.matching.languages')}
                                             values={profileForm.matchingProfile.languages}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1532,19 +1540,19 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={LANGUAGES}
                                             maxItems={5}
-                                            placeholder="Chọn ngôn ngữ..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div>
                                         <CustomDropdown
-                                            label="Hình thức làm việc"
+                                            label={t('settings.profile.matching.remotePreference')}
                                             value={profileForm.matchingProfile.remotePreference}
                                             onChange={(value) => setProfileForm(prev => ({
                                                 ...prev,
                                                 matchingProfile: { ...prev.matchingProfile, remotePreference: value }
                                             }))}
-                                            placeholder="Chọn"
-                                            options={[{ value: '', label: 'Chọn' }, ...REMOTE_PREFERENCES.map(r => ({ value: r.value, label: r.label }))]}
+                                            placeholder={t('common.select')}
+                                            options={[{ value: '', label: t('common.select') }, ...REMOTE_PREFERENCES.map(r => ({ value: r.value, label: r.label }))]}
                                         />
                                     </div>
                                 </div>
@@ -1552,11 +1560,11 @@ const UserSettings: React.FC = () => {
 
                             {/* Skills & availability */}
                             <div className="border-t border-slate-100 pt-4">
-                                <h4 className="text-sm font-semibold text-slate-900 mb-3">Kỹ năng, công cụ & lịch làm việc</h4>
+                                <h4 className="text-sm font-semibold text-slate-900 mb-3">{t('settings.profile.skills.title')}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <MultiSelectTags
-                                            label="Kỹ năng chính"
+                                            label={t('settings.profile.skills.primary')}
                                             values={profileForm.matchingProfile.skills}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1564,12 +1572,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={SKILLS}
                                             maxItems={20}
-                                            placeholder="Chọn kỹ năng..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div>
                                         <MultiSelectTags
-                                            label="Tech stack / công cụ"
+                                            label={t('settings.profile.skills.techStack')}
                                             values={profileForm.matchingProfile.techStack}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1577,12 +1585,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={TECH_STACK}
                                             maxItems={20}
-                                            placeholder="Chọn tech stack..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div>
                                         <MultiSelectTags
-                                            label="Công cụ giao tiếp ưa thích"
+                                            label={t('settings.profile.skills.communicationTools')}
                                             values={profileForm.matchingProfile.communicationTools}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1590,7 +1598,7 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={COMMUNICATION_TOOLS}
                                             maxItems={8}
-                                            placeholder="Chọn công cụ giao tiếp..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                 </div>
@@ -1598,7 +1606,7 @@ const UserSettings: React.FC = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div className="md:col-span-2">
                                         <MultiSelectTags
-                                            label="Lịch / mức độ sẵn sàng"
+                                            label={t('settings.profile.availability.availability')}
                                             values={profileForm.matchingProfile.availability ? profileForm.matchingProfile.availability.split(',').map(s => s.trim()).filter(Boolean) : []}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1606,12 +1614,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={AVAILABILITY_OPTIONS}
                                             maxItems={10}
-                                            placeholder="Chọn thời gian rảnh..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
                                         <MultiSelectTags
-                                            label="Phong cách phối hợp / kỳ vọng"
+                                            label={t('settings.profile.availability.collaboration')}
                                             values={profileForm.matchingProfile.collaborationStyle ? profileForm.matchingProfile.collaborationStyle.split(',').map(s => s.trim()).filter(Boolean) : []}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1619,7 +1627,7 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={COLLABORATION_STYLES}
                                             maxItems={10}
-                                            placeholder="Chọn phong cách..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                 </div>
@@ -1627,11 +1635,11 @@ const UserSettings: React.FC = () => {
 
                             {/* Contest preferences */}
                             <div className="border-t border-slate-100 pt-4">
-                                <h4 className="text-sm font-semibold text-slate-900 mb-3">Sở thích cuộc thi & mục tiêu</h4>
+                                <h4 className="text-sm font-semibold text-slate-900 mb-3">{t('settings.profile.contest.title')}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <MultiSelectTags
-                                            label="Chủ đề / lĩnh vực ưu tiên"
+                                            label={t('settings.profile.contest.interests')}
                                             values={profileForm.contestPreferences.contestInterests}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1639,12 +1647,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={CONTEST_INTERESTS}
                                             maxItems={15}
-                                            placeholder="Chọn chủ đề..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div>
                                         <MultiSelectTags
-                                            label="Hình thức cuộc thi ưa thích"
+                                            label={t('settings.profile.contest.formats')}
                                             values={profileForm.contestPreferences.preferredContestFormats}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1652,12 +1660,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={CONTEST_FORMATS.map(f => f.label)}
                                             maxItems={10}
-                                            placeholder="Chọn hình thức..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
                                         <MultiSelectTags
-                                            label="Mục tiêu / động lực"
+                                            label={t('settings.profile.contest.learningGoals')}
                                             values={profileForm.contestPreferences.learningGoals ? profileForm.contestPreferences.learningGoals.split(',').map(s => s.trim()).filter(Boolean) : []}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1665,12 +1673,12 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={LEARNING_GOALS}
                                             maxItems={10}
-                                            placeholder="Chọn mục tiêu..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
                                         <MultiSelectTags
-                                            label="Điểm mạnh & cách làm việc"
+                                            label={t('settings.profile.contest.strengths')}
                                             values={profileForm.contestPreferences.strengths ? profileForm.contestPreferences.strengths.split(',').map(s => s.trim()).filter(Boolean) : []}
                                             onChange={(values) => setProfileForm(prev => ({
                                                 ...prev,
@@ -1678,18 +1686,18 @@ const UserSettings: React.FC = () => {
                                             }))}
                                             options={STRENGTHS}
                                             maxItems={10}
-                                            placeholder="Chọn điểm mạnh..."
+                                            placeholder={t('common.searchAndSelect')}
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Thành tích / kinh nghiệm nổi bật</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">{t('settings.profile.contest.achievements')}</label>
                                         <textarea
                                             value={profileForm.contestPreferences.achievements}
                                             onChange={(e) => setProfileForm(prev => ({
                                                 ...prev,
                                                 contestPreferences: { ...prev.contestPreferences, achievements: e.target.value }
                                             }))}
-                                            placeholder="Ví dụ: top 5 hackathon X, giải nhì cuộc thi Y, 3 dự án sản phẩm thực tế..."
+                                            placeholder={t('settings.profile.contest.achievementsPlaceholder')}
                                             rows={4}
                                             maxLength={500}
                                             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
@@ -1697,26 +1705,26 @@ const UserSettings: React.FC = () => {
                                         <p className="text-xs text-slate-400 mt-1">{profileForm.contestPreferences.achievements.length}/500</p>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Liên kết hồ sơ / portfolio</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">{t('settings.profile.contest.portfolio')}</label>
                                         <Input
                                             value={joinList(profileForm.contestPreferences.portfolioLinks)}
                                             onChange={(e) => updateContestPreferencesList('portfolioLinks', e.target.value, 5)}
-                                            placeholder="https://, github.com/..., behance.net/..."
+                                            placeholder={t('settings.profile.contest.portfolioPlaceholder')}
                                             maxLength={300}
                                         />
-                                        <p className="text-xs text-slate-400 mt-1">Tối đa 5 liên kết, ngăn cách bằng dấu phẩy</p>
+                                        <p className="text-xs text-slate-400 mt-1">{t('settings.profile.contest.portfolioHint')}</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Consent & privacy */}
                             <div className="border-t border-slate-100 pt-4">
-                                <h4 className="text-sm font-semibold text-slate-900 mb-3">Tùy chọn gợi ý & quyền riêng tư</h4>
+                                <h4 className="text-sm font-semibold text-slate-900 mb-3">{t('settings.profile.consents.title')}</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div className="flex items-center justify-between p-3 border border-slate-100 rounded-lg">
                                         <div>
-                                            <p className="font-medium text-slate-900 text-sm">Sẵn sàng ghép đội mới</p>
-                                            <p className="text-xs text-slate-500">Cho phép người khác mời tham gia đội</p>
+                                            <p className="font-medium text-slate-900 text-sm">{t('settings.profile.consents.openToTeams.title')}</p>
+                                            <p className="text-xs text-slate-500">{t('settings.profile.consents.openToTeams.desc')}</p>
                                         </div>
                                         <ToggleSwitch
                                             checked={profileForm.matchingProfile.openToNewTeams}
@@ -1728,8 +1736,8 @@ const UserSettings: React.FC = () => {
                                     </div>
                                     <div className="flex items-center justify-between p-3 border border-slate-100 rounded-lg">
                                         <div>
-                                            <p className="font-medium text-slate-900 text-sm">Bật đề xuất ghép đội thông minh</p>
-                                            <p className="text-xs text-slate-500">Cho phép dùng dữ liệu trên để tính độ phù hợp</p>
+                                            <p className="font-medium text-slate-900 text-sm">{t('settings.profile.consents.allowMatching.title')}</p>
+                                            <p className="text-xs text-slate-500">{t('settings.profile.consents.allowMatching.desc')}</p>
                                         </div>
                                         <ToggleSwitch
                                             checked={profileForm.consents.allowMatching}
@@ -1741,8 +1749,8 @@ const UserSettings: React.FC = () => {
                                     </div>
                                     <div className="flex items-center justify-between p-3 border border-slate-100 rounded-lg">
                                         <div>
-                                            <p className="font-medium text-slate-900 text-sm">Gợi ý cuộc thi cá nhân hóa</p>
-                                            <p className="text-xs text-slate-500">Dùng hồ sơ để chọn cuộc thi phù hợp</p>
+                                            <p className="font-medium text-slate-900 text-sm">{t('settings.profile.consents.allowRecommendations.title')}</p>
+                                            <p className="text-xs text-slate-500">{t('settings.profile.consents.allowRecommendations.desc')}</p>
                                         </div>
                                         <ToggleSwitch
                                             checked={profileForm.consents.allowRecommendations}
@@ -1754,8 +1762,8 @@ const UserSettings: React.FC = () => {
                                     </div>
                                     <div className="flex items-center justify-between p-3 border border-slate-100 rounded-lg">
                                         <div>
-                                            <p className="font-medium text-slate-900 text-sm">Chia sẻ hồ sơ mở rộng cho đội</p>
-                                            <p className="text-xs text-slate-500">Chỉ hiển thị khi gửi lời mời ghép đội</p>
+                                            <p className="font-medium text-slate-900 text-sm">{t('settings.profile.consents.shareExtended.title')}</p>
+                                            <p className="text-xs text-slate-500">{t('settings.profile.consents.shareExtended.desc')}</p>
                                         </div>
                                         <ToggleSwitch
                                             checked={profileForm.consents.shareExtendedProfile}
@@ -1767,7 +1775,7 @@ const UserSettings: React.FC = () => {
                                     </div>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-2">
-                                    Dữ liệu chỉ phục vụ ghép đội và gợi ý cuộc thi. Bạn có thể tắt bất kỳ lúc nào để bảo vệ quyền riêng tư.
+                                    {t('settings.profile.consents.note')}
                                 </p>
                             </div>
 
@@ -1792,14 +1800,14 @@ const UserSettings: React.FC = () => {
                     <Card className="p-6">
                         <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center">
                             <Lock className="w-5 h-5 mr-2 text-primary-600" />
-                            Bảo mật tài khoản
+                            {t('settings.security.title')}
                         </h3>
 
                         <div className="mb-8 rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <p className="font-medium text-slate-900">Xác thực 2 bước (2FA)</p>
-                                    <p className="text-sm text-slate-500">Bật 2FA để yêu cầu mã OTP khi đăng nhập.</p>
+                                    <p className="font-medium text-slate-900">{t('settings.security.twoFactor.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.security.twoFactor.description')}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {isTwoFactorLoading && (
@@ -1817,7 +1825,7 @@ const UserSettings: React.FC = () => {
                                             }
                                         }}
                                         disabled={isTwoFactorLoading || isTwoFactorSaving}
-                                        label="Two-factor authentication"
+                                        label={t('settings.security.twoFactor.toggleLabel')}
                                         id="two-factor-toggle"
                                     />
                                 </div>
@@ -1826,14 +1834,14 @@ const UserSettings: React.FC = () => {
                                 <div className="mt-4 space-y-3">
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Mật khẩu xác nhận <span className="text-red-500">*</span>
+                                            {t('settings.security.twoFactor.confirmPassword')} <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative">
                                             <Input
                                                 type={showTwoFactorPassword ? 'text' : 'password'}
                                                 value={twoFactorPassword}
                                                 onChange={(e) => setTwoFactorPassword(e.target.value)}
-                                                placeholder="Nhập mật khẩu hiện tại"
+                                                placeholder={t('settings.security.twoFactor.confirmPasswordPlaceholder')}
                                                 autoComplete="current-password"
                                                 disabled={isTwoFactorSaving}
                                             />
@@ -1851,17 +1859,13 @@ const UserSettings: React.FC = () => {
                                     {twoFactorSetup && (
                                         <div className="rounded-lg border border-slate-200 bg-white p-4">
                                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                                                <div className="flex-shrink-0">
+                                                <div className="shrink-0">
                                                     <QrCode data={twoFactorSetup.otpauthUrl} />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <p className="text-sm text-slate-700">
-                                                        1) Mở Google Authenticator / Authy / 1Password<br />
-                                                        2) Quét QR code này<br />
-                                                        3) Nhập mã 6 số để xác nhận bật 2FA
-                                                    </p>
+                                                    <p className="text-sm text-slate-700 whitespace-pre-line">{t('settings.security.twoFactor.instructions')}</p>
                                                     <div className="text-xs text-slate-500">
-                                                        <div className="font-medium text-slate-700 mb-1">Mã dự phòng (secret)</div>
+                                                        <div className="font-medium text-slate-700 mb-1">{t('settings.security.twoFactor.backupCode')}</div>
                                                         <div className="flex items-center gap-2">
                                                             <code className="font-mono text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 break-all">
                                                                 {twoFactorSetup.secret}
@@ -1873,13 +1877,13 @@ const UserSettings: React.FC = () => {
                                                                 onClick={async () => {
                                                                     try {
                                                                         await navigator.clipboard.writeText(twoFactorSetup.secret);
-                                                                        showToast('Đã copy secret', 'success');
+                                                                        showToast(t('settings.security.twoFactor.copySuccess'), 'success');
                                                                     } catch {
-                                                                        showToast('Không thể copy secret', 'error');
+                                                                        showToast(t('settings.security.twoFactor.copyFailed'), 'error');
                                                                     }
                                                                 }}
                                                             >
-                                                                Copy
+                                                                {t('common.copy')}
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -1891,7 +1895,7 @@ const UserSettings: React.FC = () => {
                                     {twoFactorNeedsCode && (
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700 mb-1">
-                                                Mã Authenticator (6 số) <span className="text-red-500">*</span>
+                                                {t('settings.security.twoFactor.authCodeLabel')} <span className="text-red-500">*</span>
                                             </label>
                                             <Input
                                                 value={twoFactorCode}
@@ -1915,13 +1919,13 @@ const UserSettings: React.FC = () => {
                                             ) : (
                                                 <Shield className="w-4 h-4 mr-2" />
                                             )}
-                                            Cập nhật 2FA
+                                            {t('settings.security.twoFactor.updateButton')}
                                         </Button>
                                     </div>
                                 </div>
                             )}
                             <p className="text-xs text-slate-500 mt-3">
-                                Thao tác bật/tắt yêu cầu mật khẩu để xác nhận.
+                                {t('settings.security.twoFactor.note')}
                             </p>
                         </div>
 
@@ -1929,21 +1933,21 @@ const UserSettings: React.FC = () => {
                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                                 <p className="text-sm text-amber-800">
                                     <Shield className="w-4 h-4 inline mr-1" />
-                                    Để bảo vệ tài khoản, hãy sử dụng mật khẩu mạnh với ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số.
+                                    {t('settings.security.passwordTip')}
                                 </p>
                             </div>
 
                             {/* Current Password */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Mật khẩu hiện tại <span className="text-red-500">*</span>
+                                    {t('settings.security.currentPassword')} <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <Input
                                         type={showPasswords.current ? 'text' : 'password'}
                                         value={passwordForm.currentPassword}
                                         onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                                        placeholder="Nhập mật khẩu hiện tại"
+                                        placeholder={t('settings.security.currentPasswordPlaceholder')}
                                         autoComplete="current-password"
                                     />
                                     <button
@@ -1959,14 +1963,14 @@ const UserSettings: React.FC = () => {
                             {/* New Password */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Mật khẩu mới <span className="text-red-500">*</span>
+                                    {t('settings.security.newPassword')} <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <Input
                                         type={showPasswords.new ? 'text' : 'password'}
                                         value={passwordForm.newPassword}
                                         onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                        placeholder="Nhập mật khẩu mới (ít nhất 8 ký tự)"
+                                        placeholder={t('settings.security.newPasswordPlaceholder')}
                                         autoComplete="new-password"
                                     />
                                     <button
@@ -1998,7 +2002,7 @@ const UserSettings: React.FC = () => {
                                             })}
                                         </div>
                                         <p className="text-xs text-slate-500 mt-1">
-                                            {getPasswordStrengthText(calculatePasswordStrength(passwordForm.newPassword))}
+                                            {getPasswordStrengthText(t, calculatePasswordStrength(passwordForm.newPassword))}
                                         </p>
                                     </div>
                                 )}
@@ -2007,14 +2011,14 @@ const UserSettings: React.FC = () => {
                             {/* Confirm Password */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Xác nhận mật khẩu mới <span className="text-red-500">*</span>
+                                    {t('settings.security.confirmPassword')} <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <Input
                                         type={showPasswords.confirm ? 'text' : 'password'}
                                         value={passwordForm.confirmPassword}
                                         onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                        placeholder="Nhập lại mật khẩu mới"
+                                        placeholder={t('settings.security.confirmPasswordPlaceholder')}
                                         autoComplete="new-password"
                                     />
                                     <button
@@ -2026,7 +2030,7 @@ const UserSettings: React.FC = () => {
                                     </button>
                                 </div>
                                 {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
-                                    <p className="text-xs text-red-500 mt-1">Mật khẩu xác nhận không khớp</p>
+                                    <p className="text-xs text-red-500 mt-1">{t('settings.security.confirmMismatch')}</p>
                                 )}
                             </div>
 
@@ -2037,7 +2041,7 @@ const UserSettings: React.FC = () => {
                                     ) : (
                                         <Lock className="w-4 h-4 mr-2" />
                                     )}
-                                    Đổi mật khẩu
+                                    {t('settings.security.changePassword')}
                                 </Button>
                             </div>
                         </form>
@@ -2049,15 +2053,15 @@ const UserSettings: React.FC = () => {
                     <Card className="p-6">
                         <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center">
                             <Bell className="w-5 h-5 mr-2 text-primary-600" />
-                            Cài đặt thông báo
+                            {t('settings.notifications.title')}
                         </h3>
 
                         {/* Test Notification Section */}
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="font-medium text-blue-900">🧪 Kiểm tra thông báo</p>
-                                    <p className="text-sm text-blue-700">Gửi email thử nghiệm đến địa chỉ của bạn</p>
+                                    <p className="font-medium text-blue-900">{t('settings.notifications.testTitle')}</p>
+                                    <p className="text-sm text-blue-700">{t('settings.notifications.testDescription')}</p>
                                 </div>
                                 <Button
                                     variant="secondary"
@@ -2070,7 +2074,7 @@ const UserSettings: React.FC = () => {
                                     ) : (
                                         <Bell className="w-4 h-4 mr-1" />
                                     )}
-                                    Gửi thử
+                                    {t('settings.notifications.testButton')}
                                 </Button>
                             </div>
                         </div>
@@ -2078,8 +2082,8 @@ const UserSettings: React.FC = () => {
                         <div className="space-y-6">
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Thông báo qua email</p>
-                                    <p className="text-sm text-slate-500">Nhận thông báo quan trọng qua email</p>
+                                    <p className="font-medium text-slate-900">{t('settings.notifications.email.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.notifications.email.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={notificationSettings.email}
@@ -2089,8 +2093,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Thông báo đẩy</p>
-                                    <p className="text-sm text-slate-500">Nhận thông báo trên trình duyệt</p>
+                                    <p className="font-medium text-slate-900">{t('settings.notifications.push.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.notifications.push.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={notificationSettings.push}
@@ -2100,8 +2104,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Nhắc nhở cuộc thi</p>
-                                    <p className="text-sm text-slate-500">Nhận nhắc nhở trước khi cuộc thi bắt đầu</p>
+                                    <p className="font-medium text-slate-900">{t('settings.notifications.contestReminders.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.notifications.contestReminders.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={notificationSettings.contestReminders}
@@ -2111,8 +2115,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Cập nhật khóa học</p>
-                                    <p className="text-sm text-slate-500">Nhận thông báo khi khóa học có nội dung mới</p>
+                                    <p className="font-medium text-slate-900">{t('settings.notifications.courseUpdates.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.notifications.courseUpdates.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={notificationSettings.courseUpdates}
@@ -2122,8 +2126,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3">
                                 <div>
-                                    <p className="font-medium text-slate-900">Tin tức và khuyến mãi</p>
-                                    <p className="text-sm text-slate-500">Nhận thông tin về ưu đãi và tính năng mới</p>
+                                    <p className="font-medium text-slate-900">{t('settings.notifications.marketing.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.notifications.marketing.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={notificationSettings.marketing}
@@ -2150,14 +2154,14 @@ const UserSettings: React.FC = () => {
                     <Card className="p-6">
                         <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center">
                             <Shield className="w-5 h-5 mr-2 text-primary-600" />
-                            Quyền riêng tư
+                            {t('settings.privacy.title')}
                         </h3>
 
                         <div className="space-y-6">
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Hiển thị hồ sơ công khai</p>
-                                    <p className="text-sm text-slate-500">Cho phép người khác xem hồ sơ của bạn</p>
+                                    <p className="font-medium text-slate-900">{t('settings.privacy.showProfile.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.privacy.showProfile.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={privacySettings.showProfile}
@@ -2167,8 +2171,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <div>
-                                    <p className="font-medium text-slate-900">Hiển thị hoạt động</p>
-                                    <p className="text-sm text-slate-500">Cho phép người khác xem hoạt động gần đây của bạn</p>
+                                    <p className="font-medium text-slate-900">{t('settings.privacy.showActivity.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.privacy.showActivity.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={privacySettings.showActivity}
@@ -2178,8 +2182,8 @@ const UserSettings: React.FC = () => {
 
                             <div className="flex items-center justify-between py-3">
                                 <div>
-                                    <p className="font-medium text-slate-900">Hiển thị thành tích</p>
-                                    <p className="text-sm text-slate-500">Cho phép người khác xem huy hiệu và thành tích của bạn</p>
+                                    <p className="font-medium text-slate-900">{t('settings.privacy.showAchievements.title')}</p>
+                                    <p className="text-sm text-slate-500">{t('settings.privacy.showAchievements.description')}</p>
                                 </div>
                                 <ToggleSwitch
                                     checked={privacySettings.showAchievements}
@@ -2256,13 +2260,13 @@ function calculatePasswordStrength(password: string): number {
     return strength;
 }
 
-function getPasswordStrengthText(strength: number): string {
+function getPasswordStrengthText(t: (key: TranslationKey, params?: Record<string, string | number>) => string, strength: number): string {
     switch (strength) {
-        case 0: return 'Quá yếu';
-        case 1: return 'Yếu';
-        case 2: return 'Trung bình';
-        case 3: return 'Mạnh';
-        case 4: return 'Rất mạnh';
+        case 0: return t('settings.security.passwordStrength.veryWeak');
+        case 1: return t('settings.security.passwordStrength.weak');
+        case 2: return t('settings.security.passwordStrength.medium');
+        case 3: return t('settings.security.passwordStrength.strong');
+        case 4: return t('settings.security.passwordStrength.veryStrong');
         default: return '';
     }
 }

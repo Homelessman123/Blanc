@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Card, Button, Badge } from '../components/ui/Common';
 import { api } from '../lib/api';
+import { useI18n } from '../contexts/I18nContext';
 
 interface PublicProfile {
     id: string;
@@ -66,14 +67,17 @@ interface PublicProfile {
 const UserProfile: React.FC = () => {
     const { id: userId } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { t, locale } = useI18n();
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+    const dayLabel = (count: number) => (count === 1 ? t('common.day') : t('common.days'));
 
     useEffect(() => {
         const fetchProfile = async () => {
             if (!userId) {
-                setError('User ID không hợp lệ');
+                setError(t('userProfile.invalidUserId'));
                 setIsLoading(false);
                 return;
             }
@@ -81,7 +85,7 @@ const UserProfile: React.FC = () => {
             // Validate MongoDB ObjectId format (24 hex characters)
             const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
             if (!isValidObjectId) {
-                setError('User ID không hợp lệ');
+                setError(t('userProfile.invalidUserId'));
                 setIsLoading(false);
                 return;
             }
@@ -92,7 +96,7 @@ const UserProfile: React.FC = () => {
                 const data = await api.get<PublicProfile>(`/users/${userId}/profile`);
                 setProfile(data);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Không thể tải hồ sơ');
+                setError(err instanceof Error ? err.message : t('userProfile.loadFailed'));
             } finally {
                 setIsLoading(false);
             }
@@ -102,7 +106,7 @@ const UserProfile: React.FC = () => {
     }, [userId]);
 
     const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('vi-VN', {
+        return new Date(dateStr).toLocaleDateString(dateLocale, {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
@@ -111,10 +115,10 @@ const UserProfile: React.FC = () => {
 
     const getExperienceLevelLabel = (level: string) => {
         const labels: Record<string, string> = {
-            beginner: 'Mới bắt đầu',
-            intermediate: 'Trung cấp',
-            advanced: 'Nâng cao',
-            expert: 'Chuyên gia'
+            beginner: t('userProfile.experience.beginner'),
+            intermediate: t('userProfile.experience.intermediate'),
+            advanced: t('userProfile.experience.advanced'),
+            expert: t('userProfile.experience.expert')
         };
         return labels[level] || level;
     };
@@ -133,7 +137,7 @@ const UserProfile: React.FC = () => {
                 <p className="text-red-500">{error}</p>
                 <Button onClick={() => navigate(-1)}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Quay lại
+                    {t('common.back')}
                 </Button>
             </div>
         );
@@ -142,10 +146,10 @@ const UserProfile: React.FC = () => {
     if (!profile) {
         return (
             <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-                <p className="text-slate-500">Không tìm thấy hồ sơ người dùng</p>
+                <p className="text-slate-500">{t('userProfile.notFound')}</p>
                 <Button onClick={() => navigate(-1)}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Quay lại
+                    {t('common.back')}
                 </Button>
             </div>
         );
@@ -157,7 +161,7 @@ const UserProfile: React.FC = () => {
             <div className="max-w-2xl mx-auto px-4 py-8">
                 <Button variant="secondary" onClick={() => navigate(-1)} className="mb-6">
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Quay lại
+                    {t('common.back')}
                 </Button>
 
                 <Card className="p-8 text-center">
@@ -176,7 +180,7 @@ const UserProfile: React.FC = () => {
             {/* Back button */}
             <Button variant="secondary" onClick={() => navigate(-1)} className="mb-6">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Quay lại
+                {t('common.back')}
             </Button>
 
             {/* Profile Header */}
@@ -191,7 +195,7 @@ const UserProfile: React.FC = () => {
                                 className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg"
                             />
                         ) : (
-                            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                            <div className="w-28 h-28 rounded-full bg-linear-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                                 {profile.name.charAt(0).toUpperCase()}
                             </div>
                         )}
@@ -225,7 +229,7 @@ const UserProfile: React.FC = () => {
                                     </span>
 
                                     <span className="relative font-extrabold leading-none">{profile.streak.currentStreak}</span>
-                                    <span className="text-sm font-medium opacity-90">ngày</span>
+                                    <span className="text-sm font-medium opacity-90">{dayLabel(profile.streak.currentStreak)}</span>
 
                                     {/* star removed */}
                                 </div>
@@ -254,13 +258,13 @@ const UserProfile: React.FC = () => {
                             {profile.matchingProfile?.openToNewTeams && (
                                 <span className="inline-flex items-center gap-1 text-sm text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
                                     <Users className="w-3.5 h-3.5" />
-                                    Sẵn sàng tìm đội
+                                    {t('userProfile.openToTeams')}
                                 </span>
                             )}
                             {profile.matchingProfile?.openToMentor && (
                                 <span className="inline-flex items-center gap-1 text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
                                     <Star className="w-3.5 h-3.5" />
-                                    Có thể mentor
+                                    {t('userProfile.openToMentor')}
                                 </span>
                             )}
                         </div>
@@ -268,7 +272,7 @@ const UserProfile: React.FC = () => {
                         {/* Member since */}
                         <p className="text-sm text-slate-400 mt-4">
                             <Calendar className="w-4 h-4 inline mr-1" />
-                            Thành viên từ {formatDate(profile.createdAt)}
+                            {t('userProfile.memberSince', { date: formatDate(profile.createdAt) })}
                         </p>
                     </div>
                 </div>
@@ -282,12 +286,12 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <Code className="w-5 h-5 text-primary-600" />
-                                Kỹ năng & Công nghệ
+                                {t('userProfile.skillsAndTech')}
                             </h3>
 
                             {profile.matchingProfile.skills.length > 0 && (
                                 <div className="mb-4">
-                                    <p className="text-sm font-medium text-slate-500 mb-2">Kỹ năng</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-2">{t('userProfile.skills')}</p>
                                     <div className="flex flex-wrap gap-2">
                                         {profile.matchingProfile.skills.map((skill, i) => (
                                             <span key={i} className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm">
@@ -300,7 +304,7 @@ const UserProfile: React.FC = () => {
 
                             {profile.matchingProfile.techStack.length > 0 && (
                                 <div>
-                                    <p className="text-sm font-medium text-slate-500 mb-2">Tech Stack</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-2">{t('userProfile.techStack')}</p>
                                     <div className="flex flex-wrap gap-2">
                                         {profile.matchingProfile.techStack.map((tech, i) => (
                                             <span key={i} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm">
@@ -313,7 +317,7 @@ const UserProfile: React.FC = () => {
 
                             {profile.matchingProfile.languages.length > 0 && (
                                 <div className="mt-4">
-                                    <p className="text-sm font-medium text-slate-500 mb-2">Ngôn ngữ</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-2">{t('userProfile.languages')}</p>
                                     <div className="flex flex-wrap gap-2">
                                         {profile.matchingProfile.languages.map((lang, i) => (
                                             <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
@@ -332,7 +336,7 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <Trophy className="w-5 h-5 text-primary-600" />
-                                Hoạt động gần đây
+                                {t('userProfile.recentActivities')}
                             </h3>
                             <div className="space-y-3">
                                 {profile.activities.map((activity, i) => (
@@ -348,7 +352,7 @@ const UserProfile: React.FC = () => {
                                             </p>
                                         </div>
                                         <Badge status={activity.status === 'registered' ? 'OPEN' : 'CLOSED'}>
-                                            {activity.status === 'registered' ? 'Đã đăng ký' : activity.status}
+                                            {activity.status === 'registered' ? t('userProfile.registeredStatus') : activity.status}
                                         </Badge>
                                     </div>
                                 ))}
@@ -361,7 +365,7 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <BookOpen className="w-5 h-5 text-primary-600" />
-                                Khóa học
+                                {t('userProfile.courses')}
                             </h3>
                             <div className="space-y-3">
                                 {profile.enrollments.map((enrollment, i) => (
@@ -371,10 +375,10 @@ const UserProfile: React.FC = () => {
                                             {enrollment.status === 'completed' ? (
                                                 <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
                                                     <CheckCircle className="w-4 h-4" />
-                                                    Hoàn thành
+                                                    {t('userProfile.completed')}
                                                 </span>
                                             ) : null}
-                                         </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -389,30 +393,30 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <Award className="w-5 h-5 text-primary-600" />
-                                Thành tích
+                                {t('userProfile.achievements')}
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="text-center p-3 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg">
+                                <div className="text-center p-3 bg-linear-to-br from-amber-50 to-orange-50 rounded-lg">
                                     <Trophy className="w-6 h-6 mx-auto text-amber-500 mb-1" />
                                     <p className="text-2xl font-bold text-slate-900">{profile.achievements.totalContests}</p>
-                                    <p className="text-xs text-slate-500">Cuộc thi</p>
+                                    <p className="text-xs text-slate-500">{t('userProfile.contests')}</p>
                                 </div>
-                                <div className="text-center p-3 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg">
+                                <div className="text-center p-3 bg-linear-to-br from-emerald-50 to-teal-50 rounded-lg">
                                     <BookOpen className="w-6 h-6 mx-auto text-emerald-500 mb-1" />
                                     <p className="text-2xl font-bold text-slate-900">{profile.achievements.completedCourses}</p>
-                                    <p className="text-xs text-slate-500">Khóa học hoàn thành</p>
+                                    <p className="text-xs text-slate-500">{t('userProfile.completedCourses')}</p>
                                 </div>
                             </div>
 
                             {profile.streak && (
-                                <div className="p-3 bg-gradient-to-br from-orange-50 to-red-50 rounded-lg mb-4">
+                                <div className="p-3 bg-linear-to-br from-orange-50 to-red-50 rounded-lg mb-4">
                                     <div className="flex items-center gap-3">
                                         <img src="/streak/flame-tight.gif" className="streak-motion w-8 h-8 object-contain mix-blend-screen" alt="" aria-hidden="true" />
                                         <img src="/streak/flame-tight.png" className="streak-reduce-motion w-8 h-8 object-contain mix-blend-screen" alt="" aria-hidden="true" />
                                         <div>
-                                            <p className="font-bold text-slate-900">{profile.streak.longestStreak} ngày</p>
-                                            <p className="text-xs text-slate-500">Chuỗi dài nhất</p>
+                                            <p className="font-bold text-slate-900">{t('userProfile.streakDays', { count: profile.streak.longestStreak, label: dayLabel(profile.streak.longestStreak) })}</p>
+                                            <p className="text-xs text-slate-500">{t('userProfile.longestStreak')}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -420,7 +424,7 @@ const UserProfile: React.FC = () => {
 
                             {profile.achievements.contestAchievements && (
                                 <div className="mt-4">
-                                    <p className="text-sm font-medium text-slate-500 mb-2">Thành tích nổi bật</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-2">{t('userProfile.highlightAchievements')}</p>
                                     <p className="text-sm text-slate-700">{profile.achievements.contestAchievements}</p>
                                 </div>
                             )}
@@ -452,7 +456,7 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <Trophy className="w-5 h-5 text-primary-600" />
-                                Quan tâm
+                                {t('userProfile.interests')}
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {profile.contestPreferences.contestInterests.map((interest, i) => (
@@ -466,11 +470,11 @@ const UserProfile: React.FC = () => {
                                 <div className="mt-4 pt-4 border-t border-slate-100">
                                     <p className="text-sm text-slate-500">
                                         <Users className="w-4 h-4 inline mr-1" />
-                                        Vai trò ưa thích: <span className="text-slate-900">{profile.contestPreferences.preferredTeamRole}</span>
+                                        {t('userProfile.preferredRole')}: <span className="text-slate-900">{profile.contestPreferences.preferredTeamRole}</span>
                                     </p>
                                     {profile.contestPreferences.preferredTeamSize && (
                                         <p className="text-sm text-slate-500 mt-1">
-                                            Team size: <span className="text-slate-900">{profile.contestPreferences.preferredTeamSize} người</span>
+                                            {t('userProfile.teamSize', { size: profile.contestPreferences.preferredTeamSize })}
                                         </p>
                                     )}
                                 </div>
@@ -483,7 +487,7 @@ const UserProfile: React.FC = () => {
                         <Card className="p-6">
                             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                 <Briefcase className="w-5 h-5 text-primary-600" />
-                                Vai trò phụ
+                                {t('userProfile.secondaryRoles')}
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {profile.matchingProfile.secondaryRoles.map((role, i) => (
@@ -501,7 +505,7 @@ const UserProfile: React.FC = () => {
             {profile.isOwnProfile && (
                 <div className="mt-6 text-center">
                     <Link to="/profile" className="text-primary-600 hover:text-primary-700 hover:underline">
-                        Chỉnh sửa hồ sơ của bạn →
+                        {t('userProfile.editProfileLink')}
                     </Link>
                 </div>
             )}

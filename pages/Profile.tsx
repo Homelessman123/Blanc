@@ -219,12 +219,12 @@ const Profile: React.FC = () => {
 
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-         setBlogError('Chi chap nhan file anh (JPEG, PNG, GIF, WebP)');
+         setBlogError(t('profile.mentorBlog.invalidFileType'));
          return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-         setBlogError('Kich thuoc file vuot qua 5MB');
+         setBlogError(t('profile.mentorBlog.fileTooLarge'));
          return;
       }
 
@@ -440,10 +440,10 @@ const Profile: React.FC = () => {
                                              {enrollment.course.level}
                                           </Badge>
                                           {enrollment.status === 'completed' && (
-                                                <Badge className="bg-green-50 text-green-700 border-green-100">
-                                                   <CheckCircle2 className="w-3 h-3 mr-1" />
+                                             <Badge className="bg-green-50 text-green-700 border-green-100">
+                                                <CheckCircle2 className="w-3 h-3 mr-1" />
                                                 {t('common.completed')}
-                                                </Badge>
+                                             </Badge>
                                           )}
                                        </div>
                                     </div>
@@ -564,6 +564,8 @@ const Profile: React.FC = () => {
                                     accept="image/*"
                                     className="hidden"
                                     onChange={handleMentorBannerUpload}
+                                    aria-label={t('profile.mentorBlog.uploadBanner')}
+                                    title={t('profile.mentorBlog.uploadBanner')}
                                  />
                                  <Button
                                     type="button"
@@ -784,11 +786,11 @@ const Profile: React.FC = () => {
                            ))}
                         </div>
                      ) : (
-                         <p className="text-center text-slate-500 py-4">
+                        <p className="text-center text-slate-500 py-4">
                            {t('profile.overview.noEnrolledCourses')}
-                         </p>
-                      )}
-                   </Card>
+                        </p>
+                     )}
+                  </Card>
                </>
             );
       }
@@ -914,10 +916,10 @@ const Profile: React.FC = () => {
                {isMentor && !currentUser?.mentorBlogCompleted && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                      <span className="text-sm text-amber-800">
-                        Ban chua cap nhat blog ca nhan. Hay hoan thanh de ho so day du hon.
+                        {t('profile.mentorBlog.incompletePrompt')}
                      </span>
                      <Button size="sm" onClick={() => navigate('/profile?tab=mentor-blog')}>
-                        Cap nhat thong tin
+                        {t('profile.mentorBlog.completeNow')}
                      </Button>
                   </div>
                )}
