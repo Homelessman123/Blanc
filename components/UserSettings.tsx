@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, Input, Card } from './ui/Common';
 import { api, API_BASE_URL } from '../lib/api';
@@ -145,6 +145,7 @@ interface MultiSelectTagsProps {
     placeholder?: string;
     maxItems?: number;
     colorMap?: Record<string, string>;
+    displayMap?: Record<string, string>;
 }
 
 const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
@@ -154,7 +155,8 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
     options,
     placeholder,
     maxItems = 10,
-    colorMap
+    colorMap,
+    displayMap
 }) => {
     const { t } = useI18n();
     const [isOpen, setIsOpen] = useState(false);
@@ -162,6 +164,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const resolvedPlaceholder = placeholder ?? t('common.searchAndSelect');
+    const getDisplayLabel = useCallback((val: string) => displayMap?.[val] ?? val, [displayMap]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -174,7 +177,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
     }, []);
 
     const filteredOptions = options.filter(opt =>
-        opt.toLowerCase().includes(searchQuery.toLowerCase()) && !values.includes(opt)
+        getDisplayLabel(opt).toLowerCase().includes(searchQuery.toLowerCase()) && !values.includes(opt)
     );
 
     const toggleValue = (val: string) => {
@@ -216,7 +219,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                             key={val}
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${getTagColor(val)}`}
                         >
-                            {val}
+                            {getDisplayLabel(val)}
                             <button
                                 type="button"
                                 onClick={(e) => {
@@ -269,7 +272,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                                         className="w-full px-3 py-2 rounded-lg text-sm text-left transition-all flex items-center justify-between text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${getTagColor(opt)}`}>
-                                            {opt}
+                                            {getDisplayLabel(opt)}
                                         </span>
                                     </button>
                                 ))
@@ -475,6 +478,182 @@ const UserSettings: React.FC = () => {
     const notificationRequestIdRef = useRef(0);
     const privacySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const privacyRequestIdRef = useRef(0);
+
+    const isEnglish = uiLocale === 'en';
+    const experienceOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            beginner: 'Beginner',
+            intermediate: 'Intermediate',
+            advanced: 'Advanced',
+            expert: 'Expert',
+        };
+        return EXPERIENCE_LEVELS.map(level => ({
+            value: level.value,
+            label: isEnglish ? labels[level.value] ?? level.label : level.label,
+        }));
+    }, [isEnglish]);
+
+    const yearsExperienceOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            '0': 'No experience',
+            '1': '< 1 year',
+            '2': '1-2 years',
+            '3': '2-3 years',
+            '5': '3-5 years',
+            '10': '5+ years',
+        };
+        return YEARS_EXPERIENCE.map(item => ({
+            value: item.value,
+            label: isEnglish ? labels[item.value] ?? item.label : item.label,
+        }));
+    }, [isEnglish]);
+
+    const remotePreferenceOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            remote: 'Remote',
+            hybrid: 'Hybrid',
+            onsite: 'Onsite',
+            flexible: 'Flexible',
+        };
+        return REMOTE_PREFERENCES.map(item => ({
+            value: item.value,
+            label: isEnglish ? labels[item.value] ?? item.label : item.label,
+        }));
+    }, [isEnglish]);
+
+    const timeZoneOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            'UTC+7': 'UTC+7 (Vietnam, Thailand)',
+            'UTC+8': 'UTC+8 (Singapore, Malaysia)',
+            'UTC+9': 'UTC+9 (Japan, Korea)',
+            'UTC+0': 'UTC+0 (London, GMT)',
+            'UTC-5': 'UTC-5 (New York, EST)',
+            'UTC-8': 'UTC-8 (Los Angeles, PST)',
+            'UTC+1': 'UTC+1 (Paris, Berlin)',
+            'UTC+5:30': 'UTC+5:30 (India)',
+        };
+        return TIMEZONES.map(item => ({
+            value: item.value,
+            label: isEnglish ? labels[item.value] ?? item.label : item.label,
+        }));
+    }, [isEnglish]);
+
+    const teamSizeOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            solo: 'Solo (1 person)',
+            small: 'Small (2-3 people)',
+            medium: 'Medium (4-5 people)',
+            large: 'Large (6+ people)',
+            any: 'Any size',
+        };
+        return TEAM_SIZES.map(item => ({
+            value: item.value,
+            label: isEnglish ? labels[item.value] ?? item.label : item.label,
+        }));
+    }, [isEnglish]);
+
+    const locationOptions = useMemo(() => {
+        const labels: Record<string, string> = {
+            'Hà Nội': 'Hanoi',
+            'TP. Hồ Chí Minh': 'Ho Chi Minh City',
+            'Đà Nẵng': 'Da Nang',
+            'Hải Phòng': 'Hai Phong',
+            'Cần Thơ': 'Can Tho',
+            'Biên Hòa': 'Bien Hoa',
+            'Nha Trang': 'Nha Trang',
+            'Huế': 'Hue',
+            'Buôn Ma Thuột': 'Buon Ma Thuot',
+            'Vũng Tàu': 'Vung Tau',
+            'Quy Nhơn': 'Quy Nhon',
+            'Thái Nguyên': 'Thai Nguyen',
+            'Nam Định': 'Nam Dinh',
+            'Vinh': 'Vinh',
+            'Khác': 'Other',
+        };
+        return LOCATIONS_VN.map(loc => ({
+            value: loc,
+            label: isEnglish ? labels[loc] ?? loc : loc,
+        }));
+    }, [isEnglish]);
+
+    const languageDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+        if (!isEnglish) return undefined;
+        return {
+            'Tiếng Việt': 'Vietnamese',
+            'Tiếng Anh': 'English',
+            'Tiếng Trung': 'Chinese',
+            'Tiếng Nhật': 'Japanese',
+            'Tiếng Hàn': 'Korean',
+            'Tiếng Pháp': 'French',
+            'Tiếng Đức': 'German',
+            'Tiếng Tây Ban Nha': 'Spanish',
+        };
+    }, [isEnglish]);
+
+    const availabilityDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+        if (!isEnglish) return undefined;
+        return {
+            'Full-time - Toàn thời gian': 'Full-time',
+            'Part-time - Bán thời gian': 'Part-time',
+            'Cuối tuần': 'Weekends',
+            'Buổi tối (sau 18h)': 'Evenings (after 6pm)',
+            'Buổi sáng (6h-12h)': 'Mornings (6am-12pm)',
+            'Buổi chiều (12h-18h)': 'Afternoons (12pm-6pm)',
+            'Linh hoạt theo lịch': 'Flexible schedule',
+            'Chỉ ngày lễ/nghỉ': 'Holidays only',
+        };
+    }, [isEnglish]);
+
+    const collaborationDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+        if (!isEnglish) return undefined;
+        return {
+            'Async - Chat, email': 'Async - Chat, email',
+            'Sync - Meeting, call thường xuyên': 'Sync - Frequent meetings/calls',
+            'Kết hợp async + sync': 'Hybrid async + sync',
+            'Daily standup ngắn': 'Short daily standups',
+            'Brainstorm trực quan (Figma, Miro)': 'Visual brainstorm (Figma, Miro)',
+            'Quy trình rõ ràng (Agile/Scrum)': 'Structured process (Agile/Scrum)',
+            'Flexible - Tùy team quyết định': 'Flexible - Team decides',
+            'Độc lập, chỉ sync khi cần': 'Independent, sync when needed',
+        };
+    }, [isEnglish]);
+
+    const strengthsDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+        if (!isEnglish) return undefined;
+        return {
+            'Giải quyết vấn đề nhanh': 'Fast problem solving',
+            'Sáng tạo ý tưởng': 'Creative ideation',
+            'Làm việc dưới áp lực': 'Work under pressure',
+            'Giao tiếp hiệu quả': 'Effective communication',
+            'Học hỏi nhanh': 'Fast learner',
+            'Tỉ mỉ, chi tiết': 'Detail-oriented',
+            'Lãnh đạo team': 'Team leadership',
+            'Quản lý thời gian': 'Time management',
+            'Phân tích dữ liệu': 'Data analysis',
+            'Thiết kế UI/UX': 'UI/UX design',
+            'Pitching/Thuyết trình': 'Pitching / presentation',
+            'Debug & Troubleshoot': 'Debug & troubleshoot',
+            'Code review': 'Code review',
+            'Documentation': 'Documentation',
+            'Research & Planning': 'Research & planning',
+        };
+    }, [isEnglish]);
+
+    const learningGoalsDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+        if (!isEnglish) return undefined;
+        return {
+            'Nâng cao kỹ năng lập trình': 'Improve programming skills',
+            'Học công nghệ mới': 'Learn new technologies',
+            'Kinh nghiệm thực tế': 'Real-world experience',
+            'Networking': 'Networking',
+            'Giải thưởng & CV': 'Awards & CV',
+            'Khởi nghiệp': 'Startup',
+            'Tìm việc làm': 'Job search',
+            'Vui & Trải nghiệm': 'Fun & experience',
+            'Mentoring & Hướng dẫn người khác': 'Mentoring & coaching others',
+            'Phát triển soft skills': 'Soft skills development',
+        };
+    }, [isEnglish]);
 
     // Update tab when URL changes
     useEffect(() => {
@@ -1479,7 +1658,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, experienceLevel: value }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...EXPERIENCE_LEVELS.map(e => ({ value: e.value, label: e.label }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...experienceOptions]}
                                         />
                                     </div>
                                     <div>
@@ -1491,7 +1670,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, yearsExperience: value ? parseInt(value) : null }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...YEARS_EXPERIENCE.map(y => ({ value: y.value, label: y.label }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...yearsExperienceOptions]}
                                         />
                                     </div>
                                     <div>
@@ -1503,7 +1682,7 @@ const UserSettings: React.FC = () => {
                                                 contestPreferences: { ...prev.contestPreferences, preferredTeamSize: value }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...TEAM_SIZES.map(t => ({ value: t.value, label: t.label }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...teamSizeOptions]}
                                         />
                                     </div>
                                     <div>
@@ -1515,7 +1694,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, location: value }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...LOCATIONS_VN.map(l => ({ value: l, label: l }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...locationOptions]}
                                         />
                                     </div>
                                     <div>
@@ -1527,7 +1706,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, timeZone: value }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...TIMEZONES.map(t => ({ value: t.value, label: t.label }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...timeZoneOptions]}
                                         />
                                     </div>
                                     <div>
@@ -1539,6 +1718,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, languages: values }
                                             }))}
                                             options={LANGUAGES}
+                                            displayMap={languageDisplayMap}
                                             maxItems={5}
                                             placeholder={t('common.searchAndSelect')}
                                         />
@@ -1552,7 +1732,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, remotePreference: value }
                                             }))}
                                             placeholder={t('common.select')}
-                                            options={[{ value: '', label: t('common.select') }, ...REMOTE_PREFERENCES.map(r => ({ value: r.value, label: r.label }))]}
+                                            options={[{ value: '', label: t('common.select') }, ...remotePreferenceOptions]}
                                         />
                                     </div>
                                 </div>
@@ -1613,6 +1793,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, availability: values.join(', ') }
                                             }))}
                                             options={AVAILABILITY_OPTIONS}
+                                            displayMap={availabilityDisplayMap}
                                             maxItems={10}
                                             placeholder={t('common.searchAndSelect')}
                                         />
@@ -1626,6 +1807,7 @@ const UserSettings: React.FC = () => {
                                                 matchingProfile: { ...prev.matchingProfile, collaborationStyle: values.join(', ') }
                                             }))}
                                             options={COLLABORATION_STYLES}
+                                            displayMap={collaborationDisplayMap}
                                             maxItems={10}
                                             placeholder={t('common.searchAndSelect')}
                                         />
@@ -1672,6 +1854,7 @@ const UserSettings: React.FC = () => {
                                                 contestPreferences: { ...prev.contestPreferences, learningGoals: values.join(', ') }
                                             }))}
                                             options={LEARNING_GOALS}
+                                            displayMap={learningGoalsDisplayMap}
                                             maxItems={10}
                                             placeholder={t('common.searchAndSelect')}
                                         />
@@ -1685,6 +1868,7 @@ const UserSettings: React.FC = () => {
                                                 contestPreferences: { ...prev.contestPreferences, strengths: values.join(', ') }
                                             }))}
                                             options={STRENGTHS}
+                                            displayMap={strengthsDisplayMap}
                                             maxItems={10}
                                             placeholder={t('common.searchAndSelect')}
                                         />

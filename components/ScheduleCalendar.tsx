@@ -3,13 +3,10 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, Tro
 import { Card, Badge, Button } from './ui/Common';
 import { ScheduleEvent } from '../types';
 import { useUserSchedule } from '../lib/hooks';
+import { useI18n } from '../contexts/I18nContext';
 
-// Vietnamese day names
 const DAYS_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-const MONTHS_VI = [
-    'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-    'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
-];
+const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 interface CalendarDay {
     date: Date;
@@ -40,10 +37,13 @@ function safeIsoDay(value: unknown): string | null {
 }
 
 const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, className = '' }) => {
+    const { t, locale } = useI18n();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [showEventJump, setShowEventJump] = useState(false);
     const eventJumpRef = useRef<HTMLDivElement>(null);
+    const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+    const dayLabels = locale === 'en' ? DAYS_EN : DAYS_VI;
 
     // Fetch ALL events for jump menu (wider range)
     const allEventsRange = useMemo(() => {
@@ -221,7 +221,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
         const ms = safeParseMs(dateStr);
         if (!ms) return '—';
         const date = new Date(ms);
-        return date.toLocaleDateString('vi-VN', {
+        return date.toLocaleDateString(dateLocale, {
             hour: '2-digit',
             minute: '2-digit',
             day: '2-digit',
@@ -243,12 +243,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
         }
     };
 
-    if (error) {
+    const resolvedError = error === 'Unable to load schedule'
+        ? t('profile.schedule.loadFailed')
+        : error;
+
+    if (resolvedError) {
         return (
             <Card className={`p-6 ${className}`}>
                 <div className="text-center py-8">
-                    <p className="text-red-500 mb-4">{error}</p>
-                    <Button onClick={() => refetch()}>Thử lại</Button>
+                    <p className="text-red-500 mb-4">{resolvedError}</p>
+                    <Button onClick={() => refetch()}>{t('common.retry')}</Button>
                 </div>
             </Card>
         );
@@ -261,7 +265,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <CalendarIcon className="w-5 h-5 text-primary-600" />
-                        <h3 className="font-bold text-slate-900">Lịch thi đấu</h3>
+                        <h3 className="font-bold text-slate-900">{t('profile.schedule.title')}</h3>
                     </div>
                     <div className="flex items-center gap-2">
                         {/* Jump to Event Button */}
@@ -273,7 +277,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                                 className="flex items-center gap-1"
                             >
                                 <Zap className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Chuyển nhanh</span>
+                                <span className="hidden sm:inline">{t('profile.schedule.quickJump')}</span>
                                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showEventJump ? 'rotate-180' : ''}`} />
                             </Button>
 
@@ -284,7 +288,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                                         <div className="p-3 border-b border-slate-100 bg-slate-50">
                                             <h4 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
                                                 <Zap className="w-4 h-4 text-primary-500" />
-                                                Chuyển nhanh đến sự kiện
+                                                {t('profile.schedule.quickJumpTitle')}
                                             </h4>
                                         </div>
 
@@ -293,7 +297,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                                                 <div className="p-4 text-center">
                                                     <p className="text-sm text-red-600 mb-3">{jumpError}</p>
                                                     <Button size="sm" variant="secondary" onClick={() => triggerJumpFetch()}>
-                                                        Th? l?i
+                                                        {t('common.retry')}
                                                     </Button>
                                                 </div>
                                             ) : isJumpLoading ? (
@@ -303,74 +307,74 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                                             ) : (
                                                 <>
                                                     {/* Upcoming Events */}
-                                            {sortedUpcomingEvents.length > 0 && (
-                                                <div className="p-2">
-                                                    <p className="text-xs font-medium text-emerald-600 px-2 py-1">
-                                                        📅 Sắp diễn ra ({sortedUpcomingEvents.length})
-                                                    </p>
-                                                    {sortedUpcomingEvents.map(event => (
-                                                        <button
-                                                            key={event.id}
-                                                            onClick={() => jumpToEvent(event)}
-                                                            className="w-full text-left p-2 hover:bg-primary-50 rounded-lg transition-colors group"
-                                                        >
-                                                            <div className="flex items-start gap-2">
-                                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${getStatusColor(event.status, event.type)}`} />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm font-medium text-slate-800 truncate group-hover:text-primary-700">
-                                                                        {event.title}
-                                                                    </p>
-                                                                    <p className="text-xs text-slate-500">
-                                                                        {new Date(event.dateStart).toLocaleDateString('vi-VN', {
-                                                                            day: '2-digit',
-                                                                            month: '2-digit',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    {sortedUpcomingEvents.length > 0 && (
+                                                        <div className="p-2">
+                                                            <p className="text-xs font-medium text-emerald-600 px-2 py-1">
+                                                                {t('profile.schedule.upcoming', { count: sortedUpcomingEvents.length })}
+                                                            </p>
+                                                            {sortedUpcomingEvents.map(event => (
+                                                                <button
+                                                                    key={event.id}
+                                                                    onClick={() => jumpToEvent(event)}
+                                                                    className="w-full text-left p-2 hover:bg-primary-50 rounded-lg transition-colors group"
+                                                                >
+                                                                    <div className="flex items-start gap-2">
+                                                                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${getStatusColor(event.status, event.type)}`} />
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-sm font-medium text-slate-800 truncate group-hover:text-primary-700">
+                                                                                {event.title}
+                                                                            </p>
+                                                                            <p className="text-xs text-slate-500">
+                                                                                {new Date(event.dateStart).toLocaleDateString(dateLocale, {
+                                                                                    day: '2-digit',
+                                                                                    month: '2-digit',
+                                                                                    year: 'numeric'
+                                                                                })}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
 
-                                            {/* Past Events */}
-                                            {pastEvents.length > 0 && (
-                                                <div className="p-2 border-t border-slate-100">
-                                                    <p className="text-xs font-medium text-slate-400 px-2 py-1">
-                                                        📋 Đã qua
-                                                    </p>
-                                                    {pastEvents.map(event => (
-                                                        <button
-                                                            key={event.id}
-                                                            onClick={() => jumpToEvent(event)}
-                                                            className="w-full text-left p-2 hover:bg-slate-50 rounded-lg transition-colors group opacity-70"
-                                                        >
-                                                            <div className="flex items-start gap-2">
-                                                                <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-slate-300" />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm text-slate-600 truncate">
-                                                                        {event.title}
-                                                                    </p>
-                                                                    <p className="text-xs text-slate-400">
-                                                                        {new Date(event.dateStart).toLocaleDateString('vi-VN', {
-                                                                            day: '2-digit',
-                                                                            month: '2-digit',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    {/* Past Events */}
+                                                    {pastEvents.length > 0 && (
+                                                        <div className="p-2 border-t border-slate-100">
+                                                            <p className="text-xs font-medium text-slate-400 px-2 py-1">
+                                                                {t('profile.schedule.past')}
+                                                            </p>
+                                                            {pastEvents.map(event => (
+                                                                <button
+                                                                    key={event.id}
+                                                                    onClick={() => jumpToEvent(event)}
+                                                                    className="w-full text-left p-2 hover:bg-slate-50 rounded-lg transition-colors group opacity-70"
+                                                                >
+                                                                    <div className="flex items-start gap-2">
+                                                                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-slate-300" />
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-sm text-slate-600 truncate">
+                                                                                {event.title}
+                                                                            </p>
+                                                                            <p className="text-xs text-slate-400">
+                                                                                {new Date(event.dateStart).toLocaleDateString(dateLocale, {
+                                                                                    day: '2-digit',
+                                                                                    month: '2-digit',
+                                                                                    year: 'numeric'
+                                                                                })}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
 
-                                            {sortedUpcomingEvents.length === 0 && pastEvents.length === 0 && (
-                                                <div className="p-4 text-center text-sm text-slate-500">
-                                                    Chưa có sự kiện nào được đăng ký
-                                                </div>
-                                            )}
+                                                    {sortedUpcomingEvents.length === 0 && pastEvents.length === 0 && (
+                                                        <div className="p-4 text-center text-sm text-slate-500">
+                                                            {t('profile.schedule.noEvents')}
+                                                        </div>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -380,7 +384,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                         </div>
 
                         <Button size="sm" variant="secondary" onClick={goToToday}>
-                            Hôm nay
+                            {t('profile.schedule.today')}
                         </Button>
                     </div>
                 </div>
@@ -389,17 +393,17 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                     <button
                         onClick={goToPreviousMonth}
                         className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                        aria-label="Tháng trước"
+                        aria-label={t('profile.schedule.prevMonth')}
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <h4 className="text-lg font-semibold text-slate-900">
-                        {MONTHS_VI[currentDate.getMonth()]} {currentDate.getFullYear()}
+                        {currentDate.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })}
                     </h4>
                     <button
                         onClick={goToNextMonth}
                         className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                        aria-label="Tháng sau"
+                        aria-label={t('profile.schedule.nextMonth')}
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>
@@ -416,7 +420,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                     <>
                         {/* Day Headers */}
                         <div className="grid grid-cols-7 mb-2">
-                            {DAYS_VI.map(day => (
+                            {dayLabels.map(day => (
                                 <div key={day} className="text-center text-xs font-semibold text-slate-500 py-2">
                                     {day}
                                 </div>
@@ -473,12 +477,12 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
                 <div className="border-t border-slate-100 p-4 bg-slate-50">
                     <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                         <Trophy className="w-4 h-4 text-primary-600" />
-                        Sự kiện ngày {selectedDate.toLocaleDateString('vi-VN')}
+                        {t('profile.schedule.selectedDate', { date: selectedDate.toLocaleDateString(dateLocale) })}
                     </h4>
 
                     {selectedDateEvents.length === 0 ? (
                         <p className="text-sm text-slate-500 text-center py-4">
-                            Không có sự kiện nào trong ngày này
+                            {t('profile.schedule.noEventsOnDate')}
                         </p>
                     ) : (
                         <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -531,16 +535,16 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({ onEventClick, class
             {/* Legend */}
             <div className="px-4 py-3 border-t border-slate-100 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
                 <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Cuộc thi đang mở
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> {t('profile.schedule.legend.openContests')}
                 </span>
                 <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-amber-500" /> Sắp diễn ra
+                    <div className="w-2 h-2 rounded-full bg-amber-500" /> {t('profile.schedule.legend.upcoming')}
                 </span>
                 <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" /> Khóa học
+                    <div className="w-2 h-2 rounded-full bg-blue-500" /> {t('profile.schedule.legend.courses')}
                 </span>
                 <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-slate-400" /> Đã kết thúc
+                    <div className="w-2 h-2 rounded-full bg-slate-400" /> {t('profile.schedule.legend.ended')}
                 </span>
             </div>
         </Card>

@@ -396,7 +396,7 @@ export function useUserSchedule(options: UseUserScheduleOptions = {}) {
       setSchedule(data.schedule);
       setTotalActive(data.totalActive);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể tải lịch thi đấu');
+      setError(err instanceof Error ? err.message : 'Unable to load schedule');
     } finally {
       setIsLoading(false);
     }
