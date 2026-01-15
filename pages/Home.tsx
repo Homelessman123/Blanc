@@ -7,9 +7,12 @@ import OptimizedImage from '../components/OptimizedImage';
 import { newsApi } from '../lib/newsApi';
 import { PinnedNewsSlider } from '../components/PinnedNewsSlider';
 import type { NewsArticle } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { t, locale } = useI18n();
+  const numberLocale = locale === 'en' ? 'en-US' : 'vi-VN';
 
   // Check login status
   const isLoggedIn = !!localStorage.getItem('user');
@@ -90,17 +93,18 @@ const Home: React.FC = () => {
 
   // Format price in VND
   const formatPrice = (price: number) => {
-    if (price === 0) return 'Miễn phí';
-    return price.toLocaleString('vi-VN') + 'đ';
+    if (price === 0) return t('common.free');
+    return `${price.toLocaleString(numberLocale)} ₫`;
   };
 
   // Calculate remaining days
   const getRemainingDays = (deadline: string) => {
     const diff = new Date(deadline).getTime() - Date.now();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    if (days < 0) return 'Đã kết thúc';
-    if (days === 0) return 'Hôm nay';
-    return `Còn ${days} ngày`;
+    if (days < 0) return t('common.ended');
+    if (days === 0) return t('common.today');
+    if (days === 1) return t('common.dayLeft');
+    return t('common.daysLeft', { count: days });
   };
 
   const handleHeroCta = useCallback(() => {
@@ -126,14 +130,14 @@ const Home: React.FC = () => {
               lead={(
               <>
           <Badge className="mb-6 bg-primary-50 text-primary-700 border-primary-100 px-4 py-1.5 text-sm">
-            🚀 Nền tảng phát triển cá nhân số 1 cho học sinh
+            {t('home.hero.badge')}
           </Badge>
           <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-            Khám phá tiềm năng <br className="hidden md:block" />
-            <span className="text-primary-600">Nâng tầm kiến thức</span>
+            {t('home.hero.titleLine1')} <br className="hidden md:block" />
+            <span className="text-primary-600">{t('home.hero.titleHighlight')}</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-500 max-w-2xl mx-auto">
-            Tham gia các cuộc thi uy tín, học hỏi từ các khóa học hàng đầu và kết nối với cộng đồng tài năng trên toàn quốc.
+            {t('home.hero.description')}
           </p>
               </>
             )}
@@ -143,14 +147,14 @@ const Home: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             {/* Search with dropdown results */}
             <div className="relative w-full max-w-md" ref={searchRef}>
-              <input
-                type="text"
-                placeholder="Tìm cuộc thi, khóa học..."
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setShowResults(true);
-                }}
+                <input
+                  type="text"
+                  placeholder={t('home.search.placeholder')}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setShowResults(true);
+                  }}
                 onFocus={() => setShowResults(true)}
                 className="w-full h-12 pl-12 pr-10 rounded-full border border-slate-200 shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
               />
@@ -165,7 +169,7 @@ const Home: React.FC = () => {
               {query && !searchLoading && (
                 <button
                   onClick={clearSearch}
-                  title="Xóa tìm kiếm"
+                  title={t('home.search.clearTitle')}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <X className="w-5 h-5" />
@@ -178,14 +182,14 @@ const Home: React.FC = () => {
                   {searchLoading ? (
                     <div className="p-4 text-center text-slate-500">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                      Đang tìm kiếm...
+                      {t('home.search.loading')}
                     </div>
                   ) : hasResults ? (
                     <div>
                       {results.contests.length > 0 && (
                         <div>
                           <div className="px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
-                            Cuộc thi ({results.contests.length})
+                            {t('nav.contests')} ({results.contests.length})
                           </div>
                           {results.contests.map((item) => (
                             <div
@@ -206,7 +210,7 @@ const Home: React.FC = () => {
                       {results.courses.length > 0 && (
                         <div>
                           <div className="px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
-                            Khóa học ({results.courses.length})
+                            {t('nav.courses')} ({results.courses.length})
                           </div>
                           {results.courses.map((item) => (
                             <div
@@ -230,21 +234,21 @@ const Home: React.FC = () => {
                           onClick={() => navigate(`/contests?search=${encodeURIComponent(query)}`)}
                           className="text-sm font-medium text-primary-600 hover:text-primary-700"
                         >
-                          Xem tất cả kết quả →
+                          {t('home.search.viewAllResults')}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="p-4 text-center text-slate-500">
                       <Search className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      Không tìm thấy kết quả cho "{query}"
+                      {t('home.search.noResults', { query })}
                     </div>
                   )}
                 </div>
               )}
             </div>
             <Button size="lg" className="w-full sm:w-auto rounded-full px-8" onClick={handleHeroCta}>
-              Bắt đầu ngay
+              {t('home.hero.cta')}
             </Button>
           </div>
 
@@ -256,10 +260,10 @@ const Home: React.FC = () => {
 
             <div className="relative max-w-6xl mx-auto px-6 md:px-14 py-14 md:py-16">
               <div className="flex flex-col items-center text-center gap-4 md:gap-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-600">Số liệu trực tiếp</p>
-                <h3 className="text-3xl md:text-4xl font-black text-slate-900">Nhịp đập ContestHub</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-primary-600">{t('home.stats.kicker')}</p>
+                <h3 className="text-3xl md:text-4xl font-black text-slate-900">{t('home.stats.title')}</h3>
                 <p className="text-slate-600 max-w-3xl">
-                  Cập nhật liên tục từ hệ thống đăng ký, lớp học và các cuộc thi đang diễn ra.
+                  {t('home.stats.description')}
                 </p>
               </div>
 
@@ -279,27 +283,27 @@ const Home: React.FC = () => {
                 ) : (
                   [
                     {
-                      label: 'Thành viên',
+                      label: t('home.stats.cards.members.label'),
                       value: stats?.formatted.users || '0+',
                       icon: Users,
-                      badge: 'Cộng đồng',
-                      helper: 'Gia nhập mới mỗi ngày',
+                      badge: t('home.stats.cards.members.badge'),
+                      helper: t('home.stats.cards.members.helper'),
                       progress: '78%',
                     },
                     {
-                      label: 'Cuộc thi',
+                      label: t('home.stats.cards.contests.label'),
                       value: stats?.formatted.contests || '0+',
                       icon: Trophy,
-                      badge: 'Đang mở',
-                      helper: 'Lịch thi cập nhật liên tục',
+                      badge: t('home.stats.cards.contests.badge'),
+                      helper: t('home.stats.cards.contests.helper'),
                       progress: '64%',
                     },
                     {
-                      label: 'Khóa học',
+                      label: t('home.stats.cards.courses.label'),
                       value: stats?.formatted.courses || '0+',
                       icon: BookOpen,
-                      badge: 'Nội dung',
-                      helper: 'Lộ trình được tuyển chọn',
+                      badge: t('home.stats.cards.courses.badge'),
+                      helper: t('home.stats.cards.courses.helper'),
                       progress: '72%',
                     },
                   ].map((stat, idx) => (
@@ -322,14 +326,14 @@ const Home: React.FC = () => {
                           </div>
                         </div>
                         <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
-                          Đang hoạt động
+                          {t('home.stats.active')}
                         </span>
                       </div>
 
                       <div className="relative z-10 w-full">
                         <div className="flex items-baseline justify-center gap-2">
                           <span className="text-4xl font-black text-slate-900 leading-none">{stat.value}</span>
-                          <span className="text-sm font-semibold text-slate-500">tổng</span>
+                          <span className="text-sm font-semibold text-slate-500">{t('home.stats.total')}</span>
                         </div>
                         <p className="text-sm text-slate-500 mt-2">{stat.helper}</p>
                       </div>
@@ -347,16 +351,16 @@ const Home: React.FC = () => {
         <div className="flex justify-between items-end mb-8">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
-              {isLoggedIn && isPersonalized ? 'Cuộc thi dành cho bạn' : 'Cuộc thi nổi bật'}
+              {isLoggedIn && isPersonalized ? t('home.contests.titlePersonalized') : t('home.contests.titleFeatured')}
             </h2>
             <p className="text-slate-500 mt-1">
               {isLoggedIn && isPersonalized
-                ? 'Được gợi ý dựa trên hồ sơ của bạn'
-                : 'Thử thách bản thân với các cuộc thi mới nhất'}
+                ? t('home.contests.subtitlePersonalized')
+                : t('home.contests.subtitleFeatured')}
             </p>
           </div>
           <Button variant="ghost" className="hidden sm:flex" onClick={() => navigate('/contests')}>
-            Xem tất cả <ArrowRight className="w-4 h-4 ml-2" />
+            {t('common.viewAll')} <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
 
@@ -399,7 +403,7 @@ const Home: React.FC = () => {
                     {contest.title}
                   </h3>
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">
-                    {contest.description || 'Tham gia để trải nghiệm và phát triển kỹ năng của bạn.'}
+                    {contest.description || t('home.contests.defaultDescription')}
                   </p>
                   <div className="flex items-center justify-between text-sm text-slate-500 pt-4 border-t border-slate-100">
                     <span className="flex items-center">
@@ -413,12 +417,12 @@ const Home: React.FC = () => {
             ))
           ) : (
             <div className="md:col-span-3 text-center py-12 text-slate-500">
-              Chưa có cuộc thi nào. Hãy quay lại sau!
+              {t('home.contests.empty')}
             </div>
           )}
         </div>
         <div className="mt-6 sm:hidden">
-          <Button variant="secondary" className="w-full" onClick={() => navigate('/contests')}>Xem tất cả</Button>
+          <Button variant="secondary" className="w-full" onClick={() => navigate('/contests')}>{t('common.viewAll')}</Button>
         </div>
       </section>
 
@@ -428,16 +432,16 @@ const Home: React.FC = () => {
           <div className="flex justify-between items-end mb-8">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">
-                {isLoggedIn && isPersonalized ? 'Khóa học dành cho bạn' : 'Khóa học đề xuất'}
+                {isLoggedIn && isPersonalized ? t('home.courses.titlePersonalized') : t('home.courses.titleRecommended')}
               </h2>
               <p className="text-slate-500 mt-1">
                 {isLoggedIn && isPersonalized
-                  ? 'Được gợi ý dựa trên kỹ năng và sở thích của bạn'
-                  : 'Nâng cao kỹ năng với lộ trình bài bản'}
+                  ? t('home.courses.subtitlePersonalized')
+                  : t('home.courses.subtitleRecommended')}
               </p>
             </div>
             <Button variant="ghost" className="hidden sm:flex" onClick={() => navigate('/marketplace')}>
-              Xem Marketplace <ArrowRight className="w-4 h-4 ml-2" />
+              {t('home.courses.viewMarketplace')} <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
 
@@ -473,7 +477,7 @@ const Home: React.FC = () => {
                     <h4 className="font-bold text-slate-900 mb-1 line-clamp-1 group-hover:text-primary-600">
                       {course.title}
                     </h4>
-                    <div className="text-xs text-slate-500 mb-2">Bởi {course.instructor}</div>
+                    <div className="text-xs text-slate-500 mb-2">{t('common.by', { name: course.instructor })}</div>
                     <div className="flex items-center mb-3">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
                       <span className="text-sm font-medium ml-1">{course.rating?.toFixed(1) || '0.0'}</span>
@@ -488,7 +492,7 @@ const Home: React.FC = () => {
               ))
             ) : (
               <div className="sm:col-span-2 md:col-span-4 text-center py-12 text-slate-500">
-                Chưa có khóa học nào. Hãy quay lại sau!
+                {t('home.courses.empty')}
               </div>
             )}
           </div>
@@ -497,12 +501,12 @@ const Home: React.FC = () => {
 
       {/* How it works */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-12">Quy trình tham gia</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-12">{t('home.howItWorks.title')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { step: '01', title: 'Tạo tài khoản', desc: 'Đăng ký tài khoản miễn phí và cập nhật hồ sơ cá nhân.' },
-            { step: '02', title: 'Chọn cuộc thi/khóa học', desc: 'Tìm kiếm và đăng ký tham gia các chương trình phù hợp.' },
-            { step: '03', title: 'Phát triển & Nhận giải', desc: 'Học tập, thi đấu hết mình và nhận chứng nhận giá trị.' }
+            { step: '01', title: t('home.howItWorks.step1.title'), desc: t('home.howItWorks.step1.desc') },
+            { step: '02', title: t('home.howItWorks.step2.title'), desc: t('home.howItWorks.step2.desc') },
+            { step: '03', title: t('home.howItWorks.step3.title'), desc: t('home.howItWorks.step3.desc') }
           ].map((item) => (
             <div key={item.step} className="relative p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all">
               <div className="text-6xl font-black text-slate-100 absolute -top-4 -left-4 z-0 opacity-50 select-none">
@@ -522,12 +526,12 @@ const Home: React.FC = () => {
         <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="bg-primary-600 rounded-3xl p-8 md:p-16 text-center text-white relative overflow-hidden">
             <div className="relative z-10">
-              <h2 className="text-3xl font-bold mb-4">Sẵn sàng để tỏa sáng?</h2>
+              <h2 className="text-3xl font-bold mb-4">{t('home.cta.title')}</h2>
               <p className="text-primary-100 mb-8 max-w-xl mx-auto">
-                Gia nhập cộng đồng hơn 10.000 sinh viên tài năng và bắt đầu hành trình chinh phục tri thức ngay hôm nay.
+                {t('home.cta.description')}
               </p>
               <Button size="lg" className="bg-white text-primary-700 hover:bg-slate-50 border-0" onClick={() => navigate('/register')}>
-                Đăng ký ngay
+                {t('layout.buttons.signUpNow')}
               </Button>
             </div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/2" />

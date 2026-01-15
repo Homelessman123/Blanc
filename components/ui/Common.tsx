@@ -232,23 +232,29 @@ export const Dropdown: React.FC<DropdownProps> = ({
 };
 
 // Tabs
-export const Tabs: React.FC<{ tabs: string[]; activeTab: string; onChange: (tab: string) => void }> = ({ tabs, activeTab, onChange }) => (
+type TabItem = string | { value: string; label: string };
+
+export const Tabs: React.FC<{ tabs: TabItem[]; activeTab: string; onChange: (tab: string) => void }> = ({ tabs, activeTab, onChange }) => (
   <div className="border-b border-slate-200 mb-6">
     <nav className="-mb-px flex space-x-8 overflow-x-auto no-scrollbar" aria-label="Tabs">
-      {tabs.map((tab) => (
+      {tabs.map((tab) => {
+        const value = typeof tab === 'string' ? tab : tab.value;
+        const label = typeof tab === 'string' ? tab : tab.label;
+        return (
         <button
-          key={tab}
-          onClick={() => onChange(tab)}
+          key={value}
+          onClick={() => onChange(value)}
           className={cn(
             "whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors",
-            activeTab === tab
+            activeTab === value
               ? "border-primary-600 text-primary-600"
               : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
           )}
         >
-          {tab}
+          {label}
         </button>
-      ))}
+        );
+      })}
     </nav>
   </div>
 );

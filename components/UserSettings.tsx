@@ -39,10 +39,12 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
     value,
     onChange,
     options,
-    placeholder = 'Chọn'
+    placeholder
 }) => {
+    const { t } = useI18n();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const resolvedPlaceholder = placeholder ?? t('common.select');
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -69,7 +71,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
                         : 'border-slate-300'
                         } ${value ? 'text-slate-900' : 'text-slate-500'}`}
                 >
-                    <span className="truncate">{selectedOption?.label || placeholder}</span>
+                    <span className="truncate">{selectedOption?.label || resolvedPlaceholder}</span>
                     <div className="flex items-center gap-1">
                         {value && (
                             <span
@@ -102,7 +104,7 @@ const CustomDropdown: React.FC<CustomDropdownProps> = ({
                                     : 'text-slate-600 hover:bg-slate-50'
                                     }`}
                             >
-                                <span>{placeholder}</span>
+                                <span>{resolvedPlaceholder}</span>
                                 {!value && <Check className="w-4 h-4 text-primary-600" />}
                             </button>
                             {/* Options */}
@@ -150,14 +152,16 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
     values,
     onChange,
     options,
-    placeholder = 'Tìm và chọn...',
+    placeholder,
     maxItems = 10,
     colorMap
 }) => {
+    const { t } = useI18n();
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const resolvedPlaceholder = placeholder ?? t('common.searchAndSelect');
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -220,8 +224,8 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                                     removeValue(val);
                                 }}
                                 className="hover:bg-black/10 rounded-full p-0.5 transition-colors"
-                                title={`Xóa ${val}`}
-                                aria-label={`Xóa ${val}`}
+                                title={t('common.removeValue', { value: val })}
+                                aria-label={t('common.removeValue', { value: val })}
                             >
                                 <X className="w-3 h-3" />
                             </button>
@@ -234,7 +238,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => setIsOpen(true)}
-                            placeholder={values.length === 0 ? placeholder : ''}
+                            placeholder={values.length === 0 ? resolvedPlaceholder : ''}
                             className="flex-1 min-w-[100px] outline-none bg-transparent text-sm placeholder:text-slate-400"
                         />
                     )}
@@ -245,12 +249,12 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                     <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="p-2 border-b border-slate-100 flex items-center gap-2 text-slate-400">
                             <Search className="w-4 h-4" />
-                            <span className="text-xs">Đã chọn {values.length}/{maxItems}</span>
+                            <span className="text-xs">{t('common.selectedCount', { count: values.length, max: maxItems })}</span>
                         </div>
                         <div className="max-h-60 overflow-y-auto p-2">
                             {filteredOptions.length === 0 ? (
                                 <p className="text-sm text-slate-400 text-center py-3">
-                                    {searchQuery ? 'Không tìm thấy' : 'Đã chọn hết'}
+                                    {searchQuery ? t('common.noResults') : t('common.allSelected')}
                                 </p>
                             ) : (
                                 filteredOptions.map(opt => (
@@ -275,7 +279,7 @@ const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
                 )}
             </div>
             {values.length >= maxItems && (
-                <p className="mt-1 text-xs text-amber-600">Đã đạt giới hạn {maxItems} lựa chọn</p>
+                <p className="mt-1 text-xs text-amber-600">{t('common.limitReached', { max: maxItems })}</p>
             )}
         </div>
     );

@@ -15,7 +15,8 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isLearningOpen, setIsLearningOpen] = useState(false);
@@ -302,11 +303,11 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Vừa xong';
-    if (diffMins < 60) return `${diffMins} phút trước`;
-    if (diffHours < 24) return `${diffHours} giờ trước`;
-    if (diffDays < 7) return `${diffDays} ngày trước`;
-    return date.toLocaleDateString('vi-VN');
+    if (diffMins < 1) return t('common.time.justNow');
+    if (diffMins < 60) return t('common.time.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('common.time.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('common.time.daysAgo', { count: diffDays });
+    return date.toLocaleDateString(dateLocale);
   };
 
   const handleMentorPromptUpdate = () => {
@@ -335,7 +336,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
             </div>
 
             {/* Desktop Nav - True Center */}
-            <nav className="hidden md:flex items-center gap-1" aria-label="Menu chính">
+          <nav className="hidden md:flex items-center gap-1" aria-label={t('layout.aria.mainMenu')}>
               {leadingNavItems.map((item) => (
                 <NavLink
                   key={item.path}
@@ -476,13 +477,13 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                     {isNotifOpen && (
                       <div className="absolute right-0 mt-3 w-80 md:w-96 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animation-fade-in z-50 origin-top-right">
                         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-                          <h3 className="font-bold text-slate-900">Thông báo</h3>
+                          <h3 className="font-bold text-slate-900">{t('layout.notifications.title')}</h3>
                           {unreadCount > 0 && (
                             <button
                               onClick={markAllAsRead}
                               className="text-xs font-medium text-primary-600 hover:text-primary-700 flex items-center"
                             >
-                              <Check className="w-3 h-3 mr-1" /> Đánh dấu đã đọc
+                              <Check className="w-3 h-3 mr-1" /> {t('layout.notifications.markAllRead')}
                             </button>
                           )}
                         </div>
@@ -527,7 +528,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                           ) : (
                             <div className="p-8 text-center text-slate-500">
                               <Bell className="w-8 h-8 mx-auto mb-3 text-slate-300" />
-                              <p className="text-sm">Bạn chưa có thông báo nào</p>
+                              <p className="text-sm">{t('layout.notifications.empty')}</p>
                             </div>
                           )}
                         </div>
@@ -537,7 +538,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                             onClick={handleViewAllNotifications}
                             className="text-sm font-medium text-primary-600 hover:text-primary-700"
                           >
-                            Xem tất cả
+                            {t('common.viewAll')}
                           </button>
                         </div>
                       </div>
@@ -558,17 +559,17 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                     {/* Dropdown */}
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg py-1 border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-right z-40">
                       <div className="px-4 py-3 border-b border-slate-100 mb-1">
-                        <p className="text-xs text-slate-500">Đăng nhập với</p>
+                        <p className="text-xs text-slate-500">{t('layout.userMenu.signedInAs')}</p>
                         <p className="text-sm font-bold text-slate-900 truncate">{user.email}</p>
                       </div>
                       <NavLink to="/profile" className="flex px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 items-center">
-                        <UserIcon className="w-4 h-4 mr-2 text-slate-400" /> Hồ sơ
+                        <UserIcon className="w-4 h-4 mr-2 text-slate-400" /> {t('layout.userMenu.profile')}
                       </NavLink>
                       <NavLink to="/my-team-posts" className="flex px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 items-center">
-                        <FileText className="w-4 h-4 mr-2 text-slate-400" /> Bài đăng của tôi
+                        <FileText className="w-4 h-4 mr-2 text-slate-400" /> {t('layout.userMenu.myPosts')}
                       </NavLink>
                       <button onClick={onLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
-                        <LogOut className="w-4 h-4 mr-2" /> Đăng xuất
+                        <LogOut className="w-4 h-4 mr-2" /> {t('layout.userMenu.logout')}
                       </button>
                     </div>
                   </div>
@@ -576,10 +577,10 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
               ) : (
                 <div className="flex items-center space-x-3">
                   <NavLink to="/login">
-                    <Button variant="ghost" size="sm">Đăng nhập</Button>
+                    <Button variant="ghost" size="sm">{t('layout.buttons.login')}</Button>
                   </NavLink>
                   <NavLink to="/register">
-                    <Button size="sm">Bắt đầu học</Button>
+                    <Button size="sm">{t('layout.buttons.startLearning')}</Button>
                   </NavLink>
                 </div>
               )}
@@ -704,34 +705,34 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                       <div className="flex items-center gap-2">
                         <img src="/streak/flame-tight.gif" className="streak-motion w-5 h-5 object-contain mix-blend-screen" alt="" aria-hidden="true" />
                         <img src="/streak/flame-tight.png" className="streak-reduce-motion w-5 h-5 object-contain mix-blend-screen" alt="" aria-hidden="true" />
-                        <span className="font-medium text-slate-700">Chuỗi học tập</span>
+                        <span className="font-medium text-slate-700">{t('profile.overview.streakLabel')}</span>
                       </div>
                       <StreakBadge userId={user.id} />
                     </div>
                   </div>
                   <div className="border-t border-slate-100 my-2 pt-2">
                     <div className="px-3 py-2 flex items-center justify-between text-slate-600">
-                      <span className="font-medium">Thông báo</span>
-                      {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{unreadCount} mới</span>}
+                      <span className="font-medium">{t('layout.notifications.title')}</span>
+                      {unreadCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{t('layout.notifications.newCount', { count: unreadCount })}</span>}
                     </div>
                   </div>
                   <NavLink to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-slate-600 hover:bg-slate-50">
-                    Hồ sơ cá nhân
+                    {t('layout.userMenu.myProfile')}
                   </NavLink>
                   <NavLink to="/my-team-posts" className="block px-3 py-2 rounded-md text-base font-medium text-slate-600 hover:bg-slate-50">
-                    Bài đăng của tôi
+                    {t('layout.userMenu.myPosts')}
                   </NavLink>
                   <button onClick={() => { onLogout(); setIsMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">
-                    Đăng xuất
+                    {t('layout.userMenu.logout')}
                   </button>
                 </>
               ) : (
                 <div className="pt-4 flex flex-col space-y-2 px-3">
                   <NavLink to="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="secondary" className="w-full justify-center">Đăng nhập</Button>
+                    <Button variant="secondary" className="w-full justify-center">{t('layout.buttons.login')}</Button>
                   </NavLink>
                   <NavLink to="/register" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full justify-center">Đăng ký ngay</Button>
+                    <Button className="w-full justify-center">{t('layout.buttons.signUpNow')}</Button>
                   </NavLink>
                 </div>
               )}
@@ -762,25 +763,25 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <p className="text-slate-600 text-sm leading-relaxed mb-4">
-                      Nền tảng kết nối tri thức, nâng tầm bản thân qua các cuộc thi và khóa học chất lượng cao.
+                      {t('layout.footer.description')}
                     </p>
                     <div className="space-y-2 text-sm text-slate-600">
                       <div className="flex items-start gap-2">
                         <ShieldCheck className="w-4 h-4 text-indigo-500 mt-0.5" />
-                        <span>Cam kết bảo mật và đồng hành cùng học viên.</span>
+                        <span>{t('layout.footer.feature.security')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <Rocket className="w-4 h-4 text-sky-500 mt-0.5" />
-                        <span>Lộ trình học và thi được cập nhật liên tục.</span>
+                        <span>{t('layout.footer.feature.roadmap')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <Sparkles className="w-4 h-4 text-amber-500 mt-0.5" />
-                        <span>Cộng đồng năng động, hỗ trợ 24/7.</span>
+                        <span>{t('layout.footer.feature.community')}</span>
                       </div>
                     </div>
                     <div className="mt-5 flex flex-wrap gap-2">
                       <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold">Blanc Community</span>
-                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold">Học & Thi</span>
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold">{t('layout.footer.tag.learningAndContests')}</span>
                     </div>
                   </div>
                 </div>
@@ -792,18 +793,18 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   <div className="relative flex flex-col gap-4 h-full">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-1">Hỗ trợ</h3>
-                        <p className="text-xs text-slate-500">Tài liệu & hỗ trợ kỹ thuật</p>
+                        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-1">{t('layout.footer.supportTitle')}</h3>
+                        <p className="text-xs text-slate-500">{t('layout.footer.supportDescription')}</p>
                       </div>
                       <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold">Online</span>
                     </div>
                     <ul className="space-y-3">
-                      <li><NavLink to="/terms" className="text-slate-500 hover:text-primary-600 text-sm">Điều khoản sử dụng</NavLink></li>
-                      <li><NavLink to="/privacy" className="text-slate-500 hover:text-primary-600 text-sm">Chính sách bảo mật</NavLink></li>
-                      <li><a href="mailto:clbflife2025thptfptcantho@gmail.com?subject=Li%C3%AAn%20h%E1%BB%87%20t%E1%BB%AB%20Blanc&body=Xin%20ch%C3%A0o%2C%0A%0AT%C3%B4i%20mu%E1%BB%91n%20li%C3%AAn%20h%E1%BB%87%20v%E1%BB%81..." className="text-slate-500 hover:text-primary-600 text-sm">Liên hệ</a></li>
+                      <li><NavLink to="/terms" className="text-slate-500 hover:text-primary-600 text-sm">{t('layout.footer.terms')}</NavLink></li>
+                      <li><NavLink to="/privacy" className="text-slate-500 hover:text-primary-600 text-sm">{t('layout.footer.privacy')}</NavLink></li>
+                      <li><a href="mailto:clbflife2025thptfptcantho@gmail.com?subject=Li%C3%AAn%20h%E1%BB%87%20t%E1%BB%AB%20Blanc&body=Xin%20ch%C3%A0o%2C%0A%0AT%C3%B4i%20mu%E1%BB%91n%20li%C3%AAn%20h%E1%BB%87%20v%E1%BB%81..." className="text-slate-500 hover:text-primary-600 text-sm">{t('layout.footer.contact')}</a></li>
                     </ul>
                     <div className="mt-auto inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-50 text-slate-600 text-xs font-medium">
-                      <Sparkles className="w-4 h-4 text-indigo-500" /> Sẵn sàng hỗ trợ trong giờ hành chính
+                      <Sparkles className="w-4 h-4 text-indigo-500" /> {t('layout.footer.supportBadge')}
                     </div>
                   </div>
                 </div>
@@ -814,8 +815,8 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                   <div className="absolute inset-0 bg-gradient-to-r from-sky-50 via-white to-indigo-50 opacity-80" aria-hidden="true"></div>
                   <div className="relative px-6 py-8 md:px-10 md:py-10">
                     <div className="text-center">
-                      <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-2">Liên hệ</h3>
-                      <p className="text-slate-500 text-sm">Đội ngũ Blanc sẽ phản hồi trong 24 giờ làm việc</p>
+                      <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-2">{t('layout.footer.contactTitle')}</h3>
+                      <p className="text-slate-500 text-sm">{t('layout.footer.contactDescription')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 mt-8">
@@ -825,7 +826,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                             <Mail className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600">Hòm thư</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600">{t('layout.footer.inbox')}</p>
                             <p className="text-sm text-slate-500">CLB Blanc</p>
                           </div>
                         </div>
@@ -870,7 +871,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
                             <Mail className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-600">Hòm thư</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-600">{t('layout.footer.inbox')}</p>
                             <p className="text-sm text-slate-500">Trần Hữu Hải Đăng</p>
                           </div>
                         </div>

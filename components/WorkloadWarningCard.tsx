@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { AlertTriangle, AlertCircle, CheckCircle, TrendingUp, BookOpen, Trophy, Calendar, RefreshCw, Loader2, Heart } from 'lucide-react';
 import { Card, Button } from './ui/Common';
+import { useI18n } from '../contexts/I18nContext';
 import { WorkloadAnalysis, WorkloadWarning } from '../types';
 import { useWorkloadAnalysis } from '../lib/hooks';
 
@@ -11,6 +12,7 @@ interface WorkloadWarningCardProps {
 
 // Health Score Ring Component
 const HealthScoreRing: React.FC<{ score: number; size?: number }> = ({ score, size = 120 }) => {
+  const { t } = useI18n();
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -53,7 +55,7 @@ const HealthScoreRing: React.FC<{ score: number; size?: number }> = ({ score, si
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <Heart className={`w-4 h-4 mb-1 ${config.heartClass}`} />
         <span className={`text-2xl font-bold ${config.textClass}`}>{score}</span>
-        <span className="text-xs text-slate-500">điểm</span>
+        <span className="text-xs text-slate-500">{t('workload.points')}</span>
       </div>
     </div>
   );
@@ -134,6 +136,7 @@ const StatCard: React.FC<{
 
 // Main Component
 const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '', onRefresh }) => {
+  const { t } = useI18n();
   const { analysis, isLoading, error, refetch } = useWorkloadAnalysis();
 
   const handleRefresh = () => {
@@ -151,24 +154,24 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
           icon: <AlertCircle className="w-5 h-5" />,
           color: 'text-red-600',
           bgColor: 'bg-red-100',
-          label: 'Cần chú ý ngay',
+          label: t('workload.status.danger'),
         };
       case 'warning':
         return {
           icon: <AlertTriangle className="w-5 h-5" />,
           color: 'text-amber-600',
           bgColor: 'bg-amber-100',
-          label: 'Cần theo dõi',
+          label: t('workload.status.warning'),
         };
       default:
         return {
           icon: <CheckCircle className="w-5 h-5" />,
           color: 'text-emerald-600',
           bgColor: 'bg-emerald-100',
-          label: 'Tình trạng tốt',
+          label: t('workload.status.good'),
         };
     }
-  }, [analysis]);
+  }, [analysis, t]);
 
   if (error) {
     return (
@@ -176,7 +179,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
         <div className="text-center py-4">
           <p className="text-red-500 text-sm mb-3">{error}</p>
           <Button size="sm" onClick={handleRefresh}>
-            <RefreshCw className="w-4 h-4 mr-1" /> Thử lại
+            <RefreshCw className="w-4 h-4 mr-1" /> {t('workload.retry')}
           </Button>
         </div>
       </Card>
@@ -199,7 +202,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
       <div className="p-4 border-b border-slate-100 bg-linear-to-r from-slate-50 to-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-slate-900">Phân tích Workload</h3>
+            <h3 className="font-bold text-slate-900">{t('workload.title')}</h3>
             {statusConfig && (
               <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${statusConfig.bgColor} ${statusConfig.color}`}>
                 {statusConfig.icon}
@@ -210,7 +213,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
           <button
             onClick={handleRefresh}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-            title="Làm mới"
+            title={t('workload.refresh')}
           >
             <RefreshCw className="w-4 h-4 text-slate-500" />
           </button>
@@ -223,7 +226,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
         <div className="flex-1 space-y-2">
           <StatCard
             icon={<Trophy className="w-4 h-4 text-primary-600" />}
-            label="Cuộc thi"
+            label={t('workload.metric.contests')}
             value={analysis.workload.activeContests}
             max={analysis.limits.MAX_ACTIVE_CONTESTS}
             warning={analysis.limits.WARNING_THRESHOLD_CONTESTS}
@@ -231,7 +234,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
           />
           <StatCard
             icon={<BookOpen className="w-4 h-4 text-emerald-600" />}
-            label="Khóa học"
+            label={t('workload.metric.courses')}
             value={analysis.workload.activeCourses}
             max={analysis.limits.MAX_ACTIVE_COURSES}
             warning={analysis.limits.WARNING_THRESHOLD_COURSES}
@@ -239,7 +242,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
           />
           <StatCard
             icon={<Calendar className="w-4 h-4 text-blue-600" />}
-            label="Sự kiện tuần này"
+            label={t('workload.metric.weeklyEvents')}
             value={analysis.workload.weeklyEvents}
             max={analysis.limits.MAX_WEEKLY_EVENTS}
             warning={analysis.limits.MAX_WEEKLY_EVENTS - 2}
@@ -253,7 +256,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
         <div className="p-4 border-t border-slate-100">
           <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
-            Cảnh báo ({analysis.warnings.length})
+            {t('workload.warningsTitle', { count: analysis.warnings.length })}
           </h4>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {analysis.warnings.map((warning, index) => (
@@ -267,9 +270,9 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
       {analysis.warnings.length === 0 && (
         <div className="p-6 border-t border-slate-100 text-center">
           <CheckCircle className="w-12 h-12 mx-auto text-emerald-500 mb-2" />
-          <p className="font-medium text-slate-900">Tuyệt vời!</p>
+          <p className="font-medium text-slate-900">{t('workload.noWarnings.title')}</p>
           <p className="text-sm text-slate-500">
-            Bạn đang quản lý thời gian rất tốt. Tiếp tục phát huy nhé!
+            {t('workload.noWarnings.description')}
           </p>
         </div>
       )}
@@ -278,7 +281,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
       {analysis.workload.upcomingContests.length > 0 && (
         <div className="p-4 border-t border-slate-100 bg-slate-50">
           <h4 className="text-sm font-semibold text-slate-700 mb-2">
-            Sắp diễn ra trong 7 ngày tới
+            {t('workload.upcomingIn7Days')}
           </h4>
           <div className="space-y-1">
             {analysis.workload.upcomingContests.slice(0, 3).map(contest => (
@@ -292,7 +295,7 @@ const WorkloadWarningCard: React.FC<WorkloadWarningCardProps> = ({ className = '
             ))}
             {analysis.workload.upcomingContests.length > 3 && (
               <p className="text-xs text-slate-500 pl-4">
-                +{analysis.workload.upcomingContests.length - 3} sự kiện khác
+                {t('workload.moreEvents', { count: analysis.workload.upcomingContests.length - 3 })}
               </p>
             )}
           </div>

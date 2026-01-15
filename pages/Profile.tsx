@@ -27,7 +27,7 @@ function getStoredUser(): User | null {
 }
 
 const Profile: React.FC = () => {
-   const { t } = useI18n();
+   const { t, locale } = useI18n();
    const navigate = useNavigate();
    const [searchParams] = useSearchParams();
    const tabFromUrl = searchParams.get('tab') as TabType | null;
@@ -41,6 +41,9 @@ const Profile: React.FC = () => {
    const [blogError, setBlogError] = useState<string | null>(null);
    const bannerInputRef = useRef<HTMLInputElement>(null);
    const isMentor = currentUser?.role === 'mentor';
+   const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+
+   const dayLabel = (count: number) => (count === 1 ? t('common.day') : t('common.days'));
 
    // Update tab when URL changes
    useEffect(() => {
@@ -134,7 +137,7 @@ const Profile: React.FC = () => {
             syncMentorBlogCompletion(data.mentorBlogCompleted);
          } catch (err) {
             if (!isActive) return;
-            setBlogError(err instanceof Error ? err.message : 'Khong the tai blog');
+            setBlogError(err instanceof Error ? err.message : t('profile.mentorBlog.loadFailed'));
          } finally {
             if (isActive) setIsBlogLoading(false);
          }
@@ -152,7 +155,7 @@ const Profile: React.FC = () => {
       return (
          <div className="flex flex-col justify-center items-center min-h-[60vh] bg-slate-50">
             <Loader2 className="w-10 h-10 animate-spin text-primary-600 mb-4" />
-            <p className="text-slate-500 text-sm">Đang tải thông tin...</p>
+            <p className="text-slate-500 text-sm">{t('profile.loading')}</p>
          </div>
       );
    }
@@ -189,11 +192,11 @@ const Profile: React.FC = () => {
 
    // Handle unenroll with confirmation
    const handleUnenroll = async (enrollmentId: string, courseTitle: string) => {
-      if (window.confirm(`Bạn có chắc muốn hủy đăng ký khóa học "${courseTitle}"?`)) {
+      if (window.confirm(t('profile.courses.unenrollConfirm', { title: courseTitle }))) {
          try {
             await unenrollCourse(enrollmentId);
          } catch (err) {
-            alert(err instanceof Error ? err.message : 'Có lỗi xảy ra');
+            alert(err instanceof Error ? err.message : t('common.errorOccurred'));
          }
       }
    };
@@ -269,7 +272,7 @@ const Profile: React.FC = () => {
 
          setMentorBlog(prev => ({ ...prev, bannerUrl: String(mediaUrl) }));
       } catch (err) {
-         setBlogError(err instanceof Error ? err.message : 'Khong the tai len banner');
+         setBlogError(err instanceof Error ? err.message : t('profile.mentorBlog.uploadFailed'));
       } finally {
          setIsBlogUploading(false);
          if (bannerInputRef.current) {
@@ -297,7 +300,7 @@ const Profile: React.FC = () => {
          });
          syncMentorBlogCompletion(data.mentorBlogCompleted);
       } catch (err) {
-         setBlogError(err instanceof Error ? err.message : 'Khong the cap nhat blog');
+         setBlogError(err instanceof Error ? err.message : t('profile.mentorBlog.saveFailed'));
       } finally {
          setIsBlogSaving(false);
       }
@@ -317,7 +320,7 @@ const Profile: React.FC = () => {
                   {/* Registered Contests List */}
                   <Card className="p-6">
                      <h3 className="font-bold text-slate-900 mb-4 flex items-center">
-                        <Trophy className="w-5 h-5 mr-2 text-primary-600" /> Cuộc thi đã đăng ký
+                        <Trophy className="w-5 h-5 mr-2 text-primary-600" /> {t('profile.contests.registeredTitle')}
                      </h3>
                      {registrationsLoading ? (
                         <div className="flex justify-center py-8">
@@ -341,7 +344,7 @@ const Profile: React.FC = () => {
                                  <div className="grow min-w-0">
                                     <h4 className="font-semibold text-slate-900 truncate">{reg.contest.title}</h4>
                                     <p className="text-xs text-slate-500">
-                                       {new Date(reg.contest.dateStart).toLocaleDateString('vi-VN')} - {reg.contest.organizer}
+                                       {new Date(reg.contest.dateStart).toLocaleDateString(dateLocale)} - {reg.contest.organizer}
                                     </p>
                                  </div>
                                  <Badge status={reg.contest.status as 'OPEN' | 'FULL' | 'CLOSED'} className="ml-2">
@@ -354,9 +357,9 @@ const Profile: React.FC = () => {
                      ) : (
                         <div className="text-center py-8 text-slate-500">
                            <Trophy className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                           <p>Bạn chưa đăng ký cuộc thi nào</p>
+                           <p>{t('profile.contests.empty')}</p>
                            <Button className="mt-4" onClick={() => navigate('/contests')}>
-                              Khám phá cuộc thi
+                              {t('profile.contests.explore')}
                            </Button>
                         </div>
                      )}
@@ -375,7 +378,7 @@ const Profile: React.FC = () => {
                         </div>
                         <div>
                            <div className="text-2xl font-bold text-slate-900">{activeCount}</div>
-                           <div className="text-xs text-slate-500">Đang học</div>
+                           <div className="text-xs text-slate-500">{t('profile.courses.active')}</div>
                         </div>
                      </Card>
                      <Card className="p-4 flex items-center space-x-4">
@@ -384,7 +387,7 @@ const Profile: React.FC = () => {
                         </div>
                         <div>
                            <div className="text-2xl font-bold text-slate-900">{completedCount}</div>
-                           <div className="text-xs text-slate-500">Đã hoàn thành</div>
+                           <div className="text-xs text-slate-500">{t('profile.courses.completed')}</div>
                         </div>
                      </Card>
                   </div>
@@ -394,10 +397,10 @@ const Profile: React.FC = () => {
                      <div className="flex items-center justify-between mb-6">
                         <h3 className="font-bold text-slate-900 flex items-center">
                            <BookOpen className="w-5 h-5 mr-2 text-primary-600" />
-                           Khóa học của tôi
+                           {t('profile.courses.myCoursesTitle')}
                         </h3>
                         <Button variant="secondary" size="sm" onClick={() => navigate('/marketplace')}>
-                           Khám phá thêm
+                           {t('common.exploreMore')}
                         </Button>
                      </div>
 
@@ -437,10 +440,10 @@ const Profile: React.FC = () => {
                                              {enrollment.course.level}
                                           </Badge>
                                           {enrollment.status === 'completed' && (
-                                             <Badge className="bg-green-50 text-green-700 border-green-100">
-                                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                Hoàn thành
-                                             </Badge>
+                                                <Badge className="bg-green-50 text-green-700 border-green-100">
+                                                   <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                {t('common.completed')}
+                                                </Badge>
                                           )}
                                        </div>
                                     </div>
@@ -449,7 +452,10 @@ const Profile: React.FC = () => {
                                     <div className="mt-3">
                                        <div className="flex items-center justify-between text-xs mb-1.5">
                                           <span className="text-slate-500">
-                                             {enrollment.completedLessons?.length || 0} / {enrollment.course.lessonsCount || '?'} bài học
+                                             {t('profile.courses.progress', {
+                                                done: enrollment.completedLessons?.length || 0,
+                                                total: enrollment.course.lessonsCount || '?'
+                                             })}
                                           </span>
                                        </div>
                                     </div>
@@ -458,8 +464,8 @@ const Profile: React.FC = () => {
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
                                        <span className="text-xs text-slate-400">
                                           {enrollment.lastAccessedAt
-                                             ? `Truy cập: ${new Date(enrollment.lastAccessedAt).toLocaleDateString('vi-VN')}`
-                                             : `Đăng ký: ${new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}`
+                                             ? t('profile.courses.lastAccessed', { date: new Date(enrollment.lastAccessedAt).toLocaleDateString(dateLocale) })
+                                             : t('profile.courses.enrolledAt', { date: new Date(enrollment.enrolledAt).toLocaleDateString(dateLocale) })
                                           }
                                        </span>
                                        <div className="flex items-center gap-2">
@@ -479,7 +485,7 @@ const Profile: React.FC = () => {
                                              onClick={() => navigate(`/courses/${enrollment.courseId}`)}
                                           >
                                              <Play className="w-4 h-4 mr-1" />
-                                             {enrollment.progress && enrollment.progress > 0 ? 'Tiếp tục' : 'Bắt đầu'}
+                                             {t(enrollment.progress && enrollment.progress > 0 ? 'common.continue' : 'common.start')}
                                           </Button>
                                        </div>
                                     </div>
@@ -492,13 +498,13 @@ const Profile: React.FC = () => {
                            <div className="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
                               <BookOpen className="w-10 h-10 text-slate-400" />
                            </div>
-                           <h4 className="text-lg font-semibold text-slate-900 mb-2">Chưa có khóa học nào</h4>
+                           <h4 className="text-lg font-semibold text-slate-900 mb-2">{t('profile.courses.emptyTitle')}</h4>
                            <p className="text-slate-500 mb-6 max-w-sm mx-auto">
-                              Khám phá kho khóa học chất lượng cao và bắt đầu hành trình học tập của bạn ngay hôm nay!
+                              {t('profile.courses.emptyDescription')}
                            </p>
                            <Button onClick={() => navigate('/marketplace')}>
                               <BookOpen className="w-4 h-4 mr-2" />
-                              Khám phá khóa học
+                              {t('profile.courses.exploreCourses')}
                            </Button>
                         </div>
                      )}
@@ -510,7 +516,7 @@ const Profile: React.FC = () => {
             if (!isMentor) {
                return (
                   <Card className="p-6">
-                     <p className="text-sm text-slate-500">Ban khong co quyen truy cap muc nay.</p>
+                     <p className="text-sm text-slate-500">{t('profile.mentorBlog.noPermission')}</p>
                   </Card>
                );
             }
@@ -520,8 +526,8 @@ const Profile: React.FC = () => {
                   <Card className="p-6">
                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
-                           <h3 className="text-lg font-bold text-slate-900">Blog ca nhan</h3>
-                           <p className="text-sm text-slate-500 mt-1">Cap nhat banner va noi dung gioi thieu.</p>
+                           <h3 className="text-lg font-bold text-slate-900">{t('profile.mentorBlog.title')}</h3>
+                           <p className="text-sm text-slate-500 mt-1">{t('profile.mentorBlog.subtitle')}</p>
                         </div>
                      </div>
 
@@ -532,12 +538,12 @@ const Profile: React.FC = () => {
                      {isBlogLoading ? (
                         <div className="flex items-center justify-center py-10 text-slate-500">
                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                           Dang tai blog...
+                           {t('profile.mentorBlog.loading')}
                         </div>
                      ) : (
                         <form onSubmit={handleSaveMentorBlog} className="mt-6 space-y-5">
                            <div>
-                              <label className="block text-sm font-medium text-slate-700">Banner</label>
+                              <label className="block text-sm font-medium text-slate-700">{t('profile.mentorBlog.bannerLabel')}</label>
                               <div className="mt-2 rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
                                  {mentorBlog.bannerUrl ? (
                                     <img
@@ -547,7 +553,7 @@ const Profile: React.FC = () => {
                                     />
                                  ) : (
                                     <div className="h-40 flex items-center justify-center text-xs text-slate-400">
-                                       Chua co banner
+                                       {t('profile.mentorBlog.noBanner')}
                                     </div>
                                  )}
                               </div>
@@ -569,10 +575,10 @@ const Profile: React.FC = () => {
                                     {isBlogUploading ? (
                                        <>
                                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                          Dang tai...
+                                          {t('profile.mentorBlog.uploading')}
                                        </>
                                     ) : (
-                                       'Tai banner'
+                                       t('profile.mentorBlog.uploadBanner')
                                     )}
                                  </Button>
                                  {mentorBlog.bannerUrl && (
@@ -582,20 +588,20 @@ const Profile: React.FC = () => {
                                        size="sm"
                                        onClick={() => setMentorBlog(prev => ({ ...prev, bannerUrl: '' }))}
                                     >
-                                       Xoa banner
+                                       {t('profile.mentorBlog.deleteBanner')}
                                     </Button>
                                  )}
                               </div>
                            </div>
 
                            <div>
-                              <label className="block text-sm font-medium text-slate-700">Noi dung blog</label>
+                              <label className="block text-sm font-medium text-slate-700">{t('profile.mentorBlog.contentLabel')}</label>
                               <textarea
                                  value={mentorBlog.body}
                                  onChange={(e) => setMentorBlog(prev => ({ ...prev, body: e.target.value }))}
                                  rows={8}
                                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                 placeholder="Gioi thieu ve ban than..."
+                                 placeholder={t('profile.mentorBlog.contentPlaceholder')}
                               />
                            </div>
 
@@ -604,10 +610,10 @@ const Profile: React.FC = () => {
                                  {isBlogSaving ? (
                                     <>
                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                       Dang luu...
+                                       {t('profile.mentorBlog.saving')}
                                     </>
                                  ) : (
-                                    'Luu cap nhat'
+                                    t('profile.mentorBlog.save')
                                  )}
                               </Button>
                            </div>
@@ -638,8 +644,8 @@ const Profile: React.FC = () => {
                      <Card className="p-4 flex items-center space-x-4">
                         <div className="p-3 bg-orange-100 text-orange-600 rounded-lg"><Trophy className="w-6 h-6" /></div>
                         <div>
-                           <div className="text-2xl font-bold text-slate-900">{longestStreak} ngày</div>
-                           <div className="text-xs text-slate-500">Kỷ lục streak</div>
+                           <div className="text-2xl font-bold text-slate-900">{longestStreak} {dayLabel(longestStreak)}</div>
+                           <div className="text-xs text-slate-500">{t('profile.overview.streakRecord')}</div>
                         </div>
                      </Card>
                      <Card className={`relative overflow-hidden p-4 ${todayCheckedIn ? 'ring-2 ring-emerald-200 bg-linear-to-r from-emerald-50/80 to-white' : ''}`}>
@@ -678,7 +684,7 @@ const Profile: React.FC = () => {
                               <div className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                                  <span className={`inline-flex items-baseline gap-1 ${isStreakCelebrating ? 'animate-streak-pop' : ''}`}>
                                     <span className="tabular-nums">{currentStreak}</span>
-                                    <span className="text-base font-semibold text-slate-600">ngày</span>
+                                    <span className="text-base font-semibold text-slate-600">{dayLabel(currentStreak)}</span>
                                  </span>
 
                                  {/* star removed */}
@@ -688,10 +694,10 @@ const Profile: React.FC = () => {
                                  {todayCheckedIn ? (
                                     <>
                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                       <span>Đã điểm danh hôm nay</span>
+                                       <span>{t('profile.overview.checkedInToday')}</span>
                                     </>
                                  ) : (
-                                    <span>Chuỗi học tập</span>
+                                    <span>{t('profile.overview.streakLabel')}</span>
                                  )}
                               </div>
                            </div>
@@ -701,7 +707,7 @@ const Profile: React.FC = () => {
                         <div className="p-3 bg-blue-100 text-blue-600 rounded-lg"><BookOpen className="w-6 h-6" /></div>
                         <div>
                            <div className="text-2xl font-bold text-slate-900">{activeCount + completedCount}</div>
-                           <div className="text-xs text-slate-500">Khóa học đã đăng ký</div>
+                           <div className="text-xs text-slate-500">{t('profile.overview.coursesRegistered')}</div>
                         </div>
                      </Card>
                   </div>
@@ -714,7 +720,7 @@ const Profile: React.FC = () => {
                   {/* Upcoming */}
                   <Card className="p-6 mt-6">
                      <h3 className="font-bold text-slate-900 mb-4 flex items-center">
-                        <CalendarIcon className="w-5 h-5 mr-2 text-primary-600" /> Sắp diễn ra
+                        <CalendarIcon className="w-5 h-5 mr-2 text-primary-600" /> {t('profile.overview.upcoming')}
                      </h3>
                      {registrationsLoading ? (
                         <div className="flex justify-center py-8">
@@ -730,21 +736,21 @@ const Profile: React.FC = () => {
                               >
                                  <div className="w-12 h-12 rounded-lg bg-slate-200 shrink-0 flex flex-col items-center justify-center text-xs font-bold text-slate-600 mr-4">
                                     <span className="text-primary-600">
-                                       {new Date(reg.contest.dateStart).toLocaleDateString('vi-VN', { month: 'short' }).toUpperCase()}
+                                       {new Date(reg.contest.dateStart).toLocaleDateString(dateLocale, { month: 'short' }).toUpperCase()}
                                     </span>
                                     <span className="text-lg">{new Date(reg.contest.dateStart).getDate()}</span>
                                  </div>
                                  <div className="grow">
                                     <h4 className="font-semibold text-slate-900">{reg.contest.title}</h4>
                                     <p className="text-xs text-slate-500">
-                                       {new Date(reg.contest.dateStart).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {reg.contest.organizer}
+                                       {new Date(reg.contest.dateStart).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })} - {reg.contest.organizer}
                                     </p>
                                  </div>
-                                 <Button size="sm" variant="secondary">Chi tiết</Button>
+                                 <Button size="sm" variant="secondary">{t('common.details')}</Button>
                               </div>
                            ))}
                            {registrations.length === 0 && (
-                              <p className="text-center text-slate-500 py-4">Không có sự kiện sắp diễn ra</p>
+                              <p className="text-center text-slate-500 py-4">{t('profile.overview.noUpcomingEvents')}</p>
                            )}
                         </div>
                      )}
@@ -754,13 +760,13 @@ const Profile: React.FC = () => {
                   <Card className="p-6 mt-6">
                      <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-slate-900 flex items-center">
-                           <BookOpen className="w-5 h-5 mr-2 text-primary-600" /> Đang học
+                           <BookOpen className="w-5 h-5 mr-2 text-primary-600" /> {t('profile.overview.learning')}
                         </h3>
                         <button
                            onClick={() => setActiveTab('courses')}
                            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
-                           Xem tất cả
+                           {t('common.viewAll')}
                         </button>
                      </div>
                      {coursesLoading ? (
@@ -778,11 +784,11 @@ const Profile: React.FC = () => {
                            ))}
                         </div>
                      ) : (
-                        <p className="text-center text-slate-500 py-4">
-                           Bạn chưa đăng ký khóa học nào
-                        </p>
-                     )}
-                  </Card>
+                         <p className="text-center text-slate-500 py-4">
+                           {t('profile.overview.noEnrolledCourses')}
+                         </p>
+                      )}
+                   </Card>
                </>
             );
       }
@@ -802,7 +808,7 @@ const Profile: React.FC = () => {
                         className="w-full h-full object-cover"
                      />
                   </div>
-                  <h2 className="text-xl font-bold text-slate-900">{currentUser?.name || 'Người dùng'}</h2>
+                  <h2 className="text-xl font-bold text-slate-900">{currentUser?.name || t('profile.defaultUserName')}</h2>
                   <p className="text-sm text-slate-500 mb-4">{t('profile.sidebar.tagline')}</p>
                   <div className="flex justify-center gap-2 mb-6">
                      {(() => {

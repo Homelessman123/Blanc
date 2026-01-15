@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Calendar, MapPin, Tag, Share2, Award, Users, CheckCircle, Loader2, X, Clock, CalendarPlus, Copy, Check, Star } from 'lucide-react';
-import { Button, Input, Card, Badge, Tabs, Dropdown } from '../components/ui/Common';
+import { Button, Card, Badge, Tabs, Dropdown } from '../components/ui/Common';
 import { useContests, useDebounce, useUserRegistrations } from '../lib/hooks';
 import { API_BASE_URL } from '../lib/api';
 import { Contest } from '../types';
@@ -10,30 +10,7 @@ import Pagination from '../components/Pagination';
 import Reviews from '../components/Reviews';
 import toast from 'react-hot-toast';
 import { CONTEST_CATEGORIES, ContestCategoryValue } from '../constants/contestCategories';
-
-// Helper functions
-const formatPrice = (price: number) => {
-  if (price === 0) return 'Miễn phí';
-  return price.toLocaleString('vi-VN') + 'đ';
-};
-
-const getRemainingDays = (deadline: string) => {
-  const diff = new Date(deadline).getTime() - Date.now();
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-  if (days < 0) return 'Đã kết thúc';
-  if (days === 0) return 'Hôm nay';
-  return `Còn ${days} ngày`;
-};
-
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString('vi-VN');
-};
-
-const STATUS_MAP: Record<string, string> = {
-  'OPEN': 'Đang mở đăng ký',
-  'FULL': 'Sắp diễn ra',
-  'CLOSED': 'Đã kết thúc',
-};
+import { useI18n } from '../contexts/I18nContext';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'it': 'IT & Tech',
@@ -117,7 +94,45 @@ const ITEMS_PER_PAGE = 6;
 
 const ContestList: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const { t, locale } = useI18n();
+  const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+  const numberLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+
+  const formatPrice = useCallback((price: number) => {
+    if (price === 0) return t('common.free');
+    return `${price.toLocaleString(numberLocale)} ₫`;
+  }, [numberLocale, t]);
+
+  const getRemainingDays = useCallback((deadline: string) => {
+    const diff = new Date(deadline).getTime() - Date.now();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (days < 0) return t('common.ended');
+    if (days === 0) return t('common.today');
+    if (days === 1) return t('common.dayLeft');
+    return t('common.daysLeft', { count: days });
+  }, [t]);
+
+  const formatDate = useCallback((dateStr: string) => new Date(dateStr).toLocaleDateString(dateLocale), [dateLocale]);
+
+  const getStatusLabel = useCallback((status?: string) => {
+    switch (status) {
+      case 'OPEN':
+        return t('contests.status.open');
+      case 'FULL':
+        return t('contests.status.full');
+      case 'CLOSED':
+        return t('contests.status.closed');
+      default:
+        return status ?? '';
+    }
+  }, [t]);
+
+  const statusOptions = useMemo(() => ([
+    { value: 'OPEN', label: t('contests.status.open') },
+    { value: 'FULL', label: t('contests.status.full') },
+    { value: 'CLOSED', label: t('contests.status.closed') },
+  ]), [t]);
 
   // State
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -225,61 +240,61 @@ const ContestList: React.FC = () => {
             <div className="space-y-4 animate-fade-in-up">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-white/70 text-xs font-semibold text-primary-700 shadow-sm">
                 <Star className="w-3.5 h-3.5" />
-                Sân chơi nổi bật
+                {t('contests.hero.pill')}
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">
-                Khám phá cuộc thi truyền cảm hứng cho mọi lĩnh vực
+                {t('contests.hero.title')}
               </h2>
               <p className="text-sm md:text-base text-slate-600 leading-relaxed max-w-xl md:max-w-none md:whitespace-nowrap">
-                Chọn cuộc thi phù hợp, theo dõi deadline và kết nối cùng mentor để bứt phá kỹ năng.
+                {t('contests.hero.description')}
               </p>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-2 rounded-xl bg-white/90 border border-slate-100 px-3 py-2 text-xs text-slate-600 shadow-sm">
                   <Tag className="w-4 h-4 text-primary-500" />
-                  Lọc theo lĩnh vực
+                  {t('contests.hero.feature.fieldFilter')}
                 </div>
                 <div className="flex items-center gap-2 rounded-xl bg-white/90 border border-slate-100 px-3 py-2 text-xs text-slate-600 shadow-sm">
                   <Clock className="w-4 h-4 text-amber-500" />
-                  Nhắc hạn đăng ký
+                  {t('contests.hero.feature.deadlineReminder')}
                 </div>
                 <div className="flex items-center gap-2 rounded-xl bg-white/90 border border-slate-100 px-3 py-2 text-xs text-slate-600 shadow-sm">
                   <Award className="w-4 h-4 text-emerald-500" />
-                  Giải thưởng hấp dẫn
+                  {t('contests.hero.feature.prizes')}
                 </div>
                 <div className="flex items-center gap-2 rounded-xl bg-white/90 border border-slate-100 px-3 py-2 text-xs text-slate-600 shadow-sm">
                   <Users className="w-4 h-4 text-slate-600" />
-                  Cộng đồng hỗ trợ
+                  {t('contests.hero.feature.community')}
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 animate-fade-in-up">
               <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-md">
-                <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Tổng quan</div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t('contests.stats.overview')}</div>
                 <div className="mt-3 flex items-end gap-2">
                   <span className="text-3xl font-bold text-slate-900">{isLoading ? '--' : contests.length}</span>
-                  <span className="text-sm text-slate-500">cuộc thi</span>
+                  <span className="text-sm text-slate-500">{t('contests.stats.contestNoun')}</span>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Cập nhật liên tục, luôn có sân chơi mới mỗi tuần.
+                  {t('contests.stats.note')}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
-                  <div className="text-xs font-semibold text-emerald-700">Đang mở</div>
+                  <div className="text-xs font-semibold text-emerald-700">{t('contests.stats.open')}</div>
                   <div className="mt-1 text-2xl font-bold text-emerald-800">
                     {isLoading ? '--' : openCount}
                   </div>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-4 py-3">
-                  <div className="text-xs font-semibold text-amber-700">Sắp diễn ra</div>
+                  <div className="text-xs font-semibold text-amber-700">{t('contests.stats.upcoming')}</div>
                   <div className="mt-1 text-2xl font-bold text-amber-800">
                     {isLoading ? '--' : upcomingCount}
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3">
-                  <div className="text-xs font-semibold text-slate-600">Đã kết thúc</div>
+                  <div className="text-xs font-semibold text-slate-600">{t('contests.stats.ended')}</div>
                   <div className="mt-1 text-2xl font-bold text-slate-800">
                     {isLoading ? '--' : closedCount}
                   </div>
@@ -292,9 +307,13 @@ const ContestList: React.FC = () => {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tất cả cuộc thi</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('contests.list.title')}</h1>
           <p className="text-slate-500">
-            {isLoading ? 'Đang tải...' : `${filteredContests.length} cuộc thi phù hợp`}
+            {isLoading
+              ? t('common.loading')
+              : filteredContests.length === 1
+                ? t('contests.list.resultsOne')
+                : t('contests.list.resultsMany', { count: filteredContests.length })}
           </p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
@@ -302,7 +321,7 @@ const ContestList: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Tìm kiếm..."
+              placeholder={t('contests.search.placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-10 pl-9 pr-9 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
@@ -310,7 +329,7 @@ const ContestList: React.FC = () => {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                title="Xóa tìm kiếm"
+                title={t('common.clearSearch')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X className="w-4 h-4" />
@@ -326,7 +345,7 @@ const ContestList: React.FC = () => {
           </Button>
           {hasActiveFilters && (
             <Button variant="ghost" className="text-red-500 hover:text-red-600" onClick={clearFilters}>
-              Xóa bộ lọc
+              {t('contests.filters.clear')}
             </Button>
           )}
         </div>
@@ -343,7 +362,7 @@ const ContestList: React.FC = () => {
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Tất cả
+          {t('common.all')}
         </button>
         {CONTEST_CATEGORIES.map((category) => {
           const isActive = selectedCategories.includes(category.value);
@@ -370,14 +389,14 @@ const ContestList: React.FC = () => {
         {/* Sidebar Filters */}
         <aside className={`${showFilters ? 'block' : 'hidden'} lg:block space-y-6`}>
           <div>
-            <h3 className="font-semibold text-slate-900 mb-3">Lĩnh vực</h3>
+            <h3 className="font-semibold text-slate-900 mb-3">{t('contests.filters.fieldTitle')}</h3>
             <Dropdown
               value={selectedCategories[0] ?? ''}
               onChange={(value) => setSelectedCategories(value ? [value as ContestCategoryValue] : [])}
-              placeholder="Tất cả"
-              headerText="Chọn lĩnh vực"
+              placeholder={t('common.all')}
+              headerText={t('contests.filters.fieldHeader')}
               options={[
-                { value: '', label: 'Tất cả' },
+                { value: '', label: t('common.all') },
                 ...CONTEST_CATEGORIES.map((category) => ({
                   value: category.value,
                   label: getCategoryLabel(category.value),
@@ -387,17 +406,17 @@ const ContestList: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="font-semibold text-slate-900 mb-3">Trạng thái</h3>
+            <h3 className="font-semibold text-slate-900 mb-3">{t('contests.filters.statusTitle')}</h3>
             <div className="space-y-2">
-              {Object.entries(STATUS_MAP).map(([status, label]) => (
-                <label key={status} className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer">
+              {statusOptions.map((option) => (
+                <label key={option.value} className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={selectedStatuses.includes(status)}
-                    onChange={() => toggleStatus(status)}
+                    checked={selectedStatuses.includes(option.value)}
+                    onChange={() => toggleStatus(option.value)}
                     className="rounded text-primary-600 focus:ring-primary-500"
                   />
-                  <span>{label}</span>
+                  <span>{option.label}</span>
                 </label>
               ))}
             </div>
@@ -428,7 +447,7 @@ const ContestList: React.FC = () => {
           ) : error ? (
             <div className="md:col-span-2 text-center py-12">
               <p className="text-red-500 mb-4">{error}</p>
-              <Button onClick={refetch}>Thử lại</Button>
+              <Button onClick={refetch}>{t('common.retry')}</Button>
             </div>
           ) : filteredContests.length > 0 ? (
             <>
@@ -445,7 +464,9 @@ const ContestList: React.FC = () => {
                       className="w-full h-full"
                       lazy={true}
                     />
-                    <Badge className="absolute top-3 left-3" status={contest.status}>{contest.status}</Badge>
+                    <Badge className="absolute top-3 left-3" status={contest.status}>
+                      {getStatusLabel(contest.status)}
+                    </Badge>
                   </div>
                   <div className="p-5 flex flex-col grow">
                     <div className="flex items-center justify-between mb-2">
@@ -456,7 +477,7 @@ const ContestList: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">{contest.title}</h3>
                     <p className="text-sm text-slate-500 mb-4 line-clamp-2 grow">
-                      {contest.description || 'Tham gia để trải nghiệm và phát triển kỹ năng của bạn.'}
+                      {contest.description || t('contests.defaultDescription')}
                     </p>
 
                     <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
@@ -482,10 +503,12 @@ const ContestList: React.FC = () => {
           ) : (
             <div className="md:col-span-2 text-center py-12">
               <Search className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-              <p className="text-slate-500 mb-2">Không tìm thấy cuộc thi nào</p>
-              <p className="text-sm text-slate-400 mb-4">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+              <p className="text-slate-500 mb-2">{t('contests.empty.title')}</p>
+              <p className="text-sm text-slate-400 mb-4">{t('contests.empty.subtitle')}</p>
               {hasActiveFilters && (
-                <Button variant="secondary" onClick={clearFilters}>Xóa bộ lọc</Button>
+                <Button variant="secondary" onClick={clearFilters}>
+                  {t('contests.filters.clear')}
+                </Button>
               )}
             </div>
           )}
@@ -496,13 +519,31 @@ const ContestList: React.FC = () => {
 };
 
 // --- CONTEST DETAIL COMPONENT ---
+type ContestDetailTab = 'overview' | 'prizes' | 'rules' | 'schedule' | 'reviews';
+
 const ContestDetail: React.FC = () => {
+  const { t, locale } = useI18n();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('Tổng quan');
+  const [activeTab, setActiveTab] = useState<ContestDetailTab>('overview');
   const [contest, setContest] = useState<Contest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const dateLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+  const numberLocale = locale === 'en' ? 'en-US' : 'vi-VN';
+
+  const formatPrice = useCallback(
+    (price: number) => {
+      if (price === 0) return t('common.free');
+      return `${price.toLocaleString(numberLocale)} ₫`;
+    },
+    [numberLocale, t],
+  );
+
+  const formatDate = useCallback((dateStr: string) => new Date(dateStr).toLocaleDateString(dateLocale), [dateLocale]);
+
+  const sanitizeMessage = (message: string, fallback: string) =>
+    locale === 'en' && /[^\x00-\x7F]/.test(message) ? fallback : message;
 
   // Registration state
   const [isRegistering, setIsRegistering] = useState(false);
@@ -527,36 +568,41 @@ const ContestDetail: React.FC = () => {
       setIsLoading(true);
       try {
         const response = await fetch(`${API_BASE_URL}/contests/${id}`);
-        if (!response.ok) throw new Error('Contest not found');
+        if (!response.ok) throw new Error(t('contests.detail.notFound'));
         const data = await response.json();
         setContest(data.contest);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Không thể tải cuộc thi');
+        const fallback = t('contests.detail.loadFailed');
+        const message = err instanceof Error && err.message ? sanitizeMessage(err.message, fallback) : fallback;
+        setError(message);
       } finally {
         setIsLoading(false);
       }
     };
     fetchContest();
-  }, [id]);
+  }, [id, t]);
 
   // Generate iCal/ICS file for calendar
-  const generateICSFile = useCallback((contest: Contest) => {
-    const formatICSDate = (dateStr: string) => {
-      const date = new Date(dateStr);
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
+  const generateICSFile = useCallback(
+    (contest: Contest) => {
+      const formatICSDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      };
 
-    const escapeICS = (str: string) => {
-      return str.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
-    };
+      const escapeICS = (str: string) => {
+        return str.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
+      };
 
-    const startDate = formatICSDate(contest.dateStart);
-    const endDate = contest.deadline ? formatICSDate(contest.deadline) : formatICSDate(contest.dateStart);
-    const now = formatICSDate(new Date().toISOString());
+      const startDate = formatICSDate(contest.dateStart);
+      const endDate = contest.deadline ? formatICSDate(contest.deadline) : formatICSDate(contest.dateStart);
+      const now = formatICSDate(new Date().toISOString());
+      const feeValue = contest.fee === 0 ? t('common.free') : `${contest.fee.toLocaleString(numberLocale)} ₫`;
+      const description = contest.description || t('contests.ics.descriptionFallback');
 
-    const icsContent = `BEGIN:VCALENDAR
+      const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//ContestHub//Contest Calendar//VI
+PRODID:-//ContestHub//Contest Calendar//${locale.toUpperCase()}
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 BEGIN:VEVENT
@@ -565,7 +611,7 @@ DTEND:${endDate}
 DTSTAMP:${now}
 UID:contest-${contest.id}@contesthub.vn
 SUMMARY:${escapeICS(contest.title)}
-DESCRIPTION:${escapeICS(contest.description || 'Tham gia cuộc thi trên ContestHub')}\\n\\nBan tổ chức: ${escapeICS(contest.organizer)}\\nPhí tham gia: ${contest.fee === 0 ? 'Miễn phí' : contest.fee.toLocaleString('vi-VN') + 'đ'}
+DESCRIPTION:${escapeICS(description)}\\n\\n${escapeICS(t('contests.ics.organizerLabel'))}: ${escapeICS(contest.organizer)}\\n${escapeICS(t('contests.ics.feeLabel'))}: ${escapeICS(feeValue)}
 LOCATION:${escapeICS(contest.location || 'Online')}
 STATUS:CONFIRMED
 ORGANIZER:CN=${escapeICS(contest.organizer)}
@@ -573,18 +619,20 @@ URL:${window.location.href}
 BEGIN:VALARM
 TRIGGER:-P1D
 ACTION:DISPLAY
-DESCRIPTION:Nhắc nhở: ${escapeICS(contest.title)} sẽ bắt đầu vào ngày mai!
+DESCRIPTION:${escapeICS(t('contests.ics.reminderTomorrow', { title: contest.title }))}
 END:VALARM
 BEGIN:VALARM
 TRIGGER:-PT1H
 ACTION:DISPLAY
-DESCRIPTION:Nhắc nhở: ${escapeICS(contest.title)} sẽ bắt đầu trong 1 giờ nữa!
+DESCRIPTION:${escapeICS(t('contests.ics.reminderInOneHour', { title: contest.title }))}
 END:VALARM
 END:VEVENT
 END:VCALENDAR`;
 
-    return icsContent;
-  }, []);
+      return icsContent;
+    },
+    [locale, numberLocale, t],
+  );
 
   // Download calendar file
   const downloadCalendarFile = useCallback((contest: Contest) => {
@@ -607,7 +655,7 @@ END:VCALENDAR`;
     // Check if user is logged in
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-      toast.error('Vui lòng đăng nhập để đăng ký cuộc thi');
+      toast.error(t('contests.toast.loginToRegister'));
       navigate('/auth?redirect=' + encodeURIComponent(window.location.pathname));
       return;
     }
@@ -618,19 +666,23 @@ END:VCALENDAR`;
       setIsRegistered(true);
 
       // Show success message
-      toast.success(result.message || 'Đăng ký thành công!');
+      toast.success(t('contests.toast.registerSuccess'));
 
       // Show warning if any
       if (result.warning) {
-        toast(result.warning, { icon: '⚠️', duration: 5000 });
+        const warningText = locale === 'en' && /[^\x00-\x7F]/.test(result.warning) ? null : result.warning;
+        if (warningText) {
+          toast(warningText, { icon: '⚠️', duration: 5000 });
+        }
       }
 
       // Download calendar file automatically
       downloadCalendarFile(contest);
-      toast.success('Đã thêm vào lịch của bạn!', { icon: '📅' });
+      toast.success(t('contests.toast.addedToCalendar'), { icon: '📅' });
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Đăng ký thất bại';
+      const fallback = t('contests.toast.registerFailed');
+      const errorMessage = err instanceof Error && err.message ? sanitizeMessage(err.message, fallback) : fallback;
       toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
@@ -645,9 +697,10 @@ END:VCALENDAR`;
     try {
       await cancelRegistration(id);
       setIsRegistered(false);
-      toast.success('Đã hủy đăng ký');
+      toast.success(t('contests.toast.cancelSuccess'));
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Hủy đăng ký thất bại';
+      const fallback = t('contests.toast.cancelFailed');
+      const errorMessage = err instanceof Error && err.message ? sanitizeMessage(err.message, fallback) : fallback;
       toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
@@ -661,7 +714,7 @@ END:VCALENDAR`;
     const shareUrl = window.location.href;
     const shareData = {
       title: contest.title,
-      text: `Tham gia cuộc thi "${contest.title}" - Ban tổ chức: ${contest.organizer}`,
+      text: t('contests.share.text', { title: contest.title, organizer: contest.organizer }),
       url: shareUrl,
     };
 
@@ -669,7 +722,7 @@ END:VCALENDAR`;
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
         await navigator.share(shareData);
-        toast.success('Đã chia sẻ thành công!');
+        toast.success(t('contests.toast.shareSuccess'));
       } catch (err) {
         // User cancelled or share failed - fallback to copy
         if ((err as Error).name !== 'AbortError') {
@@ -687,7 +740,7 @@ END:VCALENDAR`;
     try {
       await navigator.clipboard.writeText(url);
       setIsCopied(true);
-      toast.success('Đã sao chép liên kết!');
+      toast.success(t('contests.toast.linkCopied'));
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       // Fallback for older browsers
@@ -700,10 +753,10 @@ END:VCALENDAR`;
       try {
         document.execCommand('copy');
         setIsCopied(true);
-        toast.success('Đã sao chép liên kết!');
+        toast.success(t('contests.toast.linkCopied'));
         setTimeout(() => setIsCopied(false), 2000);
       } catch (e) {
-        toast.error('Không thể sao chép liên kết');
+        toast.error(t('contests.toast.copyLinkFailed'));
       }
       document.body.removeChild(textArea);
     }
@@ -738,8 +791,8 @@ END:VCALENDAR`;
   if (error || !contest) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <p className="text-red-500 mb-4">{error || 'Không tìm thấy cuộc thi'}</p>
-        <Button onClick={() => navigate('/contests')}>Quay lại</Button>
+        <p className="text-red-500 mb-4">{error || t('contests.detail.notFound')}</p>
+        <Button onClick={() => navigate('/contests')}>{t('common.back')}</Button>
       </div>
     );
   }
@@ -774,7 +827,7 @@ END:VCALENDAR`;
               </span>
               <span className="flex items-center">
                 <Users className="w-4 h-4 mr-2" />
-                Ban tổ chức: {contest.organizer}
+                {t('contests.detail.organizerLabel', { name: contest.organizer })}
               </span>
             </div>
           </div>
@@ -787,13 +840,19 @@ END:VCALENDAR`;
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 min-h-[500px]">
             <Tabs
-              tabs={['Tổng quan', 'Giải thưởng', 'Thể lệ', 'Lịch trình', 'Đánh giá']}
+              tabs={[
+                { value: 'overview', label: t('contests.detail.tabs.overview') },
+                { value: 'prizes', label: t('contests.detail.tabs.prizes') },
+                { value: 'rules', label: t('contests.detail.tabs.rules') },
+                { value: 'schedule', label: t('contests.detail.tabs.schedule') },
+                { value: 'reviews', label: t('contests.detail.tabs.reviews') },
+              ]}
               activeTab={activeTab}
               onChange={setActiveTab}
             />
 
             <div className="prose prose-slate max-w-none">
-              {activeTab === 'Tổng quan' && (
+              {activeTab === 'overview' && (
                 <div>
                   {contest.description && (
                     <div className="mb-6">
@@ -803,25 +862,25 @@ END:VCALENDAR`;
 
                   {contest.objectives && (
                     <>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">Mục tiêu</h3>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{t('contests.detail.section.objectives')}</h3>
                       <p className="text-slate-600 mb-4 whitespace-pre-wrap">{contest.objectives}</p>
                     </>
                   )}
 
                   {contest.eligibility && (
                     <>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">Đối tượng tham gia</h3>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{t('contests.detail.section.participants')}</h3>
                       <p className="text-slate-600 mb-4 whitespace-pre-wrap">{contest.eligibility}</p>
                     </>
                   )}
 
                   {!contest.description && !contest.objectives && !contest.eligibility && (
-                    <p className="text-slate-500 italic">Chưa có thông tin chi tiết về cuộc thi này.</p>
+                    <p className="text-slate-500 italic">{t('contests.detail.fallback.noDetails')}</p>
                   )}
                 </div>
               )}
 
-              {activeTab === 'Giải thưởng' && (
+              {activeTab === 'prizes' && (
                 <div className="grid gap-4">
                   {contest.prizes && contest.prizes.length > 0 ? (
                     contest.prizes.map((prize, index) => (
@@ -839,22 +898,22 @@ END:VCALENDAR`;
                       </div>
                     ))
                   ) : (
-                    <p className="text-slate-500 italic">Chưa có thông tin về giải thưởng.</p>
+                    <p className="text-slate-500 italic">{t('contests.detail.fallback.noPrizes')}</p>
                   )}
                 </div>
               )}
 
-              {activeTab === 'Thể lệ' && (
+              {activeTab === 'rules' && (
                 <div>
                   {contest.rules ? (
                     <div className="whitespace-pre-wrap text-slate-600">{contest.rules}</div>
                   ) : (
-                    <p className="text-slate-500 italic">Chưa có thông tin về thể lệ cuộc thi.</p>
+                    <p className="text-slate-500 italic">{t('contests.detail.fallback.noRules')}</p>
                   )}
                 </div>
               )}
 
-              {activeTab === 'Lịch trình' && (
+              {activeTab === 'schedule' && (
                 <div>
                   {contest.schedule && contest.schedule.length > 0 ? (
                     <div className="space-y-4">
@@ -876,12 +935,12 @@ END:VCALENDAR`;
                       ))}
                     </div>
                   ) : (
-                    <p className="text-slate-500 italic">Chưa có lịch trình chi tiết.</p>
+                    <p className="text-slate-500 italic">{t('contests.detail.fallback.noSchedule')}</p>
                   )}
                 </div>
               )}
 
-              {activeTab === 'Đánh giá' && (
+              {activeTab === 'reviews' && (
                 <Reviews
                   targetType="contest"
                   targetId={id!}
@@ -898,7 +957,7 @@ END:VCALENDAR`;
         <div className="space-y-6">
           <Card className="p-6 sticky top-24">
             <div className="flex justify-between items-center mb-6">
-              <span className="text-slate-500">Phí tham gia</span>
+              <span className="text-slate-500">{t('contests.detail.feeLabel')}</span>
               <span className="text-2xl font-bold text-primary-600">{formatPrice(contest.fee)}</span>
             </div>
 
@@ -907,7 +966,7 @@ END:VCALENDAR`;
               <div className="space-y-3 mb-3">
                 <div className="flex items-center justify-center gap-2 py-3 px-4 bg-green-50 text-green-700 rounded-lg border border-green-200">
                   <CheckCircle className="w-5 h-5" />
-                  <span className="font-medium">Đã đăng ký</span>
+                  <span className="font-medium">{t('contests.detail.registered')}</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -915,7 +974,7 @@ END:VCALENDAR`;
                     className="flex-1 flex items-center justify-center"
                     onClick={() => downloadCalendarFile(contest)}
                   >
-                    <CalendarPlus className="w-4 h-4 mr-2" /> Thêm vào lịch
+                    <CalendarPlus className="w-4 h-4 mr-2" /> {t('contests.detail.addToCalendar')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -923,7 +982,7 @@ END:VCALENDAR`;
                     onClick={handleCancelRegistration}
                     disabled={isRegistering}
                   >
-                    {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Hủy'}
+                    {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : t('contests.detail.cancel')}
                   </Button>
                 </div>
               </div>
@@ -937,14 +996,14 @@ END:VCALENDAR`;
                 {isRegistering ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Đang đăng ký...
+                    {t('contests.detail.registering')}
                   </>
                 ) : contest.status === 'CLOSED' ? (
-                  'Đã kết thúc'
+                  t('contests.status.closed')
                 ) : (
                   <>
                     <CalendarPlus className="w-4 h-4 mr-2" />
-                    Đăng ký ngay
+                    {t('contests.detail.registerNow')}
                   </>
                 )}
               </Button>
@@ -959,12 +1018,12 @@ END:VCALENDAR`;
               {isCopied ? (
                 <>
                   <Check className="w-4 h-4 mr-2 text-green-600" />
-                  Đã sao chép!
+                  {t('contests.detail.copied')}
                 </>
               ) : (
                 <>
                   <Share2 className="w-4 h-4 mr-2" />
-                  Chia sẻ
+                  {t('contests.detail.share')}
                 </>
               )}
             </Button>
@@ -983,7 +1042,7 @@ END:VCALENDAR`;
 
           {(contest.organizerDetails?.name || contest.organizer) && (
             <Card className="p-6">
-              <h4 className="font-semibold text-slate-900 mb-4">Đơn vị tổ chức</h4>
+              <h4 className="font-semibold text-slate-900 mb-4">{t('contests.detail.organizerSection')}</h4>
               <div className="flex items-center space-x-3">
                 {contest.organizerDetails?.logo ? (
                   <img
@@ -1015,7 +1074,7 @@ END:VCALENDAR`;
                   rel="noopener noreferrer"
                   className="text-sm text-primary-600 hover:underline mt-2 inline-block"
                 >
-                  Xem trang web →
+                  {t('contests.detail.visitWebsite')}
                 </a>
               )}
             </Card>
