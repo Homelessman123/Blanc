@@ -83,6 +83,7 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<HTMLDivElement>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
+    const zoomContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,6 +134,11 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({
             return () => clearTimeout(timer);
         }
     }, [isFullScreen, prevFullScreen]);
+
+    useEffect(() => {
+        if (!zoomContainerRef.current) return;
+        zoomContainerRef.current.style.transform = `scale(${zoom / 100})`;
+    }, [zoom]);
 
     // Sync content state to editorRef when report changes (initial load)
     useEffect(() => {
@@ -707,14 +713,14 @@ ${htmlContent}
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 flex justify-center relative scroll-smooth min-w-0">
                     {/* eslint-disable-next-line react/forbid-dom-props */}
                     <div
-                        className="relative transition-transform duration-200 ease-out origin-top w-[850px] h-max mb-[500px]"
-                        style={{ transform: `scale(${zoom / 100})` }}
+                        ref={zoomContainerRef}
+                        className="relative transition-transform duration-200 ease-out origin-top w-212.5 h-max mb-125"
                     >
-                        <div className="w-full bg-white shadow-lg border border-slate-200 min-h-[1100px] relative print:shadow-none print:border-none">
+                        <div className="w-full bg-white shadow-lg border border-slate-200 min-h-275 relative print:shadow-none print:border-none">
                             {/* A4 Paper Simulation */}
                             <div
                                 ref={editorRef}
-                                className="w-full h-full p-16 outline-none prose prose-slate max-w-none bg-white min-h-[1123px]"
+                                className="w-full h-full p-16 outline-none prose prose-slate max-w-none bg-white min-h-280.75"
                                 contentEditable
                                 suppressContentEditableWarning
                                 onInput={handleContentChange}

@@ -311,21 +311,27 @@ export const ReportActivityEvidenceModal: React.FC<ReportActivityEvidenceModalPr
 
               <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-2xl p-4">
                 <div className="grid grid-cols-1 gap-3">
+                  <label className="sr-only" htmlFor="report-activity-title">Activity title</label>
                   <input
+                    id="report-activity-title"
                     value={activityTitle}
                     onChange={(e) => setActivityTitle(e.target.value)}
                     placeholder="Activity title"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-primary-100 focus:border-primary-400 outline-none"
                     disabled={isSaving}
                   />
+                  <label className="sr-only" htmlFor="report-activity-occurred">Activity date</label>
                   <input
+                    id="report-activity-occurred"
                     type="datetime-local"
                     value={activityOccurredAt}
                     onChange={(e) => setActivityOccurredAt(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-primary-100 focus:border-primary-400 outline-none"
                     disabled={isSaving}
                   />
+                  <label className="sr-only" htmlFor="report-activity-description">Activity description</label>
                   <textarea
+                    id="report-activity-description"
                     value={activityDescription}
                     onChange={(e) => setActivityDescription(e.target.value)}
                     placeholder="Description (optional)"
@@ -394,6 +400,7 @@ export const ReportActivityEvidenceModal: React.FC<ReportActivityEvidenceModalPr
                 <div className="flex items-center gap-2">
                   <input
                     ref={fileInputRef}
+                    id="report-evidence-upload"
                     type="file"
                     multiple
                     accept="image/*,application/pdf"
@@ -401,6 +408,7 @@ export const ReportActivityEvidenceModal: React.FC<ReportActivityEvidenceModalPr
                     onChange={handleEvidenceFileChange}
                     disabled={isSaving}
                   />
+                  <label className="sr-only" htmlFor="report-evidence-upload">Upload evidence</label>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isSaving}

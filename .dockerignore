@@ -6,6 +6,7 @@ npm-debug.log
 .git
 .gitignore
 .github
+
 # Environment files (will be set by Railway)
 .env
 .env.local

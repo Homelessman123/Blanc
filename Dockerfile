@@ -23,19 +23,7 @@ RUN npm run build && \
 FROM public.ecr.aws/docker/library/node:20-alpine
 
 # Install dumb-init for proper signal handling
-RUN set -eux; \
-    REPOS_ORIG="$(cat /etc/apk/repositories)"; \
-    for MIRROR in \
-    https://dl-cdn.alpinelinux.org \
-    https://dl-2.alpinelinux.org \
-    https://dl-3.alpinelinux.org \
-    ; do \
-    printf '%s\n' "$REPOS_ORIG" | sed "s|https://dl-cdn.alpinelinux.org|$MIRROR|g" > /etc/apk/repositories; \
-    if apk add --no-cache dumb-init; then \
-    break; \
-    fi; \
-    sleep 2; \
-    done
+RUN apk add --no-cache dumb-init
 
 WORKDIR /app
 
@@ -49,9 +37,6 @@ RUN npm ci --omit=dev --legacy-peer-deps && \
 # Copy server code and built frontend
 COPY --chown=node:node server ./server
 COPY --from=builder --chown=node:node /app/dist ./dist
-
-# Copy database root certificate for sslmode=verify-full
-COPY --chown=node:node app/root.crt /app/root.crt
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs && \
