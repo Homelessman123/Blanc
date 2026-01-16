@@ -1,4 +1,5 @@
 import { apiCache, sessionCache, localCache, CACHE_TTL } from './cache';
+import { DEFAULT_LOCALE, TranslationKey, normalizeLocale, t as translate } from './i18n';
 
 // API Configuration
 const apiBaseUrlRaw =
@@ -8,6 +9,89 @@ const API_BASE_URL = apiBaseUrlRaw.replace(/\/+$/, '');
 
 // Optional Bearer token support (fallback when cookies are blocked in cross-site deployments)
 const ACCESS_TOKEN_KEY = 'access_token';
+const LOCALE_STORAGE_KEY = 'blanc:locale';
+
+const API_ERROR_CODE_TO_KEY: Record<string, TranslationKey> = {
+  MISSING_PARAMS: 'errors.api.missingParams',
+  MISSING_EMAIL: 'errors.api.missingEmail',
+  INVALID_ACTION: 'errors.api.invalidAction',
+  INVALID_EMAIL: 'errors.api.invalidEmail',
+  INVALID_TOKEN: 'errors.api.invalidToken',
+  COOLDOWN: 'errors.api.cooldown',
+  RATE_LIMITED: 'errors.api.rateLimited',
+  EMAIL_EXISTS: 'errors.api.emailExists',
+  NO_PENDING_REGISTRATION: 'errors.api.noPendingRegistration',
+  OTP_EXPIRED: 'errors.api.otpExpired',
+  OTP_INVALID_STATUS: 'errors.api.otpInvalidStatus',
+  WRONG_OTP: 'errors.api.wrongOtp',
+  INVALID_OTP: 'errors.api.invalidOtp',
+  MAX_ATTEMPTS_EXCEEDED: 'errors.api.maxAttemptsExceeded',
+  IP_RATE_LIMIT: 'errors.api.ipRateLimit',
+  ACCOUNT_LOCKED: 'errors.api.accountLocked',
+  EMAIL_RATE_LIMIT: 'errors.api.emailRateLimit',
+  LOGIN_SESSION_EXPIRED: 'errors.api.loginSessionExpired',
+  TWO_FACTOR_NOT_ENABLED: 'errors.api.twoFactorNotEnabled',
+  TOTP_NOT_CONFIGURED: 'errors.api.totpNotConfigured',
+  TOTP_SETUP_REQUIRED: 'errors.api.totpSetupRequired',
+  NO_PENDING_2FA_SETUP: 'errors.api.noPending2faSetup',
+  TOTP_SETUP_EXPIRED: 'errors.api.totpSetupExpired',
+  TOTP_SECRET_DECRYPT_FAILED: 'errors.api.totpSecretDecryptFailed',
+  LEGACY_AUTH_DISABLED: 'errors.api.legacyAuthDisabled',
+  CONSENT_REQUIRED: 'errors.api.consentRequired',
+  PROFILE_REQUIRED: 'errors.api.profileRequired',
+  REGISTRATION_EXPIRED: 'errors.api.registrationExpired',
+  OTP_NOT_VERIFIED: 'errors.api.otpNotVerified',
+  INVALID_VERIFICATION_TOKEN: 'errors.api.invalidVerificationToken',
+  VERIFICATION_TOKEN_EXPIRED: 'errors.api.verificationTokenExpired',
+  MEMBERSHIP_REQUIRED: 'errors.api.membershipRequired',
+  CHAT_RATE_LIMIT: 'errors.api.chatRateLimit',
+  MATCHING_DISABLED: 'errors.api.matchingDisabled',
+  TARGET_NOT_AVAILABLE: 'errors.api.targetNotAvailable',
+  EMAIL_DISABLED: 'errors.api.emailDisabled',
+};
+
+const API_ERROR_MESSAGE_TO_KEY: Record<string, TranslationKey> = {
+  'Email và session token là bắt buộc.': 'errors.api.missingParams',
+  'Action không hợp lệ.': 'errors.api.invalidAction',
+  'Email không hợp lệ.': 'errors.api.invalidEmail',
+  'Session token không hợp lệ.': 'errors.api.invalidToken',
+  'Email là bắt buộc.': 'errors.api.missingEmail',
+  'Email này đã được đăng ký. Vui lòng đăng nhập.': 'errors.api.emailExists',
+  'Vui lòng bắt đầu đăng ký trước khi xác thực OTP.': 'errors.api.noPendingRegistration',
+};
+
+function getLocaleForApiErrors() {
+  if (typeof window === 'undefined') return DEFAULT_LOCALE;
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    return normalizeLocale(stored) || DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
+function localizeApiErrorMessage(message: string, errorData?: unknown) {
+  const locale = getLocaleForApiErrors();
+  if (locale === 'vi') return message;
+
+  const code =
+    errorData && typeof errorData === 'object' && 'code' in (errorData as Record<string, unknown>)
+      ? String((errorData as { code?: unknown }).code || '')
+      : '';
+  const keyFromCode = code ? API_ERROR_CODE_TO_KEY[code] : undefined;
+  if (keyFromCode) {
+    const params = {
+      seconds: (errorData as any)?.remainingCooldown,
+      minutes: (errorData as any)?.retryAfterMinutes,
+    };
+    return translate(locale, keyFromCode, params);
+  }
+
+  const keyFromMessage = API_ERROR_MESSAGE_TO_KEY[message];
+  if (keyFromMessage) return translate(locale, keyFromMessage);
+
+  return message;
+}
 
 export const authToken = {
   get: (): string | null => {
@@ -187,13 +271,14 @@ async function fetchAPI<T>(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const message =
+        const rawMessage =
           errorData &&
           typeof errorData === 'object' &&
           'error' in errorData &&
           typeof (errorData as { error?: unknown }).error === 'string'
             ? String((errorData as { error?: unknown }).error)
             : `HTTP error! status: ${response.status}`;
+        const message = localizeApiErrorMessage(rawMessage, errorData);
 
         const err: any = new Error(message);
         err.status = response.status;
