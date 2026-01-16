@@ -6,6 +6,7 @@ import { CACHE_TTL } from '../lib/cache';
 import { MembershipEntitlements, MembershipSummary, MembershipTier } from '../types';
 import { Button, Card, Badge, cn } from './ui/Common';
 import { fireFireworks } from '../lib/fireworks';
+import { useI18n } from '../contexts/I18nContext';
 
 interface MembershipPlan {
   id: MembershipTier;
@@ -62,8 +63,14 @@ interface OrderStatusResponse {
 
 const BUSINESS_CONTACT_EMAIL = 'dangthhfct31147@gmail.com';
 
-const tierLabel = (tier: MembershipTier) =>
-  tier === 'plus' ? 'Plus' : tier === 'pro' ? 'Pro' : tier === 'business' ? 'Business' : 'Free';
+const tierLabelKey = (tier: MembershipTier) =>
+  tier === 'plus'
+    ? 'membership.tier.plus'
+    : tier === 'pro'
+      ? 'membership.tier.pro'
+      : tier === 'business'
+        ? 'membership.tier.business'
+        : 'membership.tier.free';
 
 const tierBadgeClass = (tier: MembershipTier) =>
   tier === 'business'
@@ -74,23 +81,15 @@ const tierBadgeClass = (tier: MembershipTier) =>
         ? 'bg-yellow-50 text-yellow-700 border-yellow-100'
         : 'bg-slate-100 text-slate-700 border-slate-200';
 
-const formatVnd = (amount: number) => `${Math.max(0, amount || 0).toLocaleString('vi-VN')} ₫`;
+const formatVnd = (amount: number, locale: string) =>
+  `${Math.max(0, amount || 0).toLocaleString(locale === 'en' ? 'en-US' : 'vi-VN')} ₫`;
 
-const formatDateTime = (iso?: string | null) => {
+const formatDateTime = (iso: string | null | undefined, locale: string) => {
   if (!iso) return '-';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString('vi-VN');
+  return d.toLocaleString(locale === 'en' ? 'en-US' : 'vi-VN');
 };
-
-async function copyText(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success('Đã copy');
-  } catch {
-    toast.error('Không thể copy, hãy copy thủ công');
-  }
-}
 
 async function syncMe() {
   try {
@@ -105,6 +104,7 @@ async function syncMe() {
 }
 
 const MembershipManager: React.FC = () => {
+  const { locale: uiLocale, t } = useI18n();
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [membership, setMembership] = useState<MembershipSummary | null>(null);
   const [entitlements, setEntitlements] = useState<MembershipEntitlements | null>(null);
@@ -133,14 +133,14 @@ const MembershipManager: React.FC = () => {
       setMembership(meRes.membership || null);
       setEntitlements(meRes.entitlements || null);
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tải thông tin gói');
+      toast.error(err?.message || t('membership.toast.loadFailed'));
       setPlans([]);
       setMembership(null);
       setEntitlements(null);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -160,6 +160,18 @@ const MembershipManager: React.FC = () => {
     const d = new Date(expiresAt);
     return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
   }, [checkout?.order?.expiresAt]);
+
+  const handleCopy = useCallback(
+    async (value: string) => {
+      try {
+        await navigator.clipboard.writeText(value);
+        toast.success(t('membership.toast.copySuccess'));
+      } catch {
+        toast.error(t('membership.toast.copyFailed'));
+      }
+    },
+    [t]
+  );
 
   const closeCheckout = () => {
     setCheckout(null);
@@ -187,7 +199,7 @@ const MembershipManager: React.FC = () => {
           window.clearInterval(pollRef.current!);
           pollRef.current = null;
 
-          toast.success('Thanh toán thành công!');
+          toast.success(t('membership.toast.paymentSuccess'));
           await fireFireworks();
           await syncMe();
           await load();
@@ -197,13 +209,13 @@ const MembershipManager: React.FC = () => {
         if (order.status === 'needs_review') {
           window.clearInterval(pollRef.current!);
           pollRef.current = null;
-          toast('Đơn cần kiểm tra thủ công. Vui lòng liên hệ admin.', { icon: '⚠️' as any });
+          toast(t('membership.toast.needsReview'), { icon: '⚠️' as any });
         }
       } catch {
         // ignore transient polling errors
       }
     }, 3000);
-  }, [load]);
+  }, [load, t]);
 
   const createOrder = async (plan: MembershipPlan) => {
     setIsCreatingOrder(true);
@@ -213,11 +225,23 @@ const MembershipManager: React.FC = () => {
       setOrderStatus({ ...res.order, status: 'pending' } as any);
       startPolling(res.order.id);
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tạo đơn thanh toán');
+      toast.error(err?.message || t('membership.toast.checkoutFailed'));
     } finally {
       setIsCreatingOrder(false);
     }
   };
+
+  const highlightDisplayMap = useMemo<Record<string, string> | undefined>(() => {
+    if (uiLocale !== 'en') return undefined;
+    return {
+      'Báo cáo (Reports)': 'Reports',
+      'Tăng giới hạn chat AI': 'Higher AI chat limit',
+      'Tất cả quyền lợi Plus': 'All Plus benefits',
+      'Giới hạn chat cao hơn': 'Higher chat limit',
+      'Tất cả quyền lợi Pro': 'All Pro benefits',
+      'Giới hạn chat rất cao': 'Very high chat limit',
+    };
+  }, [uiLocale]);
 
   const PlanGrid = useMemo(() => {
     if (plans.length === 0) return null;
@@ -238,10 +262,12 @@ const MembershipManager: React.FC = () => {
                 <div>
                   <h4 className="text-lg font-semibold text-slate-900">{plan.name}</h4>
                   <p className="text-sm text-slate-500 mt-1">
-                    {isBusiness ? 'Liên hệ' : `${formatVnd(plan.priceVnd)} / ${plan.durationDays} ngày`}
+                    {isBusiness
+                      ? t('membership.contact')
+                      : `${formatVnd(plan.priceVnd, uiLocale)} / ${t('membership.days', { count: plan.durationDays })}`}
                   </p>
                 </div>
-                <Badge className={tierBadgeClass(plan.tier)}>{tierLabel(plan.tier)}</Badge>
+                <Badge className={tierBadgeClass(plan.tier)}>{t(tierLabelKey(plan.tier))}</Badge>
               </div>
 
               {plan.highlights?.length ? (
@@ -249,7 +275,7 @@ const MembershipManager: React.FC = () => {
                   {plan.highlights.slice(0, 5).map((h) => (
                     <li key={h} className="flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 text-emerald-600" />
-                      <span>{h}</span>
+                      <span>{highlightDisplayMap?.[h] ?? h}</span>
                     </li>
                   ))}
                 </ul>
@@ -262,14 +288,20 @@ const MembershipManager: React.FC = () => {
                   disabled={isCurrent || isLowerTier || (!isBusiness && isCreatingOrder)}
                   onClick={() => {
                     if (isBusiness) {
-                      const subject = encodeURIComponent('Liên hệ gói Business');
+                      const subject = encodeURIComponent(t('membership.contactBusinessSubject'));
                       window.location.href = `mailto:${BUSINESS_CONTACT_EMAIL}?subject=${subject}`;
                       return;
                     }
                     createOrder(plan);
                   }}
                 >
-                  {isCurrent ? 'Đang sử dụng' : isLowerTier ? 'Không khả dụng' : isBusiness ? 'Liên hệ ngay' : 'Đăng ký gói'}
+                  {isCurrent
+                    ? t('membership.button.inUse')
+                    : isLowerTier
+                      ? t('membership.button.unavailable')
+                      : isBusiness
+                        ? t('membership.button.contactNow')
+                        : t('membership.button.subscribe')}
                 </Button>
               </div>
             </Card>
@@ -277,7 +309,7 @@ const MembershipManager: React.FC = () => {
         })}
       </div>
     );
-  }, [effectiveTier, isCreatingOrder, plans]);
+  }, [effectiveTier, highlightDisplayMap, isCreatingOrder, plans, t, uiLocale]);
 
   if (isLoading) {
     return (
@@ -294,21 +326,28 @@ const MembershipManager: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <Crown className="w-5 h-5 text-primary-600" />
-              Gói đăng ký
+              {t('membership.title')}
             </h3>
-            <p className="text-sm text-slate-500 mt-1">Quản lý gói Plus / Pro / Business của bạn</p>
+            <p className="text-sm text-slate-500 mt-1">{t('membership.subtitle')}</p>
           </div>
 
           <div className="flex flex-col sm:items-end gap-1">
-            <Badge className={tierBadgeClass(effectiveTier)}>{tierLabel(effectiveTier)}</Badge>
+            <Badge className={tierBadgeClass(effectiveTier)}>{t(tierLabelKey(effectiveTier))}</Badge>
             <p className="text-xs text-slate-500">
-              Hết hạn: <span className="font-medium text-slate-700">{formatDateTime(membership?.expiresAt)}</span>
+              {t('membership.expires')}:{' '}
+              <span className="font-medium text-slate-700">{formatDateTime(membership?.expiresAt, uiLocale)}</span>
             </p>
             {entitlements ? (
               <p className="text-xs text-slate-500">
-                Chat: <span className="font-medium text-slate-700">{entitlements.chatMessagesPerHour}/giờ</span>
+                {t('membership.chat')}:{' '}
+                <span className="font-medium text-slate-700">
+                  {t('membership.chatPerHour', { count: entitlements.chatMessagesPerHour })}
+                </span>
                 {' • '}
-                Reports: <span className="font-medium text-slate-700">{entitlements.reportsEnabled ? 'Có' : 'Không'}</span>
+                {t('membership.reports')}:{' '}
+                <span className="font-medium text-slate-700">
+                  {entitlements.reportsEnabled ? t('membership.yes') : t('membership.no')}
+                </span>
               </p>
             ) : null}
           </div>
@@ -323,9 +362,12 @@ const MembershipManager: React.FC = () => {
           <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
             <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-lg font-semibold text-slate-900">Thanh toán qua chuyển khoản</h4>
+                <h4 className="text-lg font-semibold text-slate-900">{t('membership.checkout.title')}</h4>
                 <p className="text-sm text-slate-500 mt-1">
-                  Đơn <span className="font-mono text-slate-700">{checkout.order.orderCode}</span> • {formatVnd(checkout.order.amountVnd)}
+                  {t('membership.checkout.order')}{' '}
+                  <span className="font-mono text-slate-700">{checkout.order.orderCode}</span>
+                  {' • '}
+                  {formatVnd(checkout.order.amountVnd, uiLocale)}
                 </p>
               </div>
               <button
@@ -344,17 +386,21 @@ const MembershipManager: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-slate-700">Trạng thái</span>
                   <span className="text-sm text-slate-700">
-                    {orderStatus?.status === 'paid' ? 'Đã thanh toán' : checkoutExpired ? 'Hết hạn' : 'Đang chờ'}
+                    {orderStatus?.status === 'paid'
+                      ? t('membership.checkout.status.paid')
+                      : checkoutExpired
+                        ? t('membership.checkout.status.expired')
+                        : t('membership.checkout.status.pending')}
                   </span>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-slate-500">Ngân hàng</span>
+                    <span className="text-xs text-slate-500">{t('membership.checkout.bank')}</span>
                     <span className="text-sm font-medium text-slate-800">{checkout.payment.bank.bankCode || '-'}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-slate-500">Số tài khoản</span>
+                    <span className="text-xs text-slate-500">{t('membership.checkout.accountNumber')}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-800 font-mono">
                         {checkout.payment.bank.accountNumber || '-'}
@@ -362,7 +408,7 @@ const MembershipManager: React.FC = () => {
                       {checkout.payment.bank.accountNumber ? (
                         <button
                           type="button"
-                          onClick={() => copyText(checkout.payment.bank.accountNumber)}
+                          onClick={() => handleCopy(checkout.payment.bank.accountNumber)}
                           className="p-1.5 rounded-lg hover:bg-slate-200/70 text-slate-600"
                           title="Copy"
                         >
@@ -372,18 +418,18 @@ const MembershipManager: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-slate-500">Chủ tài khoản</span>
+                    <span className="text-xs text-slate-500">{t('membership.checkout.accountName')}</span>
                     <span className="text-sm font-medium text-slate-800">{checkout.payment.bank.accountName || '-'}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-slate-500">Nội dung CK</span>
+                    <span className="text-xs text-slate-500">{t('membership.checkout.transferContent')}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-slate-900 font-mono">
                         {checkout.payment.transferContent}
                       </span>
                       <button
                         type="button"
-                        onClick={() => copyText(checkout.payment.transferContent)}
+                        onClick={() => handleCopy(checkout.payment.transferContent)}
                         className="p-1.5 rounded-lg hover:bg-slate-200/70 text-slate-600"
                         title="Copy"
                       >
@@ -396,23 +442,25 @@ const MembershipManager: React.FC = () => {
                 <div className="flex items-start gap-2 text-xs text-slate-500">
                   <Timer className="w-4 h-4 mt-0.5 text-slate-400" />
                   <span>
-                    Hạn thanh toán: <span className="font-medium text-slate-700">{formatDateTime(checkout.order.expiresAt)}</span>. Nếu đã chuyển khoản nhưng chưa cập nhật, vui lòng chờ 1-2 phút.
+                    {t('membership.checkout.deadline')}{' '}
+                    <span className="font-medium text-slate-700">{formatDateTime(checkout.order.expiresAt, uiLocale)}</span>.{' '}
+                    {t('membership.checkout.deadlineHint')}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-medium text-slate-700">Quét QR để chuyển khoản</p>
+                <p className="text-sm font-medium text-slate-700">{t('membership.checkout.qrTitle')}</p>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-center">
                   {checkout.payment.qrUrl ? (
                     <img
                       src={checkout.payment.qrUrl}
                       alt="VietQR"
-                      className="w-full max-w-[340px] rounded-xl"
+                      className="w-full max-w-85 rounded-xl"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="text-sm text-slate-500">Chưa cấu hình ngân hàng (PAYMENT_BANK_*)</div>
+                    <div className="text-sm text-slate-500">{t('membership.checkout.bankNotConfigured')}</div>
                   )}
                 </div>
 
@@ -421,16 +469,16 @@ const MembershipManager: React.FC = () => {
                   className="w-full"
                   onClick={() => {
                     if (!checkout?.order?.id) return;
-                    toast('Đang kiểm tra trạng thái...', { icon: '⏳' as any });
+                    toast(t('membership.checkout.checkingStatus'), { icon: '⏳' as any });
                   }}
                 >
                   {pollRef.current ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Đang tự động cập nhật
+                      {t('membership.checkout.autoUpdating')}
                     </>
                   ) : (
-                    'Đang chờ thanh toán'
+                    t('membership.checkout.waitingPayment')
                   )}
                 </Button>
               </div>
