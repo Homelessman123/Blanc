@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Button, Dropdown, Input } from '../ui/Common';
+import { useI18n } from '../../contexts/I18nContext';
 
 export type CreateTemplateKey = 'personal' | 'contest' | 'course';
 
@@ -36,13 +37,14 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const { t } = useI18n();
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
       <div className="w-full max-w-xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <p className="font-semibold text-slate-900">Tạo báo cáo</p>
+          <p className="font-semibold text-slate-900">{t('reports.create.title')}</p>
           <button className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
           </button>
@@ -50,48 +52,48 @@ const CreateReportModal: React.FC<CreateReportModalProps> = ({
 
         <div className="p-4 space-y-4">
           <Dropdown
-            label="Loại báo cáo"
-            headerText="Loại báo cáo"
+            label={t('reports.create.typeLabel')}
+            headerText={t('reports.create.typeHeader')}
             value={template}
             onChange={(value) => onChangeTemplate(value as CreateTemplateKey)}
             disabled={isLocked}
             options={[
-              { value: 'personal', label: 'Báo cáo cá nhân' },
-              { value: 'contest', label: 'Tổng kết cuộc thi' },
-              { value: 'course', label: 'Tiến độ khóa học' },
+              { value: 'personal', label: t('reports.create.type.personal') },
+              { value: 'contest', label: t('reports.create.type.contest') },
+              { value: 'course', label: t('reports.create.type.course') },
             ]}
           />
 
           {template === 'contest' && (
             <Dropdown
-              label="Cuộc thi (từ lịch/đăng ký)"
-              headerText="Chọn cuộc thi"
-              placeholder="-- Chọn --"
+              label={t('reports.create.contestLabel')}
+              headerText={t('reports.create.contestHeader')}
+              placeholder={t('reports.create.contestPlaceholder')}
               value={contestId}
               onChange={onChangeContestId}
               disabled={isLocked}
               options={[
-                { value: '', label: '-- Chọn --' },
+                { value: '', label: t('reports.create.contestPlaceholder') },
                 ...contests.map((c) => ({ value: c.id, label: c.title })),
               ]}
             />
           )}
 
           <Input
-            label="Tiêu đề"
+            label={t('reports.create.titleLabel')}
             value={title}
             onChange={(e) => onChangeTitle(e.target.value)}
-            placeholder="VD: Báo cáo tuần 3, Tổng kết Hackathon..."
+            placeholder={t('reports.create.titlePlaceholder')}
             disabled={isLocked}
           />
         </div>
 
         <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
-            Hủy
+            {t('common.cancel')}
           </Button>
           <Button onClick={onCreate} disabled={isLocked}>
-            Tạo
+            {t('reports.create.submit')}
           </Button>
         </div>
       </div>

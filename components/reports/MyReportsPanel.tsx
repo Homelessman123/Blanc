@@ -9,6 +9,7 @@ import reportService, { ReportFeedbackItem } from '../../services/reportService'
 import { Report, ReportActivity, ReportEvidence } from '../../types';
 import CreateReportModal, { CreateTemplateKey } from './CreateReportModal';
 import FeedbackModal from './FeedbackModal';
+import { useI18n } from '../../contexts/I18nContext';
 import {
   formatDate,
   formatDateTime,
@@ -31,6 +32,7 @@ export interface MyReportsPanelProps {
 }
 
 const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
+  const { t } = useI18n();
   const { registrations } = useUserRegistrations({ limit: 50, autoFetch: true });
 
   const contests = useMemo(() => {
@@ -107,7 +109,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       setReports(data.reports || []);
     } catch (err) {
       console.error('Failed to load reports:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tải báo cáo');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.loadFailed'));
       setReports([]);
     } finally {
       setLoading(false);
@@ -134,7 +136,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       setLastSavedAt(full.updatedAt || null);
     } catch (err) {
       console.error('Failed to load report:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tải chi tiết báo cáo');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.loadDetailFailed'));
     } finally {
       setSelectedLoading(false);
     }
@@ -147,7 +149,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
   const save = async () => {
     if (!selectedId) return;
     if (isLocked) {
-      toast.error('Bạn cần nâng cấp gói để dùng Reports');
+      toast.error(t('reports.toast.upgradeRequired'));
       return;
     }
     if (validationError) {
@@ -180,7 +182,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       syncSummary(updated);
     } catch (err) {
       console.error('Failed to save report:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể lưu báo cáo');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -199,7 +201,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
   const submitForReview = async () => {
     if (!selectedId) return;
     if (isLocked) {
-      toast.error('Bạn cần nâng cấp gói để dùng Reports');
+      toast.error(t('reports.toast.upgradeRequired'));
       return;
     }
     if (validationError) {
@@ -213,19 +215,19 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       setSubmittedAt(updated.submittedAt || null);
       setReviewedAt(updated.reviewedAt || null);
       syncSummary(updated);
-      toast.success('Đã gửi mentor review');
+      toast.success(t('reports.toast.submitSuccess'));
     } catch (err) {
       console.error('Failed to submit for review:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể gửi mentor review');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.submitFailed'));
     }
   };
 
   const deleteReport = async (id: string) => {
-    const ok = window.confirm('Xóa báo cáo này? Hành động không thể hoàn tác.');
+    const ok = window.confirm(t('reports.delete.confirm'));
     if (!ok) return;
     try {
       await reportService.delete(id);
-      toast.success('Đã xóa báo cáo');
+      toast.success(t('reports.toast.deleteSuccess'));
       if (selectedId === id) {
         setSelectedId(null);
         setTitle('');
@@ -244,7 +246,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       await fetchReports();
     } catch (err) {
       console.error('Failed to delete report:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể xóa báo cáo');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.deleteFailed'));
     }
   };
 
@@ -256,7 +258,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       setFeedbackItems(res.feedback || []);
     } catch (err) {
       console.error('Failed to load feedback:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tải feedback');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.feedbackLoadFailed'));
       setFeedbackItems([]);
     } finally {
       setFeedbackLoading(false);
@@ -275,7 +277,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       await loadFeedback();
     } catch (err) {
       console.error('Failed to send message:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể gửi tin nhắn');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.feedbackSendFailed'));
     } finally {
       setFeedbackSending(false);
     }
@@ -285,18 +287,18 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
     setCreateTemplate('contest');
     setCreateContestId(contestId);
     const contest = contests.find((c) => c.id === contestId);
-    setCreateTitle(contest ? `Tổng kết: ${contest.title}` : '');
+    setCreateTitle(contest ? t('reports.create.contestSummaryPrefix', { title: contest.title }) : '');
     setCreateOpen(true);
   };
 
   const create = async () => {
     if (isLocked) {
-      toast.error('Bạn cần nâng cấp gói để dùng Reports');
+      toast.error(t('reports.toast.upgradeRequired'));
       return;
     }
     const t = createTitle.trim();
     if (!t) {
-      toast.error('Vui lòng nhập tiêu đề');
+      toast.error(t('reports.toast.titleRequired'));
       return;
     }
 
@@ -312,7 +314,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
         relatedType: relatedTypeValue,
         relatedId: relatedIdValue,
       });
-      toast.success('Đã tạo báo cáo');
+      toast.success(t('reports.toast.createSuccess'));
       setCreateOpen(false);
       setCreateTitle('');
       setCreateContestId('');
@@ -320,7 +322,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       await loadDetail(created.id);
     } catch (err) {
       console.error('Failed to create report:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tạo báo cáo');
+      toast.error(err instanceof Error ? err.message : t('reports.toast.createFailed'));
     }
   };
 
@@ -353,8 +355,8 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       {/* Reminders */}
       {eligibleEvidenceReminders.length > 0 && (
         <Card className="p-4 border-sky-100 bg-sky-50">
-          <p className="font-semibold text-slate-900">Nhắc nhở minh chứng (sau 2 tuần)</p>
-          <p className="text-sm text-slate-600 mt-1">Dựa trên lịch thi đấu/đăng ký của bạn.</p>
+          <p className="font-semibold text-slate-900">{t('reports.reminder.title')}</p>
+          <p className="text-sm text-slate-600 mt-1">{t('reports.reminder.subtitle')}</p>
           <div className="mt-4 space-y-2">
             {eligibleEvidenceReminders.map(({ contest, linkedReport }) => (
               <div
@@ -364,7 +366,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                 <div className="min-w-0">
                   <p className="font-medium text-slate-900 truncate">{contest.title}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Ngày thi: {formatDate(registrations.find((r) => r.contest?.id === contest.id)?.contest?.dateStart || null)}
+                    {t('reports.reminder.dateLabel', { date: formatDate(registrations.find((r) => r.contest?.id === contest.id)?.contest?.dateStart || null) })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -377,11 +379,11 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                         setTimeout(() => evidenceAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
                       }}
                     >
-                      Mở báo cáo
+                      {t('reports.reminder.openReport')}
                     </Button>
                   ) : (
                     <Button variant="secondary" size="sm" onClick={() => openCreateWithContest(contest.id)} disabled={isLocked}>
-                      Tạo báo cáo
+                      {t('reports.reminder.createReport')}
                     </Button>
                   )}
                   <Button
@@ -391,10 +393,10 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                       const dismissed = readDismissedEvidenceReminders();
                       dismissed[contest.id] = new Date().toISOString();
                       writeDismissedEvidenceReminders(dismissed);
-                      toast.success('Đã ẩn nhắc nhở');
+                      toast.success(t('reports.reminder.dismissed'));
                     }}
                   >
-                    Bỏ qua
+                    {t('reports.reminder.dismiss')}
                   </Button>
                 </div>
               </div>
@@ -406,11 +408,11 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-4 p-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold text-slate-900">Danh sách</p>
+            <p className="font-semibold text-slate-900">{t('reports.list.title')}</p>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={() => void fetchReports()} disabled={loading} className="gap-2">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                Làm mới
+                {t('reports.list.refresh')}
               </Button>
               <Button
                 size="sm"
@@ -424,7 +426,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                 className="gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Tạo
+                {t('reports.list.create')}
               </Button>
             </div>
           </div>
@@ -435,7 +437,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm báo cáo..."
+                placeholder={t('reports.list.searchPlaceholder')}
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
               />
             </div>
@@ -445,10 +447,10 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
             {loading ? (
               <div className="py-10 flex items-center justify-center text-slate-500">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Đang tải...
+                {t('reports.list.loading')}
               </div>
             ) : filteredReports.length === 0 ? (
-              <div className="py-10 text-center text-slate-500 text-sm">Chưa có báo cáo nào.</div>
+              <div className="py-10 text-center text-slate-500 text-sm">{t('reports.list.empty')}</div>
             ) : (
               filteredReports.map((r) => (
                 <button
@@ -461,7 +463,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                     <div className="min-w-0">
                       <p className="font-medium text-slate-900 truncate">{r.title}</p>
                       <p className="text-xs text-slate-500 mt-0.5 truncate">
-                        {r.template} • Cập nhật: {r.lastEdited}
+                        {t('reports.list.itemMeta', { template: r.template, lastEdited: r.lastEdited })}
                       </p>
                     </div>
                     <span className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${reviewStatusBadgeClass(r.reviewStatus)}`}>
@@ -478,24 +480,24 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
           {!selectedId ? (
             <div className="py-16 text-center text-slate-500">
               <FileText className="w-10 h-10 mx-auto opacity-20" />
-              <p className="mt-3 font-medium">Chọn một báo cáo để xem/chỉnh sửa</p>
+              <p className="mt-3 font-medium">{t('reports.detail.empty')}</p>
             </div>
           ) : selectedLoading ? (
             <div className="py-16 flex items-center justify-center text-slate-500">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              Đang tải chi tiết...
+              {t('reports.detail.loading')}
             </div>
           ) : (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-500">Trạng thái review</p>
+                  <p className="text-xs text-slate-500">{t('reports.detail.reviewStatus')}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-xs px-2 py-1 rounded-full border ${reviewStatusBadgeClass(reviewStatus)}`}>
                       {reviewStatusLabel(reviewStatus)}
                     </span>
-                    {submittedAt && <span className="text-xs text-slate-500">Gửi: {formatDateTime(submittedAt)}</span>}
-                    {reviewedAt && <span className="text-xs text-slate-500">Duyệt: {formatDateTime(reviewedAt)}</span>}
+                    {submittedAt && <span className="text-xs text-slate-500">{t('reports.detail.submittedAt', { date: formatDateTime(submittedAt) })}</span>}
+                    {reviewedAt && <span className="text-xs text-slate-500">{t('reports.detail.reviewedAt', { date: formatDateTime(reviewedAt) })}</span>}
                   </div>
                 </div>
 
@@ -508,11 +510,11 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                     className="gap-2"
                   >
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    Lưu
+                    {t('common.save')}
                   </Button>
                   <Button size="sm" onClick={() => void submitForReview()} disabled={isLocked || reviewStatus === 'submitted' || Boolean(validationError)} className="gap-2">
                     <Send className="w-4 h-4" />
-                    Gửi mentor
+                    {t('reports.detail.submit')}
                   </Button>
                   <Button
                     variant="secondary"
@@ -524,7 +526,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                     className="gap-2"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    Feedback
+                    {t('reports.detail.feedback')}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => void deleteReport(selectedId)} className="text-red-600">
                     <Trash2 className="w-4 h-4" />
@@ -539,8 +541,8 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Tiêu đề" value={title} onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }} disabled={isLocked} />
-                <Select label="Trạng thái" value={status} onChange={(e) => { setStatus(e.target.value as Report['status']); setIsDirty(true); }} disabled={isLocked}>
+                <Input label={t('reports.detail.title')} value={title} onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }} disabled={isLocked} />
+                <Select label={t('reports.detail.status')} value={status} onChange={(e) => { setStatus(e.target.value as Report['status']); setIsDirty(true); }} disabled={isLocked}>
                   <option value="Draft">Draft</option>
                   <option value="Ready">Ready</option>
                   <option value="Sent">Sent</option>
@@ -548,9 +550,9 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Template" value={template} disabled />
+                <Input label={t('reports.detail.template')} value={template} disabled />
                 <Select
-                  label="Gắn với"
+                  label={t('reports.detail.related')}
                   value={relatedType || ''}
                   onChange={(e) => {
                     const v = e.target.value || '';
@@ -561,15 +563,15 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                   }}
                   disabled={isLocked}
                 >
-                  <option value="">Không gắn</option>
-                  <option value="contest">Cuộc thi</option>
-                  <option value="course">Khóa học</option>
+                  <option value="">{t('reports.detail.relatedNone')}</option>
+                  <option value="contest">{t('reports.detail.relatedContest')}</option>
+                  <option value="course">{t('reports.detail.relatedCourse')}</option>
                 </Select>
               </div>
 
               {relatedType === 'contest' && (
-                <Select label="Chọn cuộc thi" value={relatedId || ''} onChange={(e) => { setRelatedId(e.target.value || null); setIsDirty(true); }} disabled={isLocked}>
-                  <option value="">-- Chọn --</option>
+                <Select label={t('reports.detail.selectContest')} value={relatedId || ''} onChange={(e) => { setRelatedId(e.target.value || null); setIsDirty(true); }} disabled={isLocked}>
+                  <option value="">{t('reports.detail.selectPlaceholder')}</option>
                   {contests.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title}
@@ -579,22 +581,22 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Ghi chú / Tổng kết</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('reports.detail.notes')}</label>
                 <textarea
                   value={content}
                   onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
                   disabled={isLocked}
                   rows={6}
                   className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
-                  placeholder="Viết tổng kết, bài học rút ra, kế hoạch tiếp theo..."
+                  placeholder={t('reports.detail.notesPlaceholder')}
                 />
               </div>
 
               <Card className="p-4 bg-white border-slate-100">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-slate-900">Thành tích</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Nhập thủ công các điểm nổi bật bạn đã đạt được.</p>
+                    <p className="font-semibold text-slate-900">{t('reports.activities.title')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t('reports.activities.subtitle')}</p>
                   </div>
                   <Button
                     variant="secondary"
@@ -603,7 +605,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                     onClick={() => {
                       const next: ReportActivity[] = [
                         ...activities,
-                        { id: safeUuid(), title: 'Thành tích mới', description: null, occurredAt: new Date().toISOString() },
+                        { id: safeUuid(), title: t('reports.activities.newItem'), description: null, occurredAt: new Date().toISOString() },
                       ];
                       setActivities(next);
                       setIsDirty(true);
@@ -611,29 +613,29 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                     className="gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Thêm
+                    {t('common.add')}
                   </Button>
                 </div>
 
                 <div className="mt-3 space-y-3">
                   {activities.length === 0 ? (
-                    <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">Chưa có thành tích nào.</div>
+                    <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">{t('reports.activities.empty')}</div>
                   ) : (
                     activities.map((a, idx) => (
                       <div key={a.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Input label={`Tiêu đề #${idx + 1}`} value={a.title || ''} onChange={(e) => { setActivities(activities.map((x) => x.id === a.id ? { ...x, title: e.target.value } : x)); setIsDirty(true); }} disabled={isLocked} />
-                          <Input label="Thời gian" type="datetime-local" value={toDatetimeLocalInput(a.occurredAt || null)} onChange={(e) => { const dt = e.target.value ? new Date(e.target.value).toISOString() : null; setActivities(activities.map((x) => x.id === a.id ? { ...x, occurredAt: dt } : x)); setIsDirty(true); }} disabled={isLocked} />
+                          <Input label={t('reports.activities.itemTitle', { index: idx + 1 })} value={a.title || ''} onChange={(e) => { setActivities(activities.map((x) => x.id === a.id ? { ...x, title: e.target.value } : x)); setIsDirty(true); }} disabled={isLocked} />
+                          <Input label={t('reports.activities.itemTime')} type="datetime-local" value={toDatetimeLocalInput(a.occurredAt || null)} onChange={(e) => { const dt = e.target.value ? new Date(e.target.value).toISOString() : null; setActivities(activities.map((x) => x.id === a.id ? { ...x, occurredAt: dt } : x)); setIsDirty(true); }} disabled={isLocked} />
                         </div>
                         <div className="mt-3">
-                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Mô tả</label>
+                          <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('reports.activities.itemDescription')}</label>
                           <textarea
                             value={a.description || ''}
                             onChange={(e) => { setActivities(activities.map((x) => x.id === a.id ? { ...x, description: e.target.value || null } : x)); setIsDirty(true); }}
                             disabled={isLocked}
                             rows={3}
                             className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-200"
-                            placeholder="Mô tả ngắn gọn kết quả, vai trò, số liệu..."
+                            placeholder={t('reports.activities.itemDescriptionPlaceholder')}
                           />
                         </div>
                         <div className="mt-3 flex items-center justify-end">
@@ -651,8 +653,8 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                 <Card className="p-4 bg-white border-slate-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-slate-900">Minh chứng</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Nhập link minh chứng (drive, github, ảnh, video...).</p>
+                      <p className="font-semibold text-slate-900">{t('reports.evidence.title')}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{t('reports.evidence.subtitle')}</p>
                     </div>
                     <Button
                       variant="secondary"
@@ -669,13 +671,13 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                       className="gap-2"
                     >
                       <Plus className="w-4 h-4" />
-                      Thêm
+                      {t('common.add')}
                     </Button>
                   </div>
 
                   <div className="mt-3 space-y-3">
                     {evidence.length === 0 ? (
-                      <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">Chưa có minh chứng nào.</div>
+                      <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">{t('reports.evidence.empty')}</div>
                     ) : (
                       evidence.map((ev, idx) => {
                         const rawUrl = String(ev.url || '').trim();
@@ -683,12 +685,12 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
                         return (
                           <div key={ev.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Input label={`Tên minh chứng #${idx + 1}`} value={ev.fileName || ''} onChange={(e) => { setEvidence(evidence.map((x) => x.id === ev.id ? { ...x, fileName: e.target.value } : x)); setIsDirty(true); }} disabled={isLocked} />
-                              <Input label="Link" value={ev.url || ''} onChange={(e) => { setEvidence(evidence.map((x) => x.id === ev.id ? { ...x, url: e.target.value, mimeType: 'link', fileId: '' } : x)); setIsDirty(true); }} disabled={isLocked} />
+                              <Input label={t('reports.evidence.itemName', { index: idx + 1 })} value={ev.fileName || ''} onChange={(e) => { setEvidence(evidence.map((x) => x.id === ev.id ? { ...x, fileName: e.target.value } : x)); setIsDirty(true); }} disabled={isLocked} />
+                              <Input label={t('reports.evidence.itemLink')} value={ev.url || ''} onChange={(e) => { setEvidence(evidence.map((x) => x.id === ev.id ? { ...x, url: e.target.value, mimeType: 'link', fileId: '' } : x)); setIsDirty(true); }} disabled={isLocked} />
                             </div>
                             <div className="mt-3 flex items-center justify-between">
                               <a href={href || '#'} target="_blank" rel="noreferrer" className={`text-sm font-medium ${href ? 'text-primary-700 hover:text-primary-900' : 'text-slate-400 pointer-events-none'}`}>
-                                {href ? 'Mở link' : rawUrl ? 'Link không hợp lệ' : 'Chưa có link'}
+                                {href ? t('reports.evidence.openLink') : rawUrl ? t('reports.evidence.invalidLink') : t('reports.evidence.noLink')}
                               </a>
                               <Button variant="ghost" size="sm" disabled={isLocked} onClick={() => { setEvidence(evidence.filter((x) => x.id !== ev.id)); setIsDirty(true); }} className="text-red-600">
                                 <Trash2 className="w-4 h-4" />
@@ -722,7 +724,7 @@ const MyReportsPanel: React.FC<MyReportsPanelProps> = ({ isLocked }) => {
           setCreateContestId(value);
           if (!createTitle.trim()) {
             const contest = contests.find((c) => c.id === value);
-            if (contest) setCreateTitle(`Tổng kết: ${contest.title}`);
+            if (contest) setCreateTitle(t('reports.create.contestSummaryPrefix', { title: contest.title }));
           }
         }}
         onClose={() => setCreateOpen(false)}

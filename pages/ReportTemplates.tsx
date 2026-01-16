@@ -2,36 +2,43 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Trophy, Users, BarChart, GraduationCap, FileText, Target, CheckCircle, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
 import { ReportTemplate } from '../types';
-
-// Templates phù hợp với ContestHub
-const allTemplates: ReportTemplate[] = [
-    // Cuộc thi
-    { id: '1', title: 'Tổng kết cuộc thi', description: 'Ghi nhận kết quả, bài học kinh nghiệm và những điểm cần cải thiện từ cuộc thi.', category: 'Cuộc thi', icon: 'Trophy' },
-    { id: '2', title: 'Đề xuất ý tưởng', description: 'Trình bày ý tưởng dự thi với cấu trúc rõ ràng và thuyết phục.', category: 'Cuộc thi', icon: 'Target' },
-    { id: '3', title: 'Báo cáo tiến độ dự án', description: 'Cập nhật tiến độ thực hiện dự án thi đấu theo từng giai đoạn.', category: 'Cuộc thi', icon: 'CheckCircle' },
-
-    // Nhóm
-    { id: '4', title: 'Báo cáo nhóm tuần', description: 'Tổng hợp hoạt động và đóng góp của các thành viên trong tuần.', category: 'Nhóm', icon: 'Users' },
-    { id: '5', title: 'Đánh giá thành viên', description: 'Nhận xét và phản hồi về hiệu suất làm việc của thành viên.', category: 'Nhóm', icon: 'Users' },
-    { id: '6', title: 'Biên bản họp nhóm', description: 'Ghi lại nội dung cuộc họp, quyết định và công việc tiếp theo.', category: 'Nhóm', icon: 'FileText' },
-
-    // Học tập
-    { id: '7', title: 'Báo cáo tiến độ học tập', description: 'Theo dõi tiến độ hoàn thành khóa học và mục tiêu học tập.', category: 'Học tập', icon: 'GraduationCap' },
-    { id: '8', title: 'Đánh giá khóa học', description: 'Nhận xét chi tiết về chất lượng và nội dung khóa học.', category: 'Học tập', icon: 'GraduationCap' },
-    { id: '9', title: 'Kế hoạch học tập', description: 'Lập kế hoạch học tập theo tuần/tháng với mục tiêu cụ thể.', category: 'Học tập', icon: 'Target' },
-
-    // Phân tích
-    { id: '10', title: 'Phân tích kết quả', description: 'Phân tích số liệu và đánh giá hiệu suất tổng thể.', category: 'Phân tích', icon: 'BarChart' },
-    { id: '11', title: 'So sánh & Đối chiếu', description: 'So sánh các phương án hoặc kết quả khác nhau.', category: 'Phân tích', icon: 'BarChart' },
-    { id: '12', title: 'Báo cáo thống kê', description: 'Tổng hợp số liệu thống kê với biểu đồ trực quan.', category: 'Phân tích', icon: 'BarChart' },
-];
+import { useI18n } from '../contexts/I18nContext';
 
 const ReportTemplates: React.FC = () => {
     const navigate = useNavigate();
+    const { t } = useI18n();
     const [searchTerm, setSearchTerm] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('Tất cả');
+    const [categoryFilter, setCategoryFilter] = useState('all');
 
-    const categories = ['Tất cả', 'Cuộc thi', 'Nhóm', 'Học tập', 'Phân tích'];
+    const templates: ReportTemplate[] = [
+        // Contest
+        { id: 'contest-recap', title: t('reports.templates.items.contestRecap.title'), description: t('reports.templates.items.contestRecapFull.description'), category: 'contest', icon: 'Trophy' },
+        { id: 'idea-proposal', title: t('reports.templates.items.ideaProposal.title'), description: t('reports.templates.items.ideaProposal.description'), category: 'contest', icon: 'Target' },
+        { id: 'project-progress', title: t('reports.templates.items.projectProgress.title'), description: t('reports.templates.items.projectProgress.description'), category: 'contest', icon: 'CheckCircle' },
+
+        // Team
+        { id: 'weekly-team-report', title: t('reports.templates.items.weeklyTeamReport.title'), description: t('reports.templates.items.weeklyTeamReport.description'), category: 'team', icon: 'Users' },
+        { id: 'member-review', title: t('reports.templates.items.memberReview.title'), description: t('reports.templates.items.memberReviewWork.description'), category: 'team', icon: 'Users' },
+        { id: 'meeting-minutes', title: t('reports.templates.items.meetingMinutes.title'), description: t('reports.templates.items.meetingMinutesWork.description'), category: 'team', icon: 'FileText' },
+
+        // Study
+        { id: 'study-progress', title: t('reports.templates.items.studyProgress.title'), description: t('reports.templates.items.studyProgress.description'), category: 'study', icon: 'GraduationCap' },
+        { id: 'course-review', title: t('reports.templates.items.courseReview.title'), description: t('reports.templates.items.courseReviewDetail.description'), category: 'study', icon: 'GraduationCap' },
+        { id: 'study-plan', title: t('reports.templates.items.studyPlan.title'), description: t('reports.templates.items.studyPlanDetail.description'), category: 'study', icon: 'Target' },
+
+        // Analysis
+        { id: 'result-analysis', title: t('reports.templates.items.resultAnalysis.title'), description: t('reports.templates.items.resultAnalysis.description'), category: 'analysis', icon: 'BarChart' },
+        { id: 'comparison-review', title: t('reports.templates.items.comparisonReview.title'), description: t('reports.templates.items.comparisonReview.description'), category: 'analysis', icon: 'BarChart' },
+        { id: 'stats-report', title: t('reports.templates.items.statsReport.title'), description: t('reports.templates.items.statsReport.description'), category: 'analysis', icon: 'BarChart' },
+    ];
+
+    const categories = [
+        { key: 'all', label: t('reports.templates.category.all') },
+        { key: 'contest', label: t('reports.templates.category.contest') },
+        { key: 'team', label: t('reports.templates.category.team') },
+        { key: 'study', label: t('reports.templates.category.study') },
+        { key: 'analysis', label: t('reports.templates.category.analysis') },
+    ];
 
     const getIcon = (iconName: string) => {
         switch (iconName) {
@@ -47,16 +54,16 @@ const ReportTemplates: React.FC = () => {
 
     const getCategoryColor = (category: string) => {
         switch (category) {
-            case 'Cuộc thi': return 'bg-amber-50 text-amber-700';
-            case 'Nhóm': return 'bg-teal-50 text-teal-700';
-            case 'Học tập': return 'bg-blue-50 text-blue-700';
-            case 'Phân tích': return 'bg-purple-50 text-purple-700';
+            case 'contest': return 'bg-amber-50 text-amber-700';
+            case 'team': return 'bg-teal-50 text-teal-700';
+            case 'study': return 'bg-blue-50 text-blue-700';
+            case 'analysis': return 'bg-purple-50 text-purple-700';
             default: return 'bg-slate-100 text-slate-600';
         }
     };
 
-    const filteredTemplates = allTemplates.filter(template => {
-        const matchesCategory = categoryFilter === 'Tất cả' || template.category === categoryFilter;
+    const filteredTemplates = templates.filter(template => {
+        const matchesCategory = categoryFilter === 'all' || template.category === categoryFilter;
         const matchesSearch = template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             template.description.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesCategory && matchesSearch;
@@ -80,13 +87,13 @@ const ReportTemplates: React.FC = () => {
                             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-3 transition-colors"
                         >
                             <ArrowLeft className="w-4 h-4" />
-                            <span className="text-sm font-medium">Quay lại</span>
+                            <span className="text-sm font-medium">{t('reports.templates.back')}</span>
                         </button>
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                             <Sparkles className="w-8 h-8 text-primary-600" />
-                            Chọn mẫu báo cáo
+                            {t('reports.templates.page.title')}
                         </h1>
-                        <p className="text-slate-500 mt-1">Chọn một mẫu để bắt đầu tạo báo cáo với sự hỗ trợ của AI</p>
+                        <p className="text-slate-500 mt-1">{t('reports.templates.page.subtitle')}</p>
                     </div>
                 </div>
 
@@ -96,14 +103,14 @@ const ReportTemplates: React.FC = () => {
                     <div className="flex bg-white p-1.5 rounded-xl border border-slate-200 overflow-x-auto max-w-full shadow-sm">
                         {categories.map((cat) => (
                             <button
-                                key={cat}
-                                onClick={() => setCategoryFilter(cat)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${categoryFilter === cat
+                                key={cat.key}
+                                onClick={() => setCategoryFilter(cat.key)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${categoryFilter === cat.key
                                     ? 'bg-primary-600 text-white shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
                                     }`}
                             >
-                                {cat}
+                                {cat.label}
                             </button>
                         ))}
                     </div>
@@ -113,7 +120,7 @@ const ReportTemplates: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm mẫu..."
+                            placeholder={t('reports.templates.searchPlaceholder')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-400 text-sm transition-all shadow-sm"
@@ -136,7 +143,7 @@ const ReportTemplates: React.FC = () => {
                             <div className="grow">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${getCategoryColor(template.category)}`}>
-                                        {template.category}
+                                        {t(`reports.templates.category.${template.category}`)}
                                     </span>
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-primary-700 transition-colors">
@@ -149,10 +156,10 @@ const ReportTemplates: React.FC = () => {
 
                             <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
                                 <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3" /> AI hỗ trợ
+                                    <Sparkles className="w-3 h-3" /> {t('reports.templates.aiSupported')}
                                 </span>
-                                <span className="flex items-center text-sm font-semibold text-primary-600 opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300">
-                                    Sử dụng <ArrowRight className="w-4 h-4 ml-1" />
+                                <span className="flex items-center text-sm font-semibold text-primary-600 opacity-0 group-hover:opacity-100 transform -translate-x-2.5 group-hover:translate-x-0 transition-all duration-300">
+                                    {t('reports.templates.use')} <ArrowRight className="w-4 h-4 ml-1" />
                                 </span>
                             </div>
                         </div>
@@ -162,8 +169,8 @@ const ReportTemplates: React.FC = () => {
                 {filteredTemplates.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <Filter className="w-12 h-12 mb-4 opacity-20" />
-                        <p className="text-lg font-medium">Không tìm thấy mẫu nào</p>
-                        <p className="text-sm">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
+                        <p className="text-lg font-medium">{t('reports.templates.emptyTitle')}</p>
+                        <p className="text-sm">{t('reports.templates.emptySubtitle')}</p>
                     </div>
                 )}
             </div>

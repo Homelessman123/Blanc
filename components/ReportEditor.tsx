@@ -34,6 +34,7 @@ import {
 import { Report, ChatMessage } from '../types';
 import { chatWithReportAgent, generateReportContent } from '../services/geminiService';
 import reportService from '../services/reportService';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ReportEditorProps {
     report: Report | null;
@@ -52,12 +53,14 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({
     onToggleFullScreen,
     onReportUpdate
 }) => {
+    const { t, locale } = useI18n();
+    const documentLang = locale === 'en' ? 'en' : 'vi';
     // Initialize content with HTML or fallback
-    const [content, setContent] = useState(report?.content || "<h1>Báo cáo mới</h1><p>Bắt đầu viết tại đây...</p>");
+    const [content, setContent] = useState(report?.content || `<h1>${t('reports.editor.defaultTitle')}</h1><p>${t('reports.editor.defaultBody')}</p>`);
     const [isAgentOpen, setIsAgentOpen] = useState(true);
     const [isOutlineOpen, setIsOutlineOpen] = useState(true);
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { id: '1', role: 'model', text: 'Xin chào! Tôi đã tải mẫu báo cáo của bạn. Tôi có thể giúp bạn soạn nội dung, tóm tắt các phần, hoặc chỉnh sửa văn phong. Hãy hỏi tôi!', timestamp: new Date() }
+        { id: '1', role: 'model', text: t('reports.editor.agentGreeting'), timestamp: new Date() }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -158,7 +161,7 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({
             }
         } catch (err) {
             console.error('Error auto-saving report:', err);
-            toast.error('Lỗi khi lưu báo cáo');
+            toast.error(t('reports.editor.toast.saveError'));
         } finally {
             setIsSaving(false);
         }
@@ -198,25 +201,25 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({
 
     // Generate clean filename
     const getCleanFilename = (title: string) => {
-        return title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\s]/g, '').replace(/\s+/g, '_') || 'Bao_cao';
+        return title.replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\s]/g, '').replace(/\s+/g, '_') || t('reports.editor.export.defaultFilename');
     };
 
     // Export as PDF (using print dialog)
     const handleExportPDF = () => {
         setShowExportMenu(false);
         const htmlContent = editorRef.current?.innerHTML || '';
-        const title = report?.title || 'Báo cáo';
+        const title = report?.title || t('reports.editor.export.defaultTitle');
 
         // Create a new window for printing
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
-            toast.error('Vui lòng cho phép popup để xuất PDF');
+            toast.error(t('reports.editor.toast.popupBlocked'));
             return;
         }
 
         printWindow.document.write(`
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="${documentLang}">
 <head>
     <meta charset="UTF-8">
     <title>${title}</title>
@@ -254,14 +257,14 @@ ${htmlContent}
             printWindow.onafterprint = () => printWindow.close();
         };
 
-        toast.success('Đang mở hộp thoại in PDF...');
+        toast.success(t('reports.editor.toast.openPrintDialog'));
     };
 
     // Export as Word (DOCX using HTML conversion)
     const handleExportWord = () => {
         setShowExportMenu(false);
         const htmlContent = editorRef.current?.innerHTML || '';
-        const title = report?.title || 'Báo cáo';
+        const title = report?.title || t('reports.editor.export.defaultTitle');
         const filename = getCleanFilename(title);
 
         // Create Word-compatible HTML
@@ -320,19 +323,19 @@ ${htmlContent}
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        toast.success('Đã xuất file Word thành công!');
+        toast.success(t('reports.editor.toast.wordExported'));
     };
 
     // Export as HTML
     const handleExportHTML = () => {
         setShowExportMenu(false);
         const htmlContent = editorRef.current?.innerHTML || '';
-        const title = report?.title || 'Báo cáo';
+        const title = report?.title || t('reports.editor.export.defaultTitle');
         const filename = getCleanFilename(title);
 
         const fullHtml = `
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="${documentLang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -374,20 +377,20 @@ ${htmlContent}
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        toast.success('Đã xuất file HTML thành công!');
+        toast.success(t('reports.editor.toast.htmlExported'));
     };
 
     // Format last saved time
     const getLastSavedText = () => {
-        if (isSaving) return 'Đang lưu...';
-        if (!lastSaved) return 'Đã lưu vừa xong';
+        if (isSaving) return t('reports.editor.saveStatus.saving');
+        if (!lastSaved) return t('reports.editor.saveStatus.justNow');
 
         const now = new Date();
         const diff = Math.floor((now.getTime() - lastSaved.getTime()) / 1000);
 
-        if (diff < 60) return 'Đã lưu vừa xong';
-        if (diff < 3600) return `Đã lưu ${Math.floor(diff / 60)} phút trước`;
-        return `Đã lưu ${Math.floor(diff / 3600)} giờ trước`;
+        if (diff < 60) return t('reports.editor.saveStatus.justNow');
+        if (diff < 3600) return t('reports.editor.saveStatus.minutesAgo', { count: Math.floor(diff / 60) });
+        return t('reports.editor.saveStatus.hoursAgo', { count: Math.floor(diff / 3600) });
     };
 
     const handleSendMessage = async () => {
@@ -421,9 +424,9 @@ ${htmlContent}
         let prompt = "";
         const currentTextContext = editorRef.current?.innerText || "";
 
-        if (action === 'summarize') prompt = "Tóm tắt ngắn gọn nội dung báo cáo hiện tại.";
-        if (action === 'polish') prompt = "Viết lại nội dung báo cáo với văn phong chuyên nghiệp và trang trọng hơn.";
-        if (action === 'expand') prompt = "Mở rộng và phát triển các điểm chính của báo cáo với nhiều chi tiết hơn.";
+        if (action === 'summarize') prompt = t('reports.editor.prompts.summarize');
+        if (action === 'polish') prompt = t('reports.editor.prompts.polish');
+        if (action === 'expand') prompt = t('reports.editor.prompts.expand');
 
         const response = await generateReportContent(prompt, currentTextContext.substring(0, 2000));
         setIsTyping(false);
@@ -431,7 +434,7 @@ ${htmlContent}
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: 'model',
-            text: `Đây là gợi ý:\n\n${response}`,
+            text: `${t('reports.editor.prompts.suggestionPrefix')}\n\n${response}`,
             timestamp: new Date()
         }]);
     };
@@ -476,13 +479,13 @@ ${htmlContent}
             {/* Editor Toolbar */}
             <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-30 shadow-sm relative transition-all duration-300">
                 <div className="flex items-center gap-4">
-                    <button onClick={onBack} className="text-slate-400 hover:text-slate-600 transition-colors" title="Quay lại" aria-label="Quay lại">
+                    <button onClick={onBack} className="text-slate-400 hover:text-slate-600 transition-colors" title={t('reports.editor.back')} aria-label={t('reports.editor.back')}>
                         <ChevronRight className="w-5 h-5 rotate-180" />
                     </button>
                     <div>
-                        <h2 className="font-semibold text-slate-800 text-sm md:text-base">{report?.title || 'Báo cáo mới'}</h2>
+                        <h2 className="font-semibold text-slate-800 text-sm md:text-base">{report?.title || t('reports.editor.newReport')}</h2>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{report?.template || 'Chung'}</span>
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{report?.template || t('reports.editor.templateGeneral')}</span>
                             <span>•</span>
                             <span className="flex items-center gap-1">
                                 {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -500,7 +503,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('bold')}
                             className={`p-1.5 hover:bg-white hover:shadow-sm rounded transition-all ${isBold ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-slate-600'}`}
-                            title="Đậm (Ctrl+B)"
+                            title={t('reports.editor.toolbar.bold')}
                         >
                             <Bold className="w-4 h-4" />
                         </button>
@@ -508,7 +511,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('italic')}
                             className={`p-1.5 hover:bg-white hover:shadow-sm rounded transition-all ${isItalic ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-slate-600'}`}
-                            title="Nghiêng (Ctrl+I)"
+                            title={t('reports.editor.toolbar.italic')}
                         >
                             <Italic className="w-4 h-4" />
                         </button>
@@ -516,7 +519,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('insertUnorderedList')}
                             className={`p-1.5 hover:bg-white hover:shadow-sm rounded transition-all ${isList ? 'bg-blue-100 text-blue-600 shadow-sm' : 'text-slate-600'}`}
-                            title="Danh sách"
+                            title={t('reports.editor.toolbar.list')}
                         >
                             <List className="w-4 h-4" />
                         </button>
@@ -525,7 +528,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('justifyLeft')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Canh trái"
+                            title={t('reports.editor.toolbar.alignLeft')}
                         >
                             <AlignLeft className="w-4 h-4" />
                         </button>
@@ -533,7 +536,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('justifyCenter')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Canh giữa"
+                            title={t('reports.editor.toolbar.alignCenter')}
                         >
                             <AlignCenter className="w-4 h-4" />
                         </button>
@@ -541,7 +544,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('justifyRight')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Canh phải"
+                            title={t('reports.editor.toolbar.alignRight')}
                         >
                             <AlignRight className="w-4 h-4" />
                         </button>
@@ -549,7 +552,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('justifyFull')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Canh đều"
+                            title={t('reports.editor.toolbar.alignJustify')}
                         >
                             <AlignJustify className="w-4 h-4" />
                         </button>
@@ -558,7 +561,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('undo')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Hoàn tác (Ctrl+Z)"
+                            title={t('reports.editor.toolbar.undo')}
                         >
                             <Undo className="w-4 h-4" />
                         </button>
@@ -566,7 +569,7 @@ ${htmlContent}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => execCmd('redo')}
                             className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"
-                            title="Làm lại (Ctrl+Y)"
+                            title={t('reports.editor.toolbar.redo')}
                         >
                             <Redo className="w-4 h-4" />
                         </button>
@@ -574,9 +577,9 @@ ${htmlContent}
 
                     {/* Zoom Controls */}
                     <div className="hidden sm:flex items-center gap-1 bg-slate-50 p-1 rounded-lg mr-2 border border-slate-200">
-                        <button onClick={() => adjustZoom(-10)} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all" title="Thu nhỏ"><Minus className="w-3 h-3" /></button>
+                        <button onClick={() => adjustZoom(-10)} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all" title={t('reports.editor.zoom.out')}><Minus className="w-3 h-3" /></button>
                         <span className="text-xs font-medium w-10 text-center text-slate-600 select-none">{zoom}%</span>
-                        <button onClick={() => adjustZoom(10)} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all" title="Phóng to"><Plus className="w-3 h-3" /></button>
+                        <button onClick={() => adjustZoom(10)} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all" title={t('reports.editor.zoom.in')}><Plus className="w-3 h-3" /></button>
                     </div>
 
                     {/* Full Screen Toggle */}
@@ -586,7 +589,7 @@ ${htmlContent}
                             ? 'bg-blue-50 border-blue-200 text-blue-600'
                             : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
                             }`}
-                        title={isFullScreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
+                        title={isFullScreen ? t('reports.editor.fullscreen.exit') : t('reports.editor.fullscreen.enter')}
                     >
                         {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
@@ -598,11 +601,11 @@ ${htmlContent}
                         <button
                             onClick={() => setShowExportMenu(!showExportMenu)}
                             className="hidden sm:flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
-                            title="Xuất báo cáo"
-                            aria-label="Xuất báo cáo"
+                            title={t('reports.editor.export.button')}
+                            aria-label={t('reports.editor.export.button')}
                         >
                             <Download className="w-4 h-4" />
-                            <span className="hidden xl:inline">Xuất file</span>
+                            <span className="hidden xl:inline">{t('reports.editor.export.label')}</span>
                             <ChevronDown className="w-3 h-3" />
                         </button>
 
@@ -615,8 +618,8 @@ ${htmlContent}
                                 >
                                     <FileText className="w-4 h-4 text-red-500" />
                                     <div className="text-left">
-                                        <div className="font-medium">Xuất PDF</div>
-                                        <div className="text-xs text-slate-400">In hoặc lưu PDF</div>
+                                        <div className="font-medium">{t('reports.editor.export.pdf')}</div>
+                                        <div className="text-xs text-slate-400">{t('reports.editor.export.pdfHint')}</div>
                                     </div>
                                 </button>
                                 <button
@@ -625,8 +628,8 @@ ${htmlContent}
                                 >
                                     <FileType className="w-4 h-4 text-blue-500" />
                                     <div className="text-left">
-                                        <div className="font-medium">Xuất Word</div>
-                                        <div className="text-xs text-slate-400">File .doc</div>
+                                        <div className="font-medium">{t('reports.editor.export.word')}</div>
+                                        <div className="text-xs text-slate-400">{t('reports.editor.export.wordHint')}</div>
                                     </div>
                                 </button>
                                 <div className="border-t border-slate-100 my-1"></div>
@@ -636,8 +639,8 @@ ${htmlContent}
                                 >
                                     <Download className="w-4 h-4 text-slate-500" />
                                     <div className="text-left">
-                                        <div className="font-medium">Xuất HTML</div>
-                                        <div className="text-xs text-slate-400">Trang web</div>
+                                        <div className="font-medium">{t('reports.editor.export.html')}</div>
+                                        <div className="text-xs text-slate-400">{t('reports.editor.export.htmlHint')}</div>
                                     </div>
                                 </button>
                             </div>
@@ -648,19 +651,19 @@ ${htmlContent}
                         <button
                             onClick={() => onOpenEmail(editorRef.current?.innerText || "")}
                             className="flex items-center gap-2 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                            title="Tạo email từ báo cáo"
-                            aria-label="Tạo email từ báo cáo"
+                            title={t('reports.editor.email.open')}
+                            aria-label={t('reports.editor.email.open')}
                         >
                             <Mail className="w-4 h-4" />
-                            <span className="hidden md:inline">Tạo Email</span>
+                            <span className="hidden md:inline">{t('reports.editor.email.label')}</span>
                         </button>
                     )}
 
                     <button
                         onClick={() => setIsAgentOpen(!isAgentOpen)}
                         className={`p-2 rounded-lg transition-colors border shadow-sm ${isAgentOpen ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'}`}
-                        title={isAgentOpen ? "Đóng trợ lý AI" : "Mở trợ lý AI"}
-                        aria-label={isAgentOpen ? "Đóng trợ lý AI" : "Mở trợ lý AI"}
+                        title={isAgentOpen ? t('reports.editor.ai.close') : t('reports.editor.ai.open')}
+                        aria-label={isAgentOpen ? t('reports.editor.ai.close') : t('reports.editor.ai.open')}
                     >
                         <Bot className="w-5 h-5" />
                     </button>
@@ -675,7 +678,7 @@ ${htmlContent}
                     <button
                         onClick={() => setIsOutlineOpen(!isOutlineOpen)}
                         className="flex items-center justify-center w-full h-12 hover:bg-slate-100 transition-colors border-b border-slate-200 cursor-pointer"
-                        title={isOutlineOpen ? "Thu gọn cấu trúc" : "Mở rộng cấu trúc"}
+                        title={isOutlineOpen ? t('reports.editor.outline.collapse') : t('reports.editor.outline.expand')}
                         type="button"
                     >
                         {isOutlineOpen ? (
@@ -687,15 +690,15 @@ ${htmlContent}
 
                     {/* Content */}
                     <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isOutlineOpen ? 'opacity-100 p-6' : 'opacity-0 p-0 pointer-events-none'}`}>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Cấu trúc</h3>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">{t('reports.editor.outline.title')}</h3>
                         <div className="text-sm text-slate-500 italic">
-                            Cấu trúc được tạo từ các tiêu đề. Thêm H1, H2, hoặc H3 để hiển thị tại đây.
+                            {t('reports.editor.outline.description')}
                         </div>
                         <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                            <li className="pl-0 font-medium text-blue-600">Tiêu đề báo cáo</li>
-                            <li className="pl-3">Giới thiệu</li>
-                            <li className="pl-3">Nội dung chính</li>
-                            <li className="pl-3">Kết luận</li>
+                            <li className="pl-0 font-medium text-blue-600">{t('reports.editor.outline.sampleTitle')}</li>
+                            <li className="pl-3">{t('reports.editor.outline.sampleIntro')}</li>
+                            <li className="pl-3">{t('reports.editor.outline.sampleBody')}</li>
+                            <li className="pl-3">{t('reports.editor.outline.sampleConclusion')}</li>
                         </ul>
                     </div>
                 </div>
@@ -728,9 +731,9 @@ ${htmlContent}
                         <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur-sm">
                             <div className="flex items-center gap-2 text-slate-700 font-medium">
                                 <Sparkles className="w-4 h-4 text-teal-500" />
-                                Trợ lý AI
+                                {t('reports.editor.ai.title')}
                             </div>
-                            <button onClick={() => setIsAgentOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600" title="Đóng" aria-label="Đóng">
+                            <button onClick={() => setIsAgentOpen(false)} className="md:hidden text-slate-400 hover:text-slate-600" title={t('common.close')} aria-label={t('common.close')}>
                                 <ChevronRight className="w-5 h-5" />
                             </button>
                         </div>
@@ -762,13 +765,13 @@ ${htmlContent}
                         {/* Quick Chips */}
                         <div className="px-4 py-3 flex flex-wrap gap-2 border-t border-slate-100 bg-white">
                             <button onClick={() => handleQuickAction('summarize')} className="text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 border border-transparent hover:border-blue-200">
-                                <Wand2 className="w-3 h-3" /> Tóm tắt
+                                <Wand2 className="w-3 h-3" /> {t('reports.editor.quick.summarize')}
                             </button>
                             <button onClick={() => handleQuickAction('polish')} className="text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 px-3 py-1.5 rounded-full transition-colors border border-transparent hover:border-blue-200">
-                                Văn phong trang trọng
+                                {t('reports.editor.quick.formalTone')}
                             </button>
                             <button onClick={() => handleQuickAction('expand')} className="text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 px-3 py-1.5 rounded-full transition-colors border border-transparent hover:border-blue-200">
-                                Mở rộng
+                                {t('reports.editor.quick.expand')}
                             </button>
                         </div>
 
@@ -780,15 +783,15 @@ ${htmlContent}
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                    placeholder="Nhờ trợ lý viết hoặc chỉnh sửa..."
+                                    placeholder={t('reports.editor.input.placeholder')}
                                     className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-sm transition-shadow"
                                 />
                                 <button
                                     onClick={handleSendMessage}
                                     disabled={!inputValue.trim()}
                                     className="absolute right-2 top-2 p-1.5 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:bg-slate-300 hover:bg-blue-700 transition-all shadow-sm"
-                                    title="Gửi"
-                                    aria-label="Gửi"
+                                    title={t('reports.editor.send')}
+                                    aria-label={t('reports.editor.send')}
                                 >
                                     <Send className="w-4 h-4" />
                                 </button>

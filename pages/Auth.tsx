@@ -371,6 +371,7 @@ const Auth: React.FC<{ type: 'login' | 'register' }> = ({ type }) => {
           login: {
             'Invalid credentials.': 'Email or password is incorrect. Please try again.',
             'Email và mật khẩu không đúng.': 'Email or password is incorrect. Please try again.',
+            'Email hoặc mật khẩu không đúng.': 'Email or password is incorrect. Please try again.',
             'Email and password are required.': 'Please enter both email and password.',
             'Valid session token is required.': 'Session error. Please try again.',
           },
