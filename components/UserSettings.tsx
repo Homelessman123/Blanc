@@ -738,7 +738,13 @@ const UserSettings: React.FC = () => {
         try {
             setIsLoading(true);
             const data = await api.get<UserProfile>('/users/me/settings');
-            const resolvedLocale = normalizeLocale(data.locale) || DEFAULT_LOCALE;
+            let localPreferred: AppLocale | null = null;
+            try {
+                localPreferred = normalizeLocale(localStorage.getItem('blanc:locale'));
+            } catch {
+                // ignore
+            }
+            const resolvedLocale = localPreferred || normalizeLocale(data.locale) || DEFAULT_LOCALE;
             setUiLocale(resolvedLocale);
             setProfile(data);
             setProfileForm({
