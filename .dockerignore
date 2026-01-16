@@ -6,7 +6,7 @@ npm-debug.log
 .git
 .gitignore
 .github
-
+.crt
 # Environment files (will be set by Railway)
 .env
 .env.local
