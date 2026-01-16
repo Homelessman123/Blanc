@@ -37,7 +37,7 @@ RUN npm ci --omit=dev --legacy-peer-deps --prefer-offline --no-audit && \
 COPY --chown=nodejs:nodejs server ./server
 
 # Copy database root certificate for sslmode=verify-full
-COPY --chown=nodejs:nodejs root.crt /app/root.crt
+COPY --chown=nodejs:nodejs app/root.crt /app/root.crt
 
 # Switch to non-root user
 USER nodejs

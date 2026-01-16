@@ -51,7 +51,7 @@ COPY --chown=node:node server ./server
 COPY --from=builder --chown=node:node /app/dist ./dist
 
 # Copy database root certificate for sslmode=verify-full
-COPY --chown=node:node root.crt /app/root.crt
+COPY --chown=node:node app/root.crt /app/root.crt
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs && \
