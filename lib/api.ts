@@ -273,9 +273,9 @@ async function fetchAPI<T>(
         const errorData = await response.json().catch(() => ({}));
         const rawMessage =
           errorData &&
-          typeof errorData === 'object' &&
-          'error' in errorData &&
-          typeof (errorData as { error?: unknown }).error === 'string'
+            typeof errorData === 'object' &&
+            'error' in errorData &&
+            typeof (errorData as { error?: unknown }).error === 'string'
             ? String((errorData as { error?: unknown }).error)
             : `HTTP error! status: ${response.status}`;
         const message = localizeApiErrorMessage(rawMessage, errorData);
