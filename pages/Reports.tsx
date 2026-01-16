@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 import { Card } from '../components/ui/Common';
+import { useI18n } from '../contexts/I18nContext';
 import { api } from '../lib/api';
 import MyReportsPanel from '../components/reports/MyReportsPanel';
 import MentorReviewPanel from '../components/reports/MentorReviewPanel';
@@ -21,6 +22,7 @@ function getStoredUser(): User | null {
 }
 
 const Reports: React.FC = () => {
+  const { t } = useI18n();
   const me = useMemo(() => getStoredUser(), []);
   const canReview = useMemo(() => isMentorRole(me?.role), [me?.role]);
 
@@ -45,8 +47,8 @@ const Reports: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Báo cáo cá nhân</h1>
-          <p className="text-sm text-slate-600 mt-1">Cập nhật thành tích, thêm minh chứng, gửi mentor review và theo dõi feedback.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('reports.title')}</h1>
+          <p className="text-sm text-slate-600 mt-1">{t('reports.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -57,7 +59,7 @@ const Reports: React.FC = () => {
               }`}
             onClick={() => setTab('my')}
           >
-            Báo cáo của tôi
+            {t('reports.tab.my')}
           </button>
           {canReview && (
             <button
@@ -67,7 +69,7 @@ const Reports: React.FC = () => {
                 }`}
               onClick={() => setTab('review')}
             >
-              Mentor review
+              {t('reports.tab.review')}
             </button>
           )}
         </div>
@@ -77,8 +79,8 @@ const Reports: React.FC = () => {
             <div className="flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-amber-700 mt-0.5" />
               <div className="min-w-0">
-                <p className="font-semibold text-amber-900">Reports đang bị khóa theo gói membership</p>
-                <p className="text-sm text-amber-800 mt-0.5">Bạn cần nâng cấp gói để tạo/cập nhật báo cáo.</p>
+                <p className="font-semibold text-amber-900">{t('reports.locked.title')}</p>
+                <p className="text-sm text-amber-800 mt-0.5">{t('reports.locked.subtitle')}</p>
               </div>
             </div>
           </Card>

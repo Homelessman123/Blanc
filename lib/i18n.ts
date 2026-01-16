@@ -193,6 +193,13 @@ const vi = {
   'contests.ics.reminderTomorrow': 'Nhắc nhở: {{title}} sẽ bắt đầu vào ngày mai!',
   'contests.ics.reminderInOneHour': 'Nhắc nhở: {{title}} sẽ bắt đầu trong 1 giờ nữa!',
 
+  'reports.title': 'Báo cáo cá nhân',
+  'reports.subtitle': 'Cập nhật thành tích, thêm minh chứng, gửi mentor review và theo dõi feedback.',
+  'reports.tab.my': 'Báo cáo của tôi',
+  'reports.tab.review': 'Mentor review',
+  'reports.locked.title': 'Reports đang bị khóa theo gói membership',
+  'reports.locked.subtitle': 'Bạn cần nâng cấp gói để tạo/cập nhật báo cáo.',
+
   'settings.tabs.membership': 'Gói đăng ký',
   'settings.tabs.profile': 'Hồ sơ',
   'settings.tabs.security': 'Bảo mật',
@@ -959,6 +966,13 @@ const en: typeof vi = {
   'contests.ics.feeLabel': 'Fee',
   'contests.ics.reminderTomorrow': 'Reminder: {{title}} starts tomorrow!',
   'contests.ics.reminderInOneHour': 'Reminder: {{title}} starts in 1 hour!',
+
+  'reports.title': 'My reports',
+  'reports.subtitle': 'Update achievements, attach evidence, request mentor review, and track feedback.',
+  'reports.tab.my': 'My reports',
+  'reports.tab.review': 'Mentor review',
+  'reports.locked.title': 'Reports are locked for your plan',
+  'reports.locked.subtitle': 'Please upgrade your plan to create or update reports.',
 
   'settings.tabs.membership': 'Membership',
   'settings.tabs.profile': 'Profile',
