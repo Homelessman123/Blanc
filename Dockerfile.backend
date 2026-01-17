@@ -8,19 +8,7 @@ FROM public.ecr.aws/docker/library/node:20-alpine
 WORKDIR /app
 
 # Install necessary packages for health checks and signal handling
-RUN set -eux; \
-  REPOS_ORIG="$(cat /etc/apk/repositories)"; \
-  for MIRROR in \
-  https://dl-cdn.alpinelinux.org \
-  https://dl-2.alpinelinux.org \
-  https://dl-3.alpinelinux.org \
-  ; do \
-  printf '%s\n' "$REPOS_ORIG" | sed "s|https://dl-cdn.alpinelinux.org|$MIRROR|g" > /etc/apk/repositories; \
-  if apk add --no-cache dumb-init curl; then \
-  break; \
-  fi; \
-  sleep 2; \
-  done
+RUN apk add --no-cache dumb-init curl
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -36,14 +24,10 @@ RUN npm ci --omit=dev --legacy-peer-deps --prefer-offline --no-audit && \
 # Copy backend server code
 COPY --chown=nodejs:nodejs server ./server
 
-# Copy database root certificate for sslmode=verify-full
-COPY --chown=nodejs:nodejs app/root.crt /app/root.crt
-
 # Switch to non-root user
 USER nodejs
 
 # Railway provides PORT; default for local/dev containers
-ENV NODE_ENV=production
 ENV PORT=4000
 
 # Expose port (Railway ignores EXPOSE but it's useful for local runs)
