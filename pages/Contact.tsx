@@ -139,7 +139,7 @@ const Contact: React.FC = () => {
                                 src={user?.avatar || undefined}
                                 name={user?.name || 'User'}
                                 size="xl"
-                                className="ring-4 ring-primary-100 shadow-sm"
+                                className="ring-4 ring-primary-100 shadow-sm w-28 h-28"
                             />
                         </div>
 
@@ -196,7 +196,7 @@ const Contact: React.FC = () => {
                                 src={DEVELOPER.avatar}
                                 name={DEVELOPER.name}
                                 size="xl"
-                                className="ring-4 ring-primary-200 shadow-sm"
+                                className="ring-4 ring-primary-200 shadow-sm w-28 h-28"
                             />
                         </div>
 
@@ -274,4 +274,3 @@ const Contact: React.FC = () => {
 };
 
 export default Contact;
-
