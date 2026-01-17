@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Input, Card } from './ui/Common';
 import { api, API_BASE_URL } from '../lib/api';
 import { clientStorage } from '../lib/cache';
@@ -448,6 +448,7 @@ const Toast: React.FC<{
 // ============ MAIN SETTINGS COMPONENT ============
 const UserSettings: React.FC = () => {
     const { locale: uiLocale, setLocale: setUiLocale, t } = useI18n();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const settingsTabFromUrl = searchParams.get('settingsTab') as SettingsTab | null;
 
@@ -2408,6 +2409,21 @@ const UserSettings: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <Card className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 font-semibold text-slate-900">
+                        <Mail className="w-5 h-5 text-primary-600" />
+                        <span>Gửi góp ý tới nhà phát triển</span>
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Hệ thống sẽ gửi nội dung qua Telegram kèm theo email và SĐT (nếu bạn đã cập nhật).
+                    </p>
+                </div>
+                <Button type="button" variant="secondary" className="shrink-0" onClick={() => navigate('/contact')}>
+                    Mở
+                </Button>
+            </Card>
+
             {/* Tab Navigation */}
             <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
                 {tabs.map((tab) => (

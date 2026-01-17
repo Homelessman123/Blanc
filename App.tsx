@@ -32,6 +32,7 @@ const UserProfile = lazy(() => import('./pages/UserProfile'));
 const MyTeamPosts = lazy(() => import('./pages/MyTeamPosts'));
 const Reports = lazy(() => import('./pages/Reports'));
 const ReportTemplates = lazy(() => import('./pages/ReportTemplates'));
+const Contact = lazy(() => import('./pages/Contact'));
 
 // Types
 import { User } from './types';
@@ -419,6 +420,13 @@ const App: React.FC = () => {
                         user ? (
                             <Suspense fallback={<LoadingSpinner fullScreen />}>
                                 <Profile />
+                            </Suspense>
+                        ) : <Navigate to="/login" replace />
+                    } />
+                    <Route path="/contact" element={
+                        user ? (
+                            <Suspense fallback={<LoadingSpinner fullScreen />}>
+                                <Contact />
                             </Suspense>
                         ) : <Navigate to="/login" replace />
                     } />
