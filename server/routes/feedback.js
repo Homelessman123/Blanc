@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { getCollection } from '../lib/db.js';
 import { sendTelegramMessage } from '../lib/telegram.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = express.Router();
 const jwtSecret = process.env.JWT_SECRET;
@@ -40,7 +41,8 @@ router.get('/news', async (req, res, next) => {
   try {
     await ensureIndexes();
     const collection = getCollection(collectionName);
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const { limit } = normalizePagination(req.query?.page, req.query?.limit ?? 10, 'USERS');
+    const cappedLimit = Math.min(limit, 50);
 
     // Get total count
     const total = await collection.countDocuments({});
@@ -49,7 +51,7 @@ router.get('/news', async (req, res, next) => {
     const docs = await collection
       .find({})
       .sort({ createdAt: -1 })
-      .limit(limit)
+      .limit(cappedLimit)
       .toArray();
 
     return res.json({ suggestions: docs.map(mapSuggestion), total });

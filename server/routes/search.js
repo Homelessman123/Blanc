@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { connectToDatabase, getCollection } from '../lib/db.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -21,7 +22,8 @@ router.get('/', async (req, res, next) => {
         const rawQuery = req.query.q;
         const query = sanitizeQuery(rawQuery);
         const type = req.query.type; // 'contests', 'courses', hoặc undefined (cả hai)
-        const limit = Math.min(Number(req.query.limit) || 10, 50);
+        const { limit } = normalizePagination(req.query?.page, req.query?.limit ?? 10, 'USERS');
+        const cappedLimit = Math.min(limit, 50);
 
         if (!query) {
             return res.json({ contests: [], courses: [], total: 0 });
@@ -55,7 +57,7 @@ router.get('/', async (req, res, next) => {
                     },
                 })
                 .sort({ createdAt: -1 })
-                .limit(limit)
+                .limit(cappedLimit)
                 .toArray();
 
             results.contests = contests.map((doc) => ({
@@ -95,7 +97,7 @@ router.get('/', async (req, res, next) => {
                     },
                 })
                 .sort({ createdAt: -1 })
-                .limit(limit)
+                .limit(cappedLimit)
                 .toArray();
 
             results.courses = courses.map((doc) => ({

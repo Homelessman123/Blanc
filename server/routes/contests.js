@@ -3,8 +3,11 @@ import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard, requireRole } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Category normalization (map legacy values and new slugs to friendly labels)
 const CATEGORY_MAP = {
@@ -184,8 +187,7 @@ router.get('/tags', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     await connectToDatabase();
-    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
-    const page = Math.max(Number(req.query.page) || 1, 1);
+    const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'CONTESTS');
     const tag = typeof req.query.tag === 'string' ? req.query.tag : undefined;
     const tagsRaw = typeof req.query.tags === 'string' ? req.query.tags : undefined;
     const tags = (tagsRaw || '')
@@ -203,11 +205,12 @@ router.get('/', async (req, res, next) => {
     if (tags.length > 1) queryParts.push({ tags: { $in: tags } });
     if (status) queryParts.push({ status });
     if (search) {
+      const escaped = escapeRegex(search);
       queryParts.push({
         $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { organizer: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
+          { title: { $regex: escaped, $options: 'i' } },
+          { organizer: { $regex: escaped, $options: 'i' } },
+          { description: { $regex: escaped, $options: 'i' } },
         ],
       });
     }
@@ -234,7 +237,7 @@ router.get('/', async (req, res, next) => {
         const contests = await getCollection('contests')
           .find(query, contestFields)
           .sort(sortSpec)
-          .skip((page - 1) * limit)
+          .skip(skip)
           .limit(limit)
           .toArray();
 

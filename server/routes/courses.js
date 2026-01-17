@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard, requireRole } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -143,9 +144,7 @@ async function sendCourseUpdateNotification(courseId, courseTitle, updateType, u
 // GET /api/courses - Lấy danh sách khóa học
 router.get('/', async (req, res, next) => {
     try {
-        const limit = Math.min(Number(req.query.limit) || 50, 100);
-        const page = Math.max(Number(req.query.page) || 1, 1);
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'COURSES');
 
         const levelRaw = typeof req.query.level === 'string' ? req.query.level : undefined;
         const level = levelRaw && ALLOWED_LEVELS.has(levelRaw) ? levelRaw : undefined;
@@ -288,10 +287,8 @@ router.get('/enrolled', authGuard, async (req, res, next) => {
     try {
         await connectToDatabase();
         const userId = req.user.id;
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'ENROLLMENTS');
         const status = req.query.status || 'active'; // active, completed, all
-        const skip = (page - 1) * limit;
 
         // Build query
         const enrollmentQuery = { userId: new ObjectId(userId) };

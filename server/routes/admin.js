@@ -10,6 +10,7 @@ import { sendSystemNotification, sendMarketingEmail } from '../lib/emailService.
 import { getPlatformSettings, invalidatePlatformSettingsCache } from '../lib/platformSettings.js';
 import { getMembershipSummary, isTierAtLeast, normalizeTier, setUserMembership } from '../lib/membership.js';
 import { normalizePagination } from '../lib/pagination.js';
+import { validateEmail, validateUrl } from '../lib/validation.js';
 
 const router = Router();
 
@@ -1326,9 +1327,9 @@ router.post('/settings/reset-sessions', authGuard, requireAdmin, async (req, res
 router.post('/email/test', authGuard, requireAdmin, async (req, res, next) => {
     try {
         const { email } = req.body;
-
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.isValid) {
+            return res.status(400).json({ error: emailValidation.error || 'Invalid email' });
         }
 
         // Check if email notifications are enabled
@@ -1370,9 +1371,37 @@ router.post('/email/test', authGuard, requireAdmin, async (req, res, next) => {
 router.post('/email/broadcast', authGuard, requireAdmin, async (req, res, next) => {
     try {
         const { subject, content, audience = 'all', ctaText, ctaUrl } = req.body;
+        const audienceValue = String(audience || 'all').trim().toLowerCase();
+        const allowedAudiences = new Set(['all', 'students', 'admins']);
 
-        if (!subject || !content) {
+        if (!allowedAudiences.has(audienceValue)) {
+            return res.status(400).json({ error: 'Invalid audience' });
+        }
+
+        const subjectValue = typeof subject === 'string' ? subject.trim() : '';
+        const contentValue = typeof content === 'string' ? content.trim() : '';
+
+        if (!subjectValue || !contentValue) {
             return res.status(400).json({ error: 'Subject and content are required' });
+        }
+
+        if (subjectValue.length > 200) {
+            return res.status(400).json({ error: 'Subject is too long' });
+        }
+
+        if (contentValue.length > 8000) {
+            return res.status(400).json({ error: 'Content is too long' });
+        }
+
+        if (ctaText && String(ctaText).length > 100) {
+            return res.status(400).json({ error: 'CTA text is too long' });
+        }
+
+        if (ctaUrl) {
+            const urlValidation = validateUrl(String(ctaUrl));
+            if (!urlValidation.isValid) {
+                return res.status(400).json({ error: urlValidation.error || 'Invalid CTA URL' });
+            }
         }
 
         // Check settings
@@ -1389,9 +1418,9 @@ router.post('/email/broadcast', authGuard, requireAdmin, async (req, res, next) 
         const users = getCollection('users');
 
         let query = {};
-        if (audience === 'students') {
+        if (audienceValue === 'students') {
             query.role = { $ne: 'admin' };
-        } else if (audience === 'admins') {
+        } else if (audienceValue === 'admins') {
             query.role = 'admin';
         }
 
@@ -1408,8 +1437,8 @@ router.post('/email/broadcast', authGuard, requireAdmin, async (req, res, next) 
             try {
                 await sendMarketingEmail({
                     to: user.email,
-                    title: subject,
-                    content: content.replace('{{name}}', user.name || 'bạn'),
+                    title: subjectValue,
+                    content: contentValue.replace('{{name}}', user.name || 'bạn'),
                     ctaText,
                     ctaUrl,
                 });
@@ -1441,9 +1470,7 @@ router.post('/email/broadcast', authGuard, requireAdmin, async (req, res, next) 
  */
 router.get('/audit-logs', authGuard, requireAdmin, async (req, res, next) => {
     try {
-        const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
-        const limit = Math.min(100, Math.max(1, Number.parseInt(req.query?.limit, 10) || 50));
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'ACTIVITIES');
 
         const action = typeof req.query?.action === 'string' ? req.query.action.trim().slice(0, 50) : '';
         const status = typeof req.query?.status === 'string' ? req.query.status.trim().slice(0, 30) : '';
@@ -1537,10 +1564,10 @@ router.get('/audit-logs', authGuard, requireAdmin, async (req, res, next) => {
             success: true,
             logs: formattedLogs,
             pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page,
+                limit,
                 total,
-                totalPages: Math.ceil(total / parseInt(limit))
+                totalPages: Math.ceil(total / limit)
             }
         });
     } catch (error) {
@@ -2051,8 +2078,8 @@ router.get('/notifications', authGuard, requireAdmin, async (req, res, next) => 
         await connectToDatabase();
         const notifications = getCollection('admin_notifications');
 
-        const { page = 1, limit = 20, unreadOnly = 'false' } = req.query;
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const { unreadOnly = 'false' } = req.query;
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'NOTIFICATIONS');
 
         const query = {};
         if (unreadOnly === 'true') {
@@ -2063,7 +2090,7 @@ router.get('/notifications', authGuard, requireAdmin, async (req, res, next) => 
             notifications.find(query)
                 .sort({ createdAt: -1 })
                 .skip(skip)
-                .limit(parseInt(limit))
+                .limit(limit)
                 .toArray(),
             notifications.countDocuments(query),
             notifications.countDocuments({ read: false })
@@ -2082,10 +2109,10 @@ router.get('/notifications', authGuard, requireAdmin, async (req, res, next) => 
                 metadata: n.metadata
             })),
             pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page,
+                limit,
                 total,
-                totalPages: Math.ceil(total / parseInt(limit))
+                totalPages: Math.ceil(total / limit)
             },
             unreadCount
         });

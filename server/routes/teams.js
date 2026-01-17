@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -180,6 +181,10 @@ function sanitizeString(str, maxLength = 255) {
         .replace(/[<>]/g, ''); // Remove remaining angle brackets
 }
 
+function escapeRegex(value = '') {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function validateTeamPost(data) {
     const errors = [];
 
@@ -264,8 +269,6 @@ router.get('/', async (req, res, next) => {
         await connectToDatabase();
 
         const {
-            page = 1,
-            limit = 12,
             role,
             contestId,
             status = 'open',
@@ -274,9 +277,7 @@ router.get('/', async (req, res, next) => {
             sortOrder = 'desc'
         } = req.query;
 
-        const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 12));
-        const skip = (pageNum - 1) * limitNum;
+        const { page: pageNum, limit: limitNum, skip } = normalizePagination(req.query?.page, req.query?.limit, 'TEAM_POSTS');
 
         // Build query
         const query = {};
@@ -302,10 +303,11 @@ router.get('/', async (req, res, next) => {
         // Search filter
         if (search && typeof search === 'string' && search.trim()) {
             const searchTerm = sanitizeString(search, 100);
+            const escaped = escapeRegex(searchTerm);
             query.$or = [
-                { title: { $regex: searchTerm, $options: 'i' } },
-                { description: { $regex: searchTerm, $options: 'i' } },
-                { contestTitle: { $regex: searchTerm, $options: 'i' } }
+                { title: { $regex: escaped, $options: 'i' } },
+                { description: { $regex: escaped, $options: 'i' } },
+                { contestTitle: { $regex: escaped, $options: 'i' } }
             ];
         }
 
@@ -1274,11 +1276,9 @@ router.get('/my/posts', authGuard, async (req, res, next) => {
         await connectToDatabase();
 
         const userId = req.user.id;
-        const { status, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', includeDeleted = 'false' } = req.query;
+        const { status, sortBy = 'createdAt', sortOrder = 'desc', includeDeleted = 'false' } = req.query;
 
-        const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
-        const skip = (pageNum - 1) * limitNum;
+        const { page: pageNum, limit: limitNum, skip } = normalizePagination(req.query?.page, req.query?.limit, 'TEAM_POSTS');
 
         // Build query for user's posts
         const query = { 'createdBy.id': new ObjectId(userId) };

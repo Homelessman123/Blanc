@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -13,6 +14,10 @@ function sanitizeFeedbackMessage(value, maxLength = 2000) {
 function sanitizeString(value, maxLength = 200) {
     if (!value || typeof value !== 'string') return '';
     return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, maxLength);
+}
+
+function escapeRegex(value = '') {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function normalizeIsoDate(value) {
@@ -138,33 +143,38 @@ function sanitizeEvidenceInput(value) {
 router.get('/', authGuard, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { status, template, search, limit = 20, skip = 0 } = req.query;
+        const { status, template, search } = req.query;
+        const { limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'REPORTS');
 
         const reports = getCollection('reports');
 
         // Build query
         const query = { userId };
 
-        if (status) {
-            query.status = status;
+        const statusValue = sanitizeString(status, 40);
+        if (statusValue) {
+            query.status = statusValue;
         }
 
-        if (template) {
-            query.template = template;
+        const templateValue = sanitizeString(template, 80);
+        if (templateValue) {
+            query.template = templateValue;
         }
 
-        if (search) {
+        const searchValue = sanitizeString(search, 120);
+        if (searchValue) {
+            const escaped = escapeRegex(searchValue);
             query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { content: { $regex: search, $options: 'i' } }
+                { title: { $regex: escaped, $options: 'i' } },
+                { content: { $regex: escaped, $options: 'i' } }
             ];
         }
 
         const [items, total] = await Promise.all([
             reports.find(query)
                 .sort({ updatedAt: -1 })
-                .skip(parseInt(skip))
-                .limit(parseInt(limit))
+                .skip(skip)
+                .limit(limit)
                 .toArray(),
             reports.countDocuments(query)
         ]);

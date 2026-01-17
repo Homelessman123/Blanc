@@ -3,6 +3,7 @@ import { ObjectId } from '../lib/objectId.js';
 import crypto from 'crypto';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -144,9 +145,7 @@ router.get('/', authGuard, async (req, res, next) => {
         }
 
         // Get registrations with pagination
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'ENROLLMENTS');
 
         const registrations = await getCollection('registrations')
             .find({

@@ -43,6 +43,7 @@ COPY --chown=nodejs:nodejs app/root.crt /app/root.crt
 USER nodejs
 
 # Railway provides PORT; default for local/dev containers
+ENV NODE_ENV=production
 ENV PORT=4000
 
 # Expose port (Railway ignores EXPOSE but it's useful for local runs)

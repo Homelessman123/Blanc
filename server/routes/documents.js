@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard, requireRole } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -86,9 +87,7 @@ async function deleteAllDocumentsData() {
 router.get('/', async (req, res, next) => {
     try {
         await connectToDatabase();
-        const limit = Math.min(Number(req.query.limit) || 50, 100);
-        const page = Math.max(Number(req.query.page) || 1, 1);
-        const skip = (page - 1) * limit;
+        const { page, limit, skip } = normalizePagination(req.query?.page, req.query?.limit ?? 50, 'USERS');
 
         const category = typeof req.query.category === 'string' ? req.query.category : undefined;
         const field = typeof req.query.field === 'string' ? req.query.field : undefined;

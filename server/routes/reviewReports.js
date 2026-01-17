@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -114,8 +115,8 @@ router.get('/', authGuard, requireMentorOrAdmin, async (req, res, next) => {
     const statusInput = normalizeReviewStatus(req.query.status);
     const template = sanitizeString(req.query.template, 200);
     const search = sanitizeString(req.query.search, 120);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+    const { limit, skip: normalizedSkip } = normalizePagination(req.query.page, req.query.limit, 'REPORTS');
+    const skip = Math.max(0, parseInt(req.query.skip, 10) || normalizedSkip);
 
     const query = {};
 

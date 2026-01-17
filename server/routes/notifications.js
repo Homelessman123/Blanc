@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -470,7 +471,8 @@ router.get('/logs', authGuard, async (req, res, next) => {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
-        const { type, limit = 50, skip = 0 } = req.query;
+        const { type } = req.query;
+        const { limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'NOTIFICATIONS');
 
         const notificationLogs = getCollection('notification_logs');
 
@@ -479,8 +481,8 @@ router.get('/logs', authGuard, async (req, res, next) => {
         const logs = await notificationLogs
             .find(query)
             .sort({ createdAt: -1 })
-            .skip(parseInt(skip))
-            .limit(parseInt(limit))
+            .skip(skip)
+            .limit(limit)
             .toArray();
 
         const total = await notificationLogs.countDocuments(query);
@@ -488,8 +490,8 @@ router.get('/logs', authGuard, async (req, res, next) => {
         res.json({
             logs,
             total,
-            limit: parseInt(limit),
-            skip: parseInt(skip)
+            limit,
+            skip
         });
 
     } catch (error) {

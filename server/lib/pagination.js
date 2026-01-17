@@ -4,8 +4,8 @@
 
 export const DefaultLimits = {
     USERS: 20,
-    CONTESTS: 12,
-    COURSES: 12,
+    CONTESTS: 50,
+    COURSES: 50,
     REPORTS: 10,
     TEAM_POSTS: 15,
     COMMENTS: 20,
@@ -16,8 +16,8 @@ export const DefaultLimits = {
 
 export const MaxLimits = {
     USERS: 100,
-    CONTESTS: 50,
-    COURSES: 50,
+    CONTESTS: 100,
+    COURSES: 100,
     REPORTS: 50,
     TEAM_POSTS: 50,
     COMMENTS: 100,

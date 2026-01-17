@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 const collectionName = 'recruitments';
@@ -39,6 +40,8 @@ const sanitizeTags = (tags, maxItems = 10) => {
   }
   return sanitized;
 };
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const sanitizeRoles = (roles) => {
   if (!Array.isArray(roles)) return [];
@@ -156,9 +159,7 @@ router.get('/admin', authGuard, requireAdmin, async (req, res, next) => {
     await ensureIndexes();
     const collection = getCollection(collectionName);
 
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit ?? 20, 'USERS');
 
     const search = sanitizeString(req.query.search, 200);
     const status = req.query.status;
@@ -179,14 +180,15 @@ router.get('/admin', authGuard, requireAdmin, async (req, res, next) => {
       query.status = status;
     }
     if (search) {
+      const escaped = escapeRegex(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { summary: { $regex: search, $options: 'i' } },
-        { body: { $regex: search, $options: 'i' } },
+        { title: { $regex: escaped, $options: 'i' } },
+        { summary: { $regex: escaped, $options: 'i' } },
+        { body: { $regex: escaped, $options: 'i' } },
       ];
     }
     if (tag) query.tags = tag;
-    if (roleFilter) query['roles.role'] = { $regex: roleFilter, $options: 'i' };
+    if (roleFilter) query['roles.role'] = { $regex: escapeRegex(roleFilter), $options: 'i' };
     if (from || to) {
       query.publishAt = {};
       if (from) query.publishAt.$gte = from;
@@ -445,9 +447,7 @@ router.get('/', async (req, res, next) => {
     await ensureIndexes();
     const collection = getCollection(collectionName);
 
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit ?? 10, 'ACTIVITIES');
 
     const search = sanitizeString(req.query.search, 200);
     const tag = sanitizeString(req.query.tag, 50);
@@ -461,14 +461,15 @@ router.get('/', async (req, res, next) => {
       publishAt: { $lte: now },
     };
     if (search) {
+      const escaped = escapeRegex(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { summary: { $regex: search, $options: 'i' } },
-        { body: { $regex: search, $options: 'i' } },
+        { title: { $regex: escaped, $options: 'i' } },
+        { summary: { $regex: escaped, $options: 'i' } },
+        { body: { $regex: escaped, $options: 'i' } },
       ];
     }
     if (tag) query.tags = tag;
-    if (roleFilter) query['roles.role'] = { $regex: roleFilter, $options: 'i' };
+    if (roleFilter) query['roles.role'] = { $regex: escapeRegex(roleFilter), $options: 'i' };
     if (from || to) {
       query.publishAt = query.publishAt || {};
       if (from) query.publishAt.$gte = from;

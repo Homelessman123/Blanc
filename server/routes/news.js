@@ -3,6 +3,7 @@ import { ObjectId } from '../lib/objectId.js';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getCached, invalidate } from '../lib/cache.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 const collectionName = 'news';
@@ -48,6 +49,8 @@ const sanitizeTags = (tags, maxItems = 10) => {
   }
   return sanitized;
 };
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizeStatus = (status) => (allowedStatuses.includes(status) ? status : 'draft');
 const normalizeType = (type) => (allowedTypes.includes(type) ? type : 'announcement');
@@ -132,9 +135,7 @@ router.get('/admin', authGuard, requireAdmin, async (req, res, next) => {
     await ensureIndexes();
     const collection = getCollection(collectionName);
 
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit ?? 20, 'USERS');
 
     const search = sanitizeString(req.query.search, 200);
     const status = normalizeStatus(req.query.status);
@@ -154,9 +155,10 @@ router.get('/admin', authGuard, requireAdmin, async (req, res, next) => {
       if (['0', 'false', 'no'].includes(highlightParam)) query.highlight = false;
     }
     if (search) {
+      const escaped = escapeRegex(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { summary: { $regex: search, $options: 'i' } },
+        { title: { $regex: escaped, $options: 'i' } },
+        { summary: { $regex: escaped, $options: 'i' } },
       ];
     }
     if (tag) query.tags = tag;
@@ -458,9 +460,7 @@ router.get('/tags', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination(req.query.page, req.query.limit ?? 10, 'ACTIVITIES');
 
     const search = sanitizeString(req.query.search, 200);
     const tag = sanitizeString(req.query.tag, 50);
@@ -476,9 +476,10 @@ router.get('/', async (req, res, next) => {
     };
     if (highlightOnly) query.highlight = true;
     if (search) {
+      const escaped = escapeRegex(search);
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { summary: { $regex: search, $options: 'i' } },
+        { title: { $regex: escaped, $options: 'i' } },
+        { summary: { $regex: escaped, $options: 'i' } },
       ];
     }
     if (tag) query.tags = tag;

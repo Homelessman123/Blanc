@@ -3,6 +3,7 @@ import { ObjectId } from '../lib/objectId.js';
 import rateLimit from 'express-rate-limit';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -119,7 +120,8 @@ router.get('/:targetType/:targetId', async (req, res, next) => {
         await connectToDatabase();
 
         const { targetType, targetId } = req.params;
-        const { page = 1, limit = REVIEWS_PER_PAGE, sort = 'recent' } = req.query;
+        const { sort = 'recent' } = req.query;
+        const { page: pageNum, limit: limitNum, skip } = normalizePagination(req.query?.page, req.query?.limit, 'COMMENTS');
 
         // Validate target type
         if (!isValidTargetType(targetType)) {
@@ -150,10 +152,6 @@ router.get('/:targetType/:targetId', async (req, res, next) => {
         const sortBy = sortOptions[sort] || sortOptions.recent;
 
         // Pagination
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
-        const skip = (pageNum - 1) * limitNum;
-
         // Fetch reviews
         const [reviewsList, totalCount] = await Promise.all([
             reviews
@@ -557,17 +555,13 @@ router.get('/user/:userId', async (req, res, next) => {
         await connectToDatabase();
 
         const { userId } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+        const { page: pageNum, limit: limitNum, skip } = normalizePagination(req.query?.page, req.query?.limit, 'COMMENTS');
 
         if (!ObjectId.isValid(userId)) {
             return res.status(400).json({ error: 'ID người dùng không hợp lệ' });
         }
 
         const reviews = getCollection('reviews');
-
-        const pageNum = Math.max(1, parseInt(page));
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
-        const skip = (pageNum - 1) * limitNum;
 
         const [userReviews, total] = await Promise.all([
             reviews

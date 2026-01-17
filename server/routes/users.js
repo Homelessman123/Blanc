@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { connectToDatabase, getCollection } from '../lib/db.js';
 import { getVietnamStartOfDay } from '../lib/time.js';
 import { authGuard } from '../middleware/auth.js';
+import { normalizePagination } from '../lib/pagination.js';
 import { invalidateUserCache } from '../lib/matchingEngine.js';
 
 const router = Router();
@@ -411,7 +412,8 @@ router.get('/search', authGuard, async (req, res, next) => {
     try {
         await connectToDatabase();
         const userId = req.user.id;
-        const { q, limit = 8 } = req.query;
+        const { q } = req.query;
+        const { limit } = normalizePagination(req.query?.page, req.query?.limit ?? 8, 'USERS');
 
         // Validate and sanitize search query
         const query = sanitizeString(q, 100);
@@ -446,7 +448,7 @@ router.get('/search', authGuard, async (req, res, next) => {
                 }
             }
         )
-            .limit(Math.min(parseInt(limit) || 8, 20))
+            .limit(Math.min(limit, 20))
             .toArray();
 
         res.json({
@@ -894,7 +896,7 @@ router.get('/me/notifications-history', authGuard, async (req, res, next) => {
     try {
         await connectToDatabase();
         const userId = req.user.id;
-        const { limit = 20, skip = 0 } = req.query;
+        const { limit, skip } = normalizePagination(req.query?.page, req.query?.limit, 'NOTIFICATIONS');
 
         if (!ObjectId.isValid(userId)) {
             return res.status(400).json({ error: 'Invalid user ID' });
@@ -924,8 +926,8 @@ router.get('/me/notifications-history', authGuard, async (req, res, next) => {
                 ]
             })
             .sort({ createdAt: -1 })
-            .skip(parseInt(skip))
-            .limit(parseInt(limit))
+            .skip(skip)
+            .limit(limit)
             .toArray();
 
         res.json({
@@ -1313,7 +1315,8 @@ router.get('/streak/leaderboard', authGuard, async (req, res, next) => {
     try {
         await connectToDatabase();
 
-        const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+        const { limit } = normalizePagination(req.query?.page, req.query?.limit ?? 10, 'USERS');
+        const cappedLimit = Math.min(limit, 50);
         const streakCollection = getCollection('user_streaks');
         const usersCollection = getCollection('users');
 
@@ -1324,7 +1327,7 @@ router.get('/streak/leaderboard', authGuard, async (req, res, next) => {
         const topStreaks = await streakCollection
             .find({ currentStreak: { $gt: 0 }, lastActivityDate: { $gte: yesterdayStart } })
             .sort({ currentStreak: -1, longestStreak: -1 })
-            .limit(limit)
+            .limit(cappedLimit)
             .toArray();
 
         if (topStreaks.length === 0) {
