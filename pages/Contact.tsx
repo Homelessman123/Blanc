@@ -158,9 +158,9 @@ const Contact: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-2">
-                            <Info className="w-4 h-4 text-slate-500 shrink-0" />
-                            <div className="text-xs text-slate-600">
+                        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 relative">
+                            <Info className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <div className="text-xs text-slate-600 text-center px-8">
                                 <div className="font-medium">Email/SDT được lấy từ hồ sơ</div>
                                 <button
                                     type="button"
@@ -215,9 +215,9 @@ const Contact: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-2">
-                            <Info className="w-4 h-4 text-slate-500 shrink-0" />
-                            <div className="text-xs text-slate-600">
+                        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 relative">
+                            <Info className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <div className="text-xs text-slate-600 text-center px-8">
                                 <div className="font-medium">Bạn hãy liên hệ tôi nếu có bất kỳ thắc mắc nào nhé</div>
                                 <div className="text-primary-700 font-semibold">Mình luôn ở đây lắng nghe bạn</div>
                             </div>
