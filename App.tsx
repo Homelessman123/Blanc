@@ -18,21 +18,21 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 
 // Lazy-loaded pages for better code splitting
-const ContestList = lazy(() => import('./pages/Contests').then(m => ({ default: m.ContestList })));
-const ContestDetail = lazy(() => import('./pages/Contests').then(m => ({ default: m.ContestDetail })));
-const Marketplace = lazy(() => import('./pages/Marketplace').then(m => ({ default: m.Marketplace })));
-const CourseDetail = lazy(() => import('./pages/Marketplace').then(m => ({ default: m.CourseDetail })));
-const Documents = lazy(() => import('./pages/Documents'));
-const Community = lazy(() => import('./pages/Community'));
-const News = lazy(() => import('./pages/News'));
-const MentorList = lazy(() => import('./pages/Mentors').then(m => ({ default: m.MentorList })));
-const MentorDetail = lazy(() => import('./pages/Mentors').then(m => ({ default: m.MentorDetail })));
-const Profile = lazy(() => import('./pages/Profile'));
-const UserProfile = lazy(() => import('./pages/UserProfile'));
-const MyTeamPosts = lazy(() => import('./pages/MyTeamPosts'));
-const Reports = lazy(() => import('./pages/Reports'));
-const ReportTemplates = lazy(() => import('./pages/ReportTemplates'));
-const Contact = lazy(() => import('./pages/Contact'));
+const ContestList = lazyWithRetry(() => import('./pages/Contests').then(m => ({ default: m.ContestList })));
+const ContestDetail = lazyWithRetry(() => import('./pages/Contests').then(m => ({ default: m.ContestDetail })));
+const Marketplace = lazyWithRetry(() => import('./pages/Marketplace').then(m => ({ default: m.Marketplace })));
+const CourseDetail = lazyWithRetry(() => import('./pages/Marketplace').then(m => ({ default: m.CourseDetail })));
+const Documents = lazyWithRetry(() => import('./pages/Documents'));
+const Community = lazyWithRetry(() => import('./pages/Community'));
+const News = lazyWithRetry(() => import('./pages/News'));
+const MentorList = lazyWithRetry(() => import('./pages/Mentors').then(m => ({ default: m.MentorList })));
+const MentorDetail = lazyWithRetry(() => import('./pages/Mentors').then(m => ({ default: m.MentorDetail })));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const UserProfile = lazyWithRetry(() => import('./pages/UserProfile'));
+const MyTeamPosts = lazyWithRetry(() => import('./pages/MyTeamPosts'));
+const Reports = lazyWithRetry(() => import('./pages/Reports'));
+const ReportTemplates = lazyWithRetry(() => import('./pages/ReportTemplates'));
+const Contact = lazyWithRetry(() => import('./pages/Contact'));
 
 // Types
 import { User } from './types';
@@ -42,6 +42,31 @@ import { clientStorage, localDrafts } from './lib/cache';
 // Auth modal event listener type
 interface AuthModalDetail {
     mode: 'login' | 'register';
+}
+
+function lazyWithRetry<T extends React.ComponentType<any>>(
+    factory: () => Promise<{ default: T }>
+) {
+    return lazy(() =>
+        factory().catch((error) => {
+            // Production-only: recover from stale cached index.html pointing to missing chunks.
+            if (import.meta.env.PROD && typeof window !== 'undefined') {
+                try {
+                    const key = clientStorage.buildKey('ui', 'lazy_reload_attempted');
+                    if (!sessionStorage.getItem(key)) {
+                        sessionStorage.setItem(key, '1');
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('__reload', String(Date.now()));
+                        window.location.replace(url.toString());
+                        return new Promise<{ default: T }>(() => { });
+                    }
+                } catch {
+                    // ignore storage/location errors and fall through
+                }
+            }
+            throw error;
+        })
+    );
 }
 
 const DEFAULT_SESSION_TIMEOUT_MINUTES = 30;

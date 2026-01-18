@@ -171,13 +171,22 @@ if (hasBuiltFrontend) {
   const isProd = process.env.NODE_ENV === 'production';
   app.use(
     express.static(distDir, {
+      index: false,
       maxAge: isProd ? '1y' : 0,
       immutable: isProd,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          // Never cache HTML entrypoints; otherwise clients may keep an old
+          // index.html that references chunk files that no longer exist.
+          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        }
+      },
     })
   );
 
   app.get('*', (req, res, next) => {
     if (req.path?.startsWith('/api')) return next();
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
     return res.sendFile(distIndexHtml);
   });
 }
